@@ -230,25 +230,25 @@ function isTunnelServerMessage(
 			return isString(value.requestId) && isString(value.chunk);
 		case "request-end":
 			return isString(value.requestId);
-			case "websocket-connect":
-				return (
-					isString(value.requestId) &&
-					isString(value.url) &&
-					isHeaderEntries(value.headers) &&
-					isStringArray(value.protocols)
-				);
-			case "websocket-frame":
-				return (
-					isString(value.requestId) &&
-					isString(value.chunk) &&
-					typeof value.isBinary === "boolean"
-				);
-			case "websocket-close":
-				return (
-					isString(value.requestId) &&
-					isOptionalNumber(value.code) &&
-					isString(value.reason)
-				);
+		case "websocket-connect":
+			return (
+				isString(value.requestId) &&
+				isString(value.url) &&
+				isHeaderEntries(value.headers) &&
+				isStringArray(value.protocols)
+			);
+		case "websocket-frame":
+			return (
+				isString(value.requestId) &&
+				isString(value.chunk) &&
+				typeof value.isBinary === "boolean"
+			);
+		case "websocket-close":
+			return (
+				isString(value.requestId) &&
+				isOptionalNumber(value.code) &&
+				isString(value.reason)
+			);
 		default:
 			return false;
 	}
@@ -274,22 +274,22 @@ function isTunnelClientMessage(
 			return isString(value.requestId);
 		case "response-error":
 			return isString(value.requestId) && isString(value.message);
-			case "websocket-accept":
-				return isString(value.requestId) && isOptionalString(value.protocol);
-			case "websocket-reject":
-				return isString(value.requestId) && isString(value.message);
-			case "websocket-frame":
-				return (
-					isString(value.requestId) &&
-					isString(value.chunk) &&
-					typeof value.isBinary === "boolean"
-				);
-			case "websocket-close":
-				return (
-					isString(value.requestId) &&
-					isOptionalNumber(value.code) &&
-					isString(value.reason)
-				);
+		case "websocket-accept":
+			return isString(value.requestId) && isOptionalString(value.protocol);
+		case "websocket-reject":
+			return isString(value.requestId) && isString(value.message);
+		case "websocket-frame":
+			return (
+				isString(value.requestId) &&
+				isString(value.chunk) &&
+				typeof value.isBinary === "boolean"
+			);
+		case "websocket-close":
+			return (
+				isString(value.requestId) &&
+				isOptionalNumber(value.code) &&
+				isString(value.reason)
+			);
 		default:
 			return false;
 	}

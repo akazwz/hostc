@@ -1,24 +1,245 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Not found | hostc</title>
-		<meta name="robots" content="noindex" />
-		<link rel="stylesheet" href="/styles.css" />
-		<link rel="icon" href="data:," />
-	</head>
-	<body class="error-page">
-		<main class="card error-card">
-			<span class="error-code">404 Not Found</span>
-			<h1>This route does not exist on hostc.</h1>
-			<p>
-				The page you requested is not published in this Worker. Head back to the
-				home page or use the tunnel subdomain issued by the CLI.
-			</p>
-			<div class="hero-actions">
-				<a class="button primary" href="/">Return home</a>
-			</div>
-		</main>
-	</body>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Page Not Found | hostc</title>
+	<style>
+:root {
+	--bg: #000000;
+	--fg: #ffffff;
+	--text-muted: #a1a1aa;
+	--border: #27272a;
+	--font-sans:
+		"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+		Arial, sans-serif;
+	--font-mono:
+		"JetBrains Mono", "Menlo", "Fira Code", Consolas, Monaco, monospace;
+	--glow: rgba(255, 255, 255, 0.08);
+}
+
+* {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	background-color: var(--bg);
+	color: var(--fg);
+	font-family: var(--font-sans);
+	line-height: 1.5;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	background-image:
+		radial-gradient(circle at 50% 0%, var(--glow), transparent 60%),
+		linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+	background-size:
+		100% 100%,
+		50px 50px,
+		50px 50px;
+	background-position:
+		top center,
+		center center,
+		center center;
+}
+
+.main-content {
+	max-width: 800px;
+	width: 100%;
+	padding: 2rem;
+	text-align: center;
+	z-index: 10;
+}
+
+.hero-section {
+	margin-bottom: 4rem;
+	animation: fadeIn 1s ease-out;
+}
+
+.title-glow {
+	font-size: clamp(3rem, 8vw, 4.5rem);
+	font-weight: 800;
+	letter-spacing: -0.05em;
+	background: linear-gradient(180deg, #ffffff 0%, #a1a1aa 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	margin-bottom: 1rem;
+}
+
+.subtitle {
+	font-size: 1.15rem;
+	color: var(--text-muted);
+	margin-bottom: 2rem;
+	max-width: 450px;
+	margin-inline: auto;
+}
+
+.action-buttons {
+	display: flex;
+	justify-content: center;
+	gap: 1rem;
+}
+
+.btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.75rem 1.5rem;
+	border-radius: 9999px;
+	font-weight: 600;
+	font-size: 0.95rem;
+	text-decoration: none;
+	transition: all 0.2s ease;
+	border: 1px solid transparent;
+}
+
+.btn-github {
+	background: #ffffff;
+	color: #000000;
+}
+.btn-github:hover {
+	background: #f4f4f5;
+	transform: translateY(-2px);
+	box-shadow: 0 10px 25px rgba(255, 255, 255, 0.15);
+}
+
+.btn-secondary {
+	background: rgba(255, 255, 255, 0.05);
+	color: #ffffff;
+	border-color: var(--border);
+}
+.btn-secondary:hover {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.terminal-wrapper {
+	perspective: 1000px;
+	animation: slideUp 1s ease-out 0.2s both;
+	max-width: 540px;
+	margin: 0 auto;
+}
+
+.terminal-mockup {
+	background: rgba(10, 10, 10, 0.6);
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	text-align: left;
+	overflow: hidden;
+	box-shadow:
+		0 30px 60px -12px rgba(0, 0, 0, 0.8),
+		0 0 0 1px rgba(255, 255, 255, 0.05);
+	backdrop-filter: blur(16px);
+}
+
+.mac-buttons {
+	display: flex;
+	gap: 8px;
+	padding: 14px 16px;
+	background: rgba(255, 255, 255, 0.02);
+	border-bottom: 1px solid var(--border);
+}
+
+.mac-buttons span {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+}
+.close {
+	background: #ff5f56;
+}
+.minimize {
+	background: #ffbd2e;
+}
+.maximize {
+	background: #27c93f;
+}
+
+.terminal-content {
+	padding: 1.5rem;
+	font-family: var(--font-mono);
+	font-size: 0.9rem;
+	line-height: 1.7;
+}
+
+.line {
+	display: flex;
+	gap: 1rem;
+}
+.mt-2 {
+	margin-top: 1.25rem;
+}
+
+.prompt {
+	color: #f58220;
+	font-weight: bold;
+}
+.command {
+	color: #ffffff;
+}
+.output {
+	color: #a1a1aa;
+}
+.label {
+	color: #71717a;
+	width: 65px;
+	display: inline-block;
+}
+.link {
+	color: #60a5fa;
+	text-decoration: none;
+}
+.link:hover {
+	text-decoration: underline;
+	color: #93c5fd;
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+@keyframes slideUp {
+	from {
+		opacity: 0;
+		transform: translateY(30px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.error-code {
+	font-family: var(--font-mono);
+	color: #ff5f56;
+	font-size: 1rem;
+	font-weight: bold;
+	margin-bottom: 1rem;
+	letter-spacing: 0.1em;
+	background: rgba(255, 95, 86, 0.1);
+	padding: 4px 12px;
+	border-radius: 9999px;
+	display: inline-block;
+}
+
+</style>
+</head>
+<body>
+	<main class="main-content">
+		<div class="error-code" style="color: #ff5f56; background: rgba(255,95,86,0.1);">404</div>
+		<h2 style="font-size: 2.5rem; margin-bottom: 1rem; font-weight: 700; letter-spacing: -0.03em;">Page Not Found</h2>
+		<p class="subtitle" style="margin-bottom: 2rem;">The page you are looking for does not exist on this server.</p>
+		<div class="action-buttons">
+			<a href="https://github.com/akazwz/hostc" class="btn btn-secondary">Learn more about hostc</a>
+		</div>
+	</main>
+</body>
 </html>

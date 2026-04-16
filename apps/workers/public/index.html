@@ -1,133 +1,40 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>hostc | Local services over Cloudflare</title>
-		<meta
-			name="description"
-			content="hostc exposes local HTTP and WebSocket services through a Cloudflare Worker and Durable Object-backed tunnel."
-		/>
-		<link rel="stylesheet" href="/styles.css" />
-		<link rel="icon" href="data:," />
-	</head>
-	<body>
-		<div class="page-shell">
-			<header class="hero card">
-				<p class="eyebrow">Cloudflare tunnel ingress for local services</p>
-				<h1>Ship localhost to the edge without standing up a public origin.</h1>
-				<p class="lede">
-					hostc combines a CLI, a Worker, and a Durable Object control plane so
-					your local HTTP and WebSocket services can be reached through a stable
-					public URL.
-				</p>
-				<div class="hero-actions">
-					<a class="button primary" href="#flow">How it works</a>
-					<a class="button secondary" href="#api">API surface</a>
-				</div>
-				<div class="stat-row">
-					<div>
-						<span class="stat-value">HTTP + WS</span>
-						<span class="stat-label">Forwarded through one control channel</span>
-					</div>
-					<div>
-						<span class="stat-value">DO-backed</span>
-						<span class="stat-label">Connection state lives in Durable Objects</span>
-					</div>
-					<div>
-						<span class="stat-value">Short-lived auth</span>
-						<span class="stat-label">Signed session and connect tokens</span>
-					</div>
-				</div>
-			</header>
-
-			<main class="content-grid">
-				<section class="card" id="flow">
-					<p class="section-label">Flow</p>
-					<h2>Three pieces, one tunnel lifecycle</h2>
-					<div class="stack">
-						<div class="flow-step">
-							<span class="step-index">01</span>
-							<div>
-								<h3>Create a tunnel session</h3>
-								<p>
-									The Worker allocates a random subdomain and returns a signed
-									WebSocket URL for the CLI.
-								</p>
-							</div>
-						</div>
-						<div class="flow-step">
-							<span class="step-index">02</span>
-							<div>
-								<h3>Attach the local service</h3>
-								<p>
-									The CLI maintains the control socket and relays HTTP requests or
-									WebSocket frames to your local process.
-								</p>
-							</div>
-						</div>
-						<div class="flow-step">
-							<span class="step-index">03</span>
-							<div>
-								<h3>Serve traffic from the edge</h3>
-								<p>
-									Public requests hit the Worker, which routes subdomain traffic into
-									the Durable Object that owns the active tunnel connection.
-								</p>
-							</div>
-						</div>
-					</div>
-				</section>
-
-				<section class="card code-card">
-					<p class="section-label">CLI</p>
-					<h2>Quick start shape</h2>
-					<pre><code>hostc http 3000
-
-# local service
-http://127.0.0.1:3000
-
-# public tunnel
-https://t-xxxxxxxx.hostc.dev</code></pre>
-					<p class="caption">
-						The CLI refreshes the signed session on a rolling window and reconnects
-						when the Worker rotates the control socket.
-					</p>
-				</section>
-
-				<section class="card" id="api">
-					<p class="section-label">API</p>
-					<h2>Minimal control endpoints</h2>
-					<div class="api-list">
-						<div>
-							<h3>POST /api/tunnels</h3>
-							<p>Create a new tunnel session and return the public URL plus CLI WebSocket URL.</p>
-						</div>
-						<div>
-							<h3>POST /api/tunnels/:id/refresh</h3>
-							<p>Refresh the session token and rotate the short-lived connect token.</p>
-						</div>
-						<div>
-							<h3>GET /api/tunnels/:id/connect</h3>
-							<p>Upgrade the CLI control channel after connect-token validation.</p>
-						</div>
-					</div>
-				</section>
-
-				<section class="card accent-card">
-					<p class="section-label">Operational note</p>
-					<h2>When a target service is offline</h2>
-					<p>
-						Browser visitors will see a dedicated service-unavailable page instead of
-						a raw JSON error while the tunnel is disconnected or the local service is
-						not responding.
-					</p>
-				</section>
-			</main>
-
-			<footer class="footer">
-				<p>hostc is a Worker-first tunnel project built for low-friction local publishing.</p>
-			</footer>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>hostc | Localhost to the edge</title>
+	<meta name="description" content="Instantly expose your local HTTP and WebSocket services." />
+	<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+	<main class="main-content">
+		<div class="hero-section">
+			<h1 class="title-glow">hostc</h1>
+			<p class="subtitle">Secure, fast, and frictionless edge tunnels.<br/>Powered by Cloudflare Workers.</p>
+			<div class="action-buttons">
+				<a href="https://github.com/akazwz/hostc" target="_blank" class="btn btn-github">
+					<svg height="22" width="22" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="GitHub"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.416-4.042-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+					Star on GitHub
+				</a>
+			</div>
 		</div>
-	</body>
+
+		<div class="terminal-wrapper">
+			<div class="terminal-mockup">
+				<div class="mac-buttons">
+					<span class="close"></span>
+					<span class="minimize"></span>
+					<span class="maximize"></span>
+				</div>
+				<div class="terminal-content">
+					<div class="terminal-line"><span class="prompt">❯</span> <span class="command">npx hostc@latest 3000</span></div>
+					<div class="terminal-line output mt-2">✨ Tunnel established successfully!</div>
+					<div class="terminal-line output"><span class="label">Local:</span>  http://127.0.0.1:3000</div>
+					<div class="terminal-line output"><span class="label">Public:</span> <a href="#" class="link">https://t-a1b2c3d4.hostc.dev</a></div>
+				</div>
+			</div>
+		</div>
+	</main>
+</body>
 </html>

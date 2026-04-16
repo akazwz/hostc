@@ -16,7 +16,7 @@ import {
 } from "@hostc/tunnel-protocol";
 import chalk from "chalk";
 import { Command, InvalidArgumentError } from "commander";
-import { type RawData, WebSocket as LocalWebSocket } from "ws";
+import { WebSocket as LocalWebSocket, type RawData } from "ws";
 
 type HttpCommandOptions = {
 	localHost: string;
@@ -105,13 +105,14 @@ const LOCAL_WEBSOCKET_HEADER_EXCLUSIONS = new Set([
 async function main(): Promise<void> {
 	const program = new Command()
 		.name("hostc")
-		.description("Expose local HTTP and WebSocket services through a hostc tunnel")
+		.description(
+			"Expose local HTTP and WebSocket services through a hostc tunnel",
+		)
 		.version("0.0.0")
 		.showHelpAfterError();
 
 	program
-		.command("http")
-		.description("Expose a local HTTP or WebSocket server")
+
 		.argument("<port>", "local port to expose", parsePort)
 		.option(
 			"--server <url>",
@@ -120,7 +121,10 @@ async function main(): Promise<void> {
 			DEFAULT_SERVER,
 		)
 		.option("--local-host <host>", "Local host", parseLocalHost, "127.0.0.1")
-		.addHelpText("after", "\nExamples:\n  hostc http 5173\n")
+		.addHelpText(
+			"after",
+			"\nExamples:\n  hostc 3000\n  hostc 5173 --local-host 0.0.0.0\n",
+		)
 		.action(async (port: number, options: HttpCommandOptions) => {
 			await runHttpTunnel({
 				port,
@@ -738,20 +742,18 @@ async function openTunnelConnection(options: {
 					return;
 
 				case "websocket-close":
-					closeLocalWebSocket(
-						message.requestId,
-						message.code,
-						message.reason,
-					);
+					closeLocalWebSocket(message.requestId, message.code, message.reason);
 					return;
-				}
 			}
+		}
 
 		async function startLocalRequest(
 			message: RequestStartMessage,
 		): Promise<void> {
 			const proxyUrl = new URL(message.url, options.localOrigin);
-			const proxyHeaders = new Headers(stripHttpHopByHopHeaders(message.headers));
+			const proxyHeaders = new Headers(
+				stripHttpHopByHopHeaders(message.headers),
+			);
 			const abortController = new AbortController();
 
 			let bodyStream: ReadableStream<Uint8Array> | undefined;
@@ -925,7 +927,10 @@ async function openTunnelConnection(options: {
 		): void {
 			const socketContext = localSockets.get(requestId);
 
-			if (!socketContext || socketContext.socket.readyState !== LocalWebSocket.OPEN) {
+			if (
+				!socketContext ||
+				socketContext.socket.readyState !== LocalWebSocket.OPEN
+			) {
 				return;
 			}
 
@@ -1112,7 +1117,11 @@ function rawDataToBuffer(value: RawData): Buffer {
 function normalizeWebSocketCloseCode(code?: number): number {
 	if (
 		typeof code === "number" &&
-		((code >= 1000 && code <= 1014 && code !== 1004 && code !== 1005 && code !== 1006) ||
+		((code >= 1000 &&
+			code <= 1014 &&
+			code !== 1004 &&
+			code !== 1005 &&
+			code !== 1006) ||
 			(code >= 3000 && code <= 4999))
 	) {
 		return code;

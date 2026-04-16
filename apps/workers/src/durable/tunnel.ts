@@ -10,7 +10,8 @@ import {
 	type WebSocketAcceptMessage,
 } from "@hostc/tunnel-protocol";
 import {
-	serveServiceUnavailablePage,
+	serveLocalServerDownPage,
+	serveTunnelNotFoundPage,
 	wantsHtmlResponse,
 } from "../lib/static-site";
 
@@ -238,7 +239,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 		const tunnelSocket = this.getTunnelSocket();
 
 		if (!tunnelSocket) {
-			return this.createUnavailableTunnelResponse(request, 503);
+			return this.createUnavailableTunnelResponse(request);
 		}
 
 		const requestUrl = new URL(request.url);
@@ -315,7 +316,6 @@ export class HostcDurableObject extends DurableObject<Env> {
 			});
 		} catch (error) {
 			const requestError = asError(error);
-			const status = requestError.message.startsWith("Timed out") ? 504 : 503;
 
 			logError("proxy.request_failed", {
 				requestId,
@@ -327,7 +327,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 
 			return this.createUnavailableTunnelResponse(
 				request,
-				status,
+				"local_server_down",
 				requestError.message,
 			);
 		}
@@ -339,7 +339,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 		const tunnelSocket = this.getTunnelSocket();
 
 		if (!tunnelSocket) {
-			return jsonError("No active tunnel is connected for this subdomain", 503);
+			return jsonError("No active tunnel is connected for this subdomain", 404);
 		}
 
 		const requestUrl = new URL(request.url);
@@ -393,7 +393,6 @@ export class HostcDurableObject extends DurableObject<Env> {
 			});
 		} catch (error) {
 			const requestError = asError(error);
-			const status = requestError.message.startsWith("Timed out") ? 504 : 502;
 
 			logError("proxy.websocket_upgrade_failed", {
 				requestId,
@@ -405,7 +404,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 				normalizeWebSocketCloseReason(requestError.message),
 			);
 
-			return jsonError(requestError.message, status);
+			return jsonError(requestError.message, 502);
 		} finally {
 			this.pendingUpgrades.delete(requestId);
 		}
@@ -413,14 +412,17 @@ export class HostcDurableObject extends DurableObject<Env> {
 
 	private createUnavailableTunnelResponse(
 		request: Request,
-		status: number,
+		status: "not_found" | "local_server_down" = "not_found",
 		message = "No active tunnel is connected for this subdomain",
 	): Promise<Response> | Response {
 		if (wantsHtmlResponse(request)) {
-			return serveServiceUnavailablePage(request, this.env, status);
+			if (status === "local_server_down") {
+				return serveLocalServerDownPage(request, this.env);
+			}
+			return serveTunnelNotFoundPage(request, this.env);
 		}
 
-		return jsonError(message, status);
+		return jsonError(message, status === "local_server_down" ? 502 : 404);
 	}
 
 	private handleTunnelMessage(message: TunnelClientMessage): void {
