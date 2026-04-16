@@ -54,6 +54,19 @@ body {
 	animation: fadeIn 1s ease-out;
 }
 
+.hero-logo {
+	display: block;
+	margin: 0 auto 1.5rem;
+	border-radius: 20%;
+	box-shadow: 0 0 40px rgba(249, 115, 22, 0.15);
+	transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hero-logo:hover {
+	transform: scale(1.05);
+	box-shadow: 0 0 60px rgba(249, 115, 22, 0.3);
+}
+
 .title-glow {
 	font-size: clamp(3rem, 8vw, 4.5rem);
 	font-weight: 800;
