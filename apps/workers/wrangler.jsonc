@@ -5,9 +5,7 @@
 	"compatibility_date": "2026-04-15",
 	"migrations": [
 		{
-			"new_sqlite_classes": [
-				"HostcDurableObject"
-			],
+			"new_sqlite_classes": ["HostcDurableObject"],
 			"tag": "v1"
 		}
 	],
@@ -20,9 +18,7 @@
 		]
 	},
 	"secrets": {
-		"required": [
-			"TOKEN_SECRET"
-		]
+		"required": ["TOKEN_SECRET"]
 	},
 	"vars": {
 		"PUBLIC_BASE_DOMAIN": "hostc.dev"
@@ -38,9 +34,7 @@
 		}
 	},
 	"upload_source_maps": true,
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
+	"compatibility_flags": ["nodejs_compat"],
 	"routes": [
 		{
 			"pattern": "hostc.dev/*",

@@ -1,15 +1,20 @@
 {
-  "name": "hostc-workspace",
-  "private": true,
-  "version": "0.0.0",
-  "packageManager": "pnpm@10.33.0",
-  "scripts": {
-    "dev": "pnpm -r --parallel --if-present dev",
-    "dev:workers": "pnpm -F workers dev",
-    "build": "pnpm -r --if-present build",
-    "build:cli": "pnpm -F hostc build",
-    "deploy:workers": "pnpm -F workers run deploy",
-    "test": "pnpm -r --if-present test",
-    "lint": "pnpm -r --if-present lint"
-  }
+	"name": "hostc-workspace",
+	"private": true,
+	"version": "0.0.0",
+	"packageManager": "pnpm@10.33.0",
+	"scripts": {
+		"dev": "pnpm -r --parallel --if-present dev",
+		"dev:workers": "pnpm -F workers dev",
+		"build": "pnpm -r --if-present build",
+		"build:cli": "pnpm -F hostc build",
+		"deploy:workers": "pnpm -F workers run deploy",
+		"test": "pnpm -r --if-present test",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write ."
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.12"
+	}
 }

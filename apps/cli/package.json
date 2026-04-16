@@ -1,21 +1,21 @@
 {
-  "name": "hostc",
-  "private": true,
-  "version": "0.0.0",
-  "main": "./dist/index.js",
-  "bin": {
-    "hostc": "./dist/index.js"
-  },
-  "scripts": {
-    "build": "tsc -p tsconfig.json"
-  },
-  "dependencies": {
-    "@hostc/tunnel-protocol": "workspace:*",
-    "chalk": "^5.3.0",
-    "commander": "^11.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^25.6.0",
-    "typescript": "^6.0.2"
-  }
+	"name": "hostc",
+	"private": true,
+	"version": "0.0.0",
+	"main": "./dist/index.js",
+	"bin": {
+		"hostc": "./dist/index.js"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json"
+	},
+	"dependencies": {
+		"@hostc/tunnel-protocol": "workspace:*",
+		"chalk": "^5.3.0",
+		"commander": "^11.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^25.6.0",
+		"typescript": "^6.0.2"
+	}
 }
