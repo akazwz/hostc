@@ -80,6 +80,10 @@ const SESSION_REFRESH_INTERVAL_MS = 5 * 60_000;
 const SESSION_REFRESH_RETRY_MS = 30_000;
 const DEFAULT_WEBSOCKET_CLOSE_CODE = 1011;
 const TUNNEL_REPLACED_CLOSE_CODE = 1012;
+const HTTP_BODY_BATCH_TARGET_BYTES = 32 * 1024;
+const TUNNEL_SOCKET_BACKPRESSURE_HIGH_WATERMARK = 256 * 1024;
+const TUNNEL_SOCKET_BACKPRESSURE_LOW_WATERMARK = 64 * 1024;
+const TUNNEL_SOCKET_BACKPRESSURE_POLL_MS = 4;
 
 const HTTP_HOP_BY_HOP_HEADERS = new Set([
 	"connection",
@@ -599,6 +603,7 @@ async function openTunnelConnection(options: {
 	const tunnelSocket = new WebSocket(options.tunnel.websocketUrl);
 	const localRequests = new Map<string, LocalRequestContext>();
 	const localSockets = new Map<string, LocalWebSocketContext>();
+	let sendQueue = Promise.resolve();
 	let opened = false;
 	let ready = false;
 
@@ -798,7 +803,7 @@ async function openTunnelConnection(options: {
 
 				const localResponse = await fetch(proxyUrl, requestInit);
 
-				sendMessage({
+				await sendMessage({
 					type: "response-start",
 					requestId: message.requestId,
 					status: localResponse.status,
@@ -809,6 +814,8 @@ async function openTunnelConnection(options: {
 
 				if (localResponse.body) {
 					const reader = localResponse.body.getReader();
+					let pendingBodyChunks: Uint8Array[] = [];
+					let pendingBodyBytes = 0;
 
 					try {
 						while (true) {
@@ -818,10 +825,29 @@ async function openTunnelConnection(options: {
 								break;
 							}
 
-							sendMessage({
+							pendingBodyChunks.push(value);
+							pendingBodyBytes += value.byteLength;
+
+							if (pendingBodyBytes >= HTTP_BODY_BATCH_TARGET_BYTES) {
+								await sendMessage({
+									type: "response-body",
+									requestId: message.requestId,
+									chunk: encodeBase64(
+										concatUint8Arrays(pendingBodyChunks, pendingBodyBytes),
+									),
+								});
+								pendingBodyChunks = [];
+								pendingBodyBytes = 0;
+							}
+						}
+
+						if (pendingBodyBytes > 0) {
+							await sendMessage({
 								type: "response-body",
 								requestId: message.requestId,
-								chunk: encodeBase64(value),
+								chunk: encodeBase64(
+									concatUint8Arrays(pendingBodyChunks, pendingBodyBytes),
+								),
 							});
 						}
 					} finally {
@@ -829,12 +855,12 @@ async function openTunnelConnection(options: {
 					}
 				}
 
-				sendMessage({
+				await sendMessage({
 					type: "response-end",
 					requestId: message.requestId,
 				});
 			} catch (error) {
-				sendMessage({
+				await sendMessage({
 					type: "response-error",
 					requestId: message.requestId,
 					message: formatError(error),
@@ -867,7 +893,7 @@ async function openTunnelConnection(options: {
 
 				socketContext.handshakeSettled = true;
 				localSockets.delete(message.requestId);
-				sendMessage({
+				queueBackgroundMessage({
 					type: "websocket-reject",
 					requestId: message.requestId,
 					message: reason,
@@ -877,7 +903,7 @@ async function openTunnelConnection(options: {
 			localSocket.once("open", () => {
 				socketContext.opened = true;
 				socketContext.handshakeSettled = true;
-				sendMessage({
+				queueBackgroundMessage({
 					type: "websocket-accept",
 					requestId: message.requestId,
 					protocol: localSocket.protocol || undefined,
@@ -885,7 +911,7 @@ async function openTunnelConnection(options: {
 			});
 
 			localSocket.on("message", (data: RawData, isBinary: boolean) => {
-				sendMessage({
+				queueBackgroundMessage({
 					type: "websocket-frame",
 					requestId: message.requestId,
 					chunk: encodeBase64(rawDataToBuffer(data)),
@@ -925,7 +951,7 @@ async function openTunnelConnection(options: {
 					return;
 				}
 
-				sendMessage({
+				queueBackgroundMessage({
 					type: "websocket-close",
 					requestId: message.requestId,
 					code,
@@ -999,12 +1025,25 @@ async function openTunnelConnection(options: {
 			);
 		}
 
-		function sendMessage(message: TunnelClientMessage): void {
-			if (tunnelSocket.readyState !== WebSocket.OPEN) {
-				return;
-			}
+		function queueBackgroundMessage(message: TunnelClientMessage): void {
+			void sendMessage(message).catch(() => undefined);
+		}
 
-			tunnelSocket.send(JSON.stringify(message));
+		function sendMessage(message: TunnelClientMessage): Promise<void> {
+			const nextSend = sendQueue
+				.catch(() => undefined)
+				.then(async () => {
+					await waitForTunnelSocketCapacity(tunnelSocket);
+
+					if (tunnelSocket.readyState !== WebSocket.OPEN) {
+						throw new Error("Tunnel connection is unavailable");
+					}
+
+					tunnelSocket.send(JSON.stringify(message));
+				});
+
+			sendQueue = nextSend;
+			return nextSend;
 		}
 	});
 }
@@ -1102,6 +1141,52 @@ function buildLocalWebSocketUrl(localOrigin: URL, path: string): string {
 	proxyUrl.protocol = proxyUrl.protocol === "https:" ? "wss:" : "ws:";
 
 	return proxyUrl.toString();
+}
+
+async function waitForTunnelSocketCapacity(socket: WebSocket): Promise<void> {
+	if (
+		getTunnelSocketBufferedAmount(socket) <=
+		TUNNEL_SOCKET_BACKPRESSURE_HIGH_WATERMARK
+	) {
+		return;
+	}
+
+	while (
+		socket.readyState === WebSocket.OPEN &&
+		getTunnelSocketBufferedAmount(socket) >
+			TUNNEL_SOCKET_BACKPRESSURE_LOW_WATERMARK
+	) {
+		await waitForTunnelDelay(TUNNEL_SOCKET_BACKPRESSURE_POLL_MS);
+	}
+}
+
+function getTunnelSocketBufferedAmount(socket: WebSocket): number {
+	return typeof socket.bufferedAmount === "number" ? socket.bufferedAmount : 0;
+}
+
+function waitForTunnelDelay(delayMs: number): Promise<void> {
+	return new Promise((resolve) => {
+		setTimeout(resolve, delayMs);
+	});
+}
+
+function concatUint8Arrays(
+	chunks: Uint8Array[],
+	totalByteLength: number,
+): Uint8Array {
+	if (chunks.length === 1) {
+		return chunks[0];
+	}
+
+	const merged = new Uint8Array(totalByteLength);
+	let offset = 0;
+
+	for (const chunk of chunks) {
+		merged.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+
+	return merged;
 }
 
 function encodeBase64(bytes: Uint8Array): string {

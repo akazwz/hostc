@@ -43,6 +43,10 @@ const REQUEST_START_TIMEOUT_MS = 30_000;
 const WEBSOCKET_CONNECT_TIMEOUT_MS = 30_000;
 const TUNNEL_REPLACED_CLOSE_CODE = 1012;
 const TUNNEL_ERROR_CLOSE_CODE = 1011;
+const HTTP_BODY_BATCH_TARGET_BYTES = 32 * 1024;
+const SOCKET_BACKPRESSURE_HIGH_WATERMARK = 256 * 1024;
+const SOCKET_BACKPRESSURE_LOW_WATERMARK = 64 * 1024;
+const SOCKET_BACKPRESSURE_POLL_MS = 4;
 
 type Deferred<T> = {
 	promise: Promise<T>;
@@ -79,6 +83,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 	private readonly pendingResponses = new Map<string, PendingResponse>();
 	private readonly pendingUpgrades = new Map<string, PendingWebSocketUpgrade>();
 	private readonly activeProxySockets = new Map<string, ActiveProxySocket>();
+	private readonly socketSendQueues = new WeakMap<WebSocket, Promise<void>>();
 	private activeControlSocket: WebSocket | null = null;
 
 	constructor(ctx: DurableObjectState, env: Env) {
@@ -108,7 +113,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 		const metadata = this.getSocketMetadata(ws);
 
 		if (metadata?.kind === "proxy") {
-			this.handleProxySocketMessage(metadata.requestId, message);
+			await this.handleProxySocketMessage(metadata.requestId, message);
 			return;
 		}
 
@@ -161,7 +166,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 		const metadata = this.getSocketMetadata(ws);
 
 		if (metadata?.kind === "proxy") {
-			this.handleProxySocketClose(metadata.requestId, code, reason);
+			await this.handleProxySocketClose(metadata.requestId, code, reason);
 			return;
 		}
 
@@ -226,7 +231,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 			publicBaseDomain: this.env.PUBLIC_BASE_DOMAIN,
 		});
 
-		this.sendMessage(serverSocket, {
+		this.queueMessage(serverSocket, {
 			type: "tunnel-ready",
 			subdomain,
 			publicUrl: buildPublicUrl(this.env.PUBLIC_BASE_DOMAIN, subdomain),
@@ -270,7 +275,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 		this.pendingResponses.set(requestId, pendingResponse);
 
 		try {
-			this.sendMessage(tunnelSocket, {
+			await this.sendMessage(tunnelSocket, {
 				type: "request-start",
 				requestId,
 				method: request.method,
@@ -281,6 +286,8 @@ export class HostcDurableObject extends DurableObject<Env> {
 
 			if (request.body) {
 				const reader = request.body.getReader();
+				let pendingBodyChunks: Uint8Array[] = [];
+				let pendingBodyBytes = 0;
 
 				try {
 					while (true) {
@@ -290,10 +297,29 @@ export class HostcDurableObject extends DurableObject<Env> {
 							break;
 						}
 
-						this.sendMessage(tunnelSocket, {
+						pendingBodyChunks.push(value);
+						pendingBodyBytes += value.byteLength;
+
+						if (pendingBodyBytes >= HTTP_BODY_BATCH_TARGET_BYTES) {
+							await this.sendMessage(tunnelSocket, {
+								type: "request-body",
+								requestId,
+								chunk: encodeBase64(
+									concatUint8Arrays(pendingBodyChunks, pendingBodyBytes),
+								),
+							});
+							pendingBodyChunks = [];
+							pendingBodyBytes = 0;
+						}
+					}
+
+					if (pendingBodyBytes > 0) {
+						await this.sendMessage(tunnelSocket, {
 							type: "request-body",
 							requestId,
-							chunk: encodeBase64(value),
+							chunk: encodeBase64(
+								concatUint8Arrays(pendingBodyChunks, pendingBodyBytes),
+							),
 						});
 					}
 				} finally {
@@ -301,7 +327,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 				}
 			}
 
-			this.sendMessage(tunnelSocket, {
+			await this.sendMessage(tunnelSocket, {
 				type: "request-end",
 				requestId,
 			});
@@ -361,7 +387,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 		this.pendingUpgrades.set(requestId, pendingUpgrade);
 
 		try {
-			this.sendMessage(tunnelSocket, {
+			await this.sendMessage(tunnelSocket, {
 				type: "websocket-connect",
 				requestId,
 				url: `${requestUrl.pathname}${requestUrl.search}`,
@@ -582,10 +608,10 @@ export class HostcDurableObject extends DurableObject<Env> {
 		}
 	}
 
-	private handleProxySocketMessage(
+	private async handleProxySocketMessage(
 		requestId: string,
 		message: string | ArrayBuffer,
-	): void {
+	): Promise<void> {
 		const activeProxySocket = this.getActiveProxySocket(requestId);
 		const tunnelSocket = this.getTunnelSocket();
 
@@ -606,22 +632,39 @@ export class HostcDurableObject extends DurableObject<Env> {
 			return;
 		}
 
-		this.sendMessage(tunnelSocket, {
-			type: "websocket-frame",
-			requestId,
-			chunk:
-				typeof message === "string"
-					? encodeTextBase64(message)
-					: encodeBase64(new Uint8Array(message)),
-			isBinary: typeof message !== "string",
-		});
+		try {
+			await this.sendMessage(tunnelSocket, {
+				type: "websocket-frame",
+				requestId,
+				chunk:
+					typeof message === "string"
+						? encodeTextBase64(message)
+						: encodeBase64(new Uint8Array(message)),
+				isBinary: typeof message !== "string",
+			});
+		} catch (error) {
+			logError("proxy.websocket_frame_send_failed", {
+				requestId,
+				error: asErrorMessage(error),
+			});
+
+			if (isSocketWritable(activeProxySocket.socket)) {
+				activeProxySocket.remoteClosed = true;
+				activeProxySocket.socket.close(
+					TUNNEL_ERROR_CLOSE_CODE,
+					"Tunnel connection is unavailable",
+				);
+			}
+
+			this.activeProxySockets.delete(requestId);
+		}
 	}
 
-	private handleProxySocketClose(
+	private async handleProxySocketClose(
 		requestId: string,
 		code: number,
 		reason: string,
-	): void {
+	): Promise<void> {
 		const activeProxySocket = this.getActiveProxySocket(requestId);
 		const tunnelSocket = this.getTunnelSocket();
 		const remoteClosed = activeProxySocket?.remoteClosed ?? false;
@@ -636,12 +679,19 @@ export class HostcDurableObject extends DurableObject<Env> {
 			return;
 		}
 
-		this.sendMessage(tunnelSocket, {
-			type: "websocket-close",
-			requestId,
-			code,
-			reason,
-		});
+		try {
+			await this.sendMessage(tunnelSocket, {
+				type: "websocket-close",
+				requestId,
+				code,
+				reason,
+			});
+		} catch (error) {
+			logError("proxy.websocket_close_send_failed", {
+				requestId,
+				error: asErrorMessage(error),
+			});
+		}
 	}
 
 	private getTunnelSocket(): WebSocket | null {
@@ -778,8 +828,34 @@ export class HostcDurableObject extends DurableObject<Env> {
 		}
 	}
 
-	private sendMessage(socket: WebSocket, message: TunnelServerMessage): void {
-		socket.send(JSON.stringify(message));
+	private queueMessage(socket: WebSocket, message: TunnelServerMessage): void {
+		void this.sendMessage(socket, message).catch((error) => {
+			logError("tunnel.send_failed", {
+				error: asErrorMessage(error),
+				type: message.type,
+			});
+		});
+	}
+
+	private sendMessage(
+		socket: WebSocket,
+		message: TunnelServerMessage,
+	): Promise<void> {
+		const previousSend = this.socketSendQueues.get(socket) ?? Promise.resolve();
+		const nextSend = previousSend
+			.catch(() => undefined)
+			.then(async () => {
+				await waitForSocketCapacity(socket);
+
+				if (socket.readyState !== WebSocket.OPEN) {
+					throw new Error("Tunnel socket is not open");
+				}
+
+				socket.send(JSON.stringify(message));
+			});
+
+		this.socketSendQueues.set(socket, nextSend);
+		return nextSend;
 	}
 
 	private getTunnelSubdomain(): string {
@@ -931,6 +1007,25 @@ function decodeTextBase64(value: string): string {
 	return Buffer.from(value, "base64").toString("utf8");
 }
 
+function concatUint8Arrays(
+	chunks: Uint8Array[],
+	totalByteLength: number,
+): Uint8Array {
+	if (chunks.length === 1) {
+		return chunks[0];
+	}
+
+	const merged = new Uint8Array(totalByteLength);
+	let offset = 0;
+
+	for (const chunk of chunks) {
+		merged.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+
+	return merged;
+}
+
 function isWebSocketUpgrade(request: Request): boolean {
 	return request.headers.get("upgrade")?.toLowerCase() === "websocket";
 }
@@ -983,6 +1078,35 @@ function isSocketWritable(socket: WebSocket): boolean {
 		socket.readyState === WebSocket.OPEN ||
 		socket.readyState === WebSocket.CLOSING
 	);
+}
+
+async function waitForSocketCapacity(socket: WebSocket): Promise<void> {
+	if (getSocketBufferedAmount(socket) <= SOCKET_BACKPRESSURE_HIGH_WATERMARK) {
+		return;
+	}
+
+	while (
+		socket.readyState === WebSocket.OPEN &&
+		getSocketBufferedAmount(socket) > SOCKET_BACKPRESSURE_LOW_WATERMARK
+	) {
+		await waitForDelay(SOCKET_BACKPRESSURE_POLL_MS);
+	}
+}
+
+function getSocketBufferedAmount(socket: WebSocket): number {
+	const bufferedSocket = socket as WebSocket & {
+		bufferedAmount?: number;
+	};
+
+	return typeof bufferedSocket.bufferedAmount === "number"
+		? bufferedSocket.bufferedAmount
+		: 0;
+}
+
+function waitForDelay(delayMs: number): Promise<void> {
+	return new Promise((resolve) => {
+		setTimeout(resolve, delayMs);
+	});
 }
 
 function normalizeWebSocketCloseCode(code?: number): number {
