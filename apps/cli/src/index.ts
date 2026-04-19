@@ -17,15 +17,18 @@ import {
 } from "@hostc/tunnel-protocol";
 import chalk from "chalk";
 import { Command, InvalidArgumentError } from "commander";
+import { renderANSI } from "uqr";
 import { WebSocket as LocalWebSocket, type RawData } from "ws";
 
 type HttpCommandOptions = {
 	localHost: string;
+	qr: boolean;
 };
 
 type HttpTunnelOptions = {
 	port: number;
 	localHost: string;
+	qr: boolean;
 };
 
 type RequestInitWithDuplex = RequestInit & {
@@ -112,7 +115,7 @@ async function main(): Promise<void> {
 		.description(
 			"Expose a local web service (HTTP + WebSocket) through a hostc tunnel",
 		)
-		.version("0.0.0")
+		.version("1.2.0")
 		.showHelpAfterError();
 
 	program
@@ -124,11 +127,17 @@ async function main(): Promise<void> {
 			parseLocalHost,
 			"127.0.0.1",
 		)
-		.addHelpText("after", "\nExamples:\n  hostc 3000\n")
+		.option(
+			"--qr",
+			"Show a scannable QR code for the public URL when stdout is a TTY",
+			false,
+		)
+		.addHelpText("after", "\nExamples:\n  hostc 3000\n  hostc 3000 --qr\n")
 		.action(async (port: number, options: HttpCommandOptions) => {
 			await runHttpTunnel({
 				port,
 				localHost: options.localHost,
+				qr: options.qr,
 			});
 		});
 
@@ -224,6 +233,7 @@ async function runHttpTunnel(options: HttpTunnelOptions): Promise<void> {
 					localOrigin,
 					spinner,
 					initialConnection: !readyOnce,
+					qr: options.qr,
 					interrupted: () => interrupted,
 					registerSocket(socket) {
 						activeSocket = socket;
@@ -460,6 +470,23 @@ function buildLocalOrigin(localHost: string, port: number): URL {
 	return url;
 }
 
+function logPublicUrl(publicUrl: string, showQr: boolean): void {
+	console.log(chalk.cyan(`Public URL: ${publicUrl}`));
+
+	if (!showQr || !process.stdout.isTTY || process.env.TERM === "dumb") {
+		return;
+	}
+
+	try {
+		console.log(chalk.gray("Scan on your phone:"));
+		console.log(renderANSI(publicUrl).trimEnd());
+	} catch (error) {
+		console.error(
+			chalk.yellow(`Failed to render QR code: ${formatError(error)}`),
+		);
+	}
+}
+
 function invokeOptionalCallback(callback: (() => void) | null): void {
 	if (typeof callback === "function") {
 		callback();
@@ -597,6 +624,7 @@ async function openTunnelConnection(options: {
 	localOrigin: URL;
 	spinner: Spinner;
 	initialConnection: boolean;
+	qr: boolean;
 	interrupted: () => boolean;
 	registerSocket: (socket: WebSocket | null) => void;
 	onReady: () => void;
@@ -718,7 +746,7 @@ async function openTunnelConnection(options: {
 							options.spinner.succeed(
 								`Tunnel ready ${options.tunnel.subdomain} -> ${options.localOrigin.href}`,
 							);
-							console.log(chalk.cyan(`Public URL: ${message.publicUrl}`));
+							logPublicUrl(message.publicUrl, options.qr);
 						} else {
 							console.log(
 								chalk.green(

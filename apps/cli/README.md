@@ -24,7 +24,7 @@ npx hostc@latest 3000
 ## Usage
 
 ```sh
-hostc <port> [--local-host <host>]
+hostc <port> [--local-host <host>] [--qr]
 ```
 
 ## Examples
@@ -32,11 +32,13 @@ hostc <port> [--local-host <host>]
 ```sh
 hostc 3000
 hostc 3000 --local-host 0.0.0.0
+hostc 3000 --qr
 ```
 
 ## Options
 
 - `--local-host <host>`: Host of the local service. Defaults to `127.0.0.1`.
+- `--qr`: Show a scannable QR code for the public URL when stdout is a TTY.
 
 ## Environment Variables
 
@@ -64,10 +66,19 @@ Tunnel ready t-a1b2c3d4 -> http://127.0.0.1:3000/
 Public URL: https://t-a1b2c3d4.hostc.dev
 ```
 
+```text
+$ hostc 3000 --qr
+Tunnel ready t-a1b2c3d4 -> http://127.0.0.1:3000/
+Public URL: https://t-a1b2c3d4.hostc.dev
+Scan on your phone:
+<QR code shown in interactive terminals>
+```
+
 ## Notes
 
 - Tunnel subdomains are assigned automatically
 - Custom subdomains are not currently exposed by the CLI
+- QR code output is shown only when `--qr` is passed and stdout is a TTY
 - Press `Ctrl+C` to close the tunnel
 
 ## Links
