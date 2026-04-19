@@ -17,7 +17,7 @@ import {
 } from "@hostc/tunnel-protocol";
 import chalk from "chalk";
 import { Command, InvalidArgumentError } from "commander";
-import { renderANSI } from "uqr";
+import { renderUnicode } from "uqr";
 import { WebSocket as LocalWebSocket, type RawData } from "ws";
 
 type HttpCommandOptions = {
@@ -88,6 +88,8 @@ const HTTP_BODY_BATCH_TARGET_BYTES = 32 * 1024;
 const TUNNEL_SOCKET_BACKPRESSURE_HIGH_WATERMARK = 256 * 1024;
 const TUNNEL_SOCKET_BACKPRESSURE_LOW_WATERMARK = 64 * 1024;
 const TUNNEL_SOCKET_BACKPRESSURE_POLL_MS = 4;
+const TERMINAL_QR_DARK_MODULE = "\u001B[40m  \u001B[0m";
+const TERMINAL_QR_LIGHT_MODULE = "\u001B[47m  \u001B[0m";
 
 const HTTP_HOP_BY_HOP_HEADERS = new Set([
 	"connection",
@@ -115,7 +117,7 @@ async function main(): Promise<void> {
 		.description(
 			"Expose a local web service (HTTP + WebSocket) through a hostc tunnel",
 		)
-		.version("1.2.0")
+		.version("1.2.1")
 		.showHelpAfterError();
 
 	program
@@ -470,6 +472,13 @@ function buildLocalOrigin(localHost: string, port: number): URL {
 	return url;
 }
 
+function renderTerminalQr(text: string): string {
+	return renderUnicode(text, {
+		blackChar: TERMINAL_QR_DARK_MODULE,
+		whiteChar: TERMINAL_QR_LIGHT_MODULE,
+	});
+}
+
 function logPublicUrl(publicUrl: string, showQr: boolean): void {
 	console.log(chalk.cyan(`Public URL: ${publicUrl}`));
 
@@ -479,7 +488,7 @@ function logPublicUrl(publicUrl: string, showQr: boolean): void {
 
 	try {
 		console.log(chalk.gray("Scan on your phone:"));
-		console.log(renderANSI(publicUrl).trimEnd());
+		console.log(renderTerminalQr(publicUrl));
 	} catch (error) {
 		console.error(
 			chalk.yellow(`Failed to render QR code: ${formatError(error)}`),

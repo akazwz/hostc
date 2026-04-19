@@ -1,7 +1,7 @@
 {
 	"name": "hostc",
 	"description": "Expose a local web service (HTTP + WebSocket) through a hostc tunnel",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"main": "./dist/index.js",
 	"homepage": "https://hostc.dev",
 	"repository": {
