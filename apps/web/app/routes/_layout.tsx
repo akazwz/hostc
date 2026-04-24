@@ -37,7 +37,7 @@ export default function Layout() {
 							}
 						>
 							<GithubIcon />
-							GitHub
+							<span className="hidden sm:inline">GitHub</span>
 						</Button>
 					</div>
 				</div>
