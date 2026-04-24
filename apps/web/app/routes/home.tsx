@@ -44,9 +44,10 @@ export default function Home() {
 					Instantly expose your local HTTP and WebSocket services to the public
 					internet. Zero config. No signup.
 				</p>
-				<div className="flex items-center gap-3 justify-center flex-wrap">
+				<div className="flex flex-col sm:flex-row items-center gap-3 justify-center">
 					<Button
 						size="lg"
+						className="w-full sm:w-auto"
 						nativeButton={false}
 						render={<Link to="/waitlist" />}
 					>
@@ -55,6 +56,7 @@ export default function Home() {
 					<Button
 						variant="outline"
 						size="lg"
+						className="w-full sm:w-auto"
 						nativeButton={false}
 						render={
 							<a
@@ -126,33 +128,35 @@ export default function Home() {
 			</section>
 
 			{/* Features */}
-			<section className="border-t border-border py-16 grid grid-cols-1 md:grid-cols-3 gap-px bg-border">
-				{[
-					{
-						title: "Zero Config",
-						desc: "Run one command, get a public HTTPS URL instantly. No account, no setup.",
-					},
-					{
-						title: "WebSocket Support",
-						desc: "Seamlessly proxies WebSocket upgrades out of the box. ws:// → wss://.",
-					},
-					{
-						title: "Edge Powered",
-						desc: "Traffic routes through Cloudflare's global network for low-latency worldwide.",
-					},
-				].map((f) => (
-					<div
-						key={f.title}
-						className="bg-background p-8 hover:bg-muted/50 transition-colors duration-300"
-					>
-						<h3 className="font-heading text-lg font-semibold mb-3">
-							{f.title}
-						</h3>
-						<p className="text-sm text-muted-foreground leading-relaxed">
-							{f.desc}
-						</p>
-					</div>
-				))}
+			<section className="border-t border-border pt-16 pb-24">
+				<div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-border rounded-sm overflow-hidden">
+					{[
+						{
+							title: "Zero Config",
+							desc: "Run one command, get a public HTTPS URL instantly. No account, no setup.",
+						},
+						{
+							title: "WebSocket Support",
+							desc: "Seamlessly proxies WebSocket upgrades out of the box. ws:// → wss://.",
+						},
+						{
+							title: "Edge Powered",
+							desc: "Traffic routes through Cloudflare's global network for low-latency worldwide.",
+						},
+					].map((f) => (
+						<div
+							key={f.title}
+							className="bg-background p-8 hover:bg-muted/50 transition-colors duration-300"
+						>
+							<h3 className="font-heading text-lg font-semibold mb-3">
+								{f.title}
+							</h3>
+							<p className="text-sm text-muted-foreground leading-relaxed">
+								{f.desc}
+							</p>
+						</div>
+					))}
+				</div>
 			</section>
 		</div>
 	);
