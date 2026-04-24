@@ -4,7 +4,9 @@ import { GithubIcon } from "~/components/icons";
 
 export default function Layout() {
 	return (
-		<div className="min-h-screen bg-background text-foreground flex flex-col">
+		<div className="relative min-h-screen bg-background text-foreground flex flex-col">
+			<div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]" />
+			<div className="fixed inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[48px_48px]" />
 			<header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
 				<div className="max-w-5xl mx-auto px-8 h-14 flex items-center justify-between">
 					<Link
@@ -41,11 +43,11 @@ export default function Layout() {
 				</div>
 			</header>
 
-			<main className="flex-1">
+			<main className="relative flex-1 z-10">
 				<Outlet />
 			</main>
 
-			<footer className="border-t border-border">
+			<footer className="relative z-10 border-t border-border">
 				<div className="max-w-5xl mx-auto px-8 h-12 flex items-center justify-between text-xs text-muted-foreground">
 					<span>© {new Date().getFullYear()} hostc</span>
 					<a

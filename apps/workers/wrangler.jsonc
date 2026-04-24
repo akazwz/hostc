@@ -4,14 +4,17 @@
 	"main": "src/index.ts",
 	"compatibility_date": "2026-04-15",
 	"assets": {
-		"directory": "./public",
+		"directory": "../web/build/client",
 		"binding": "ASSETS",
 		"not_found_handling": "404-page",
-		"run_worker_first": true
+		"run_worker_first": true,
+		"html_handling": "drop-trailing-slash"
 	},
 	"migrations": [
 		{
-			"new_sqlite_classes": ["HostcDurableObject"],
+			"new_sqlite_classes": [
+				"HostcDurableObject"
+			],
 			"tag": "v1"
 		}
 	],
@@ -23,8 +26,29 @@
 			}
 		]
 	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "hostc",
+			"migrations_dir": "./migrations",
+			"database_id": "f5bf02b0-d235-48ea-9edd-6a3997f96a6f"
+		}
+	],
+	"ratelimits": [
+		{
+			"name": "WAITLIST_RATE_LIMITER",
+			// Namespace IDs are account-wide. Change this if you reuse the same ID elsewhere.
+			"namespace_id": "1001",
+			"simple": {
+				"limit": 5,
+				"period": 60
+			}
+		}
+	],
 	"secrets": {
-		"required": ["TOKEN_SECRET"]
+		"required": [
+			"TOKEN_SECRET"
+		]
 	},
 	"vars": {
 		"PUBLIC_BASE_DOMAIN": "hostc.dev"
@@ -40,7 +64,9 @@
 		}
 	},
 	"upload_source_maps": true,
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
 	"routes": [
 		{
 			"pattern": "hostc.dev/*",
