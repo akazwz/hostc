@@ -45,6 +45,21 @@ export default worker;
 async function handleRequest(request: Request, env: Env): Promise<Response> {
 	const url = new URL(request.url);
 
+	const tunnelSubdomain = extractTunnelSubdomain(
+		url.hostname,
+		env.PUBLIC_BASE_DOMAIN,
+	);
+
+	if (tunnelSubdomain) {
+		return proxyTunnelRequest(request, env, tunnelSubdomain);
+	}
+
+	if (url.hostname !== env.PUBLIC_BASE_DOMAIN) {
+		return new Response("Not Found", {
+			status: 404,
+		});
+	}
+
 	if (request.method === "POST" && url.pathname === WAITLIST_API_PATH) {
 		return createWaitlistSignup(request, env.DB, env.WAITLIST_RATE_LIMITER);
 	}
@@ -74,16 +89,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 		});
 	}
 
-	const tunnelSubdomain = extractTunnelSubdomain(
-		url.hostname,
-		env.PUBLIC_BASE_DOMAIN,
-	);
-
-	if (tunnelSubdomain) {
-		return proxyTunnelRequest(request, env, tunnelSubdomain);
-	}
-
-	if (url.hostname === env.PUBLIC_BASE_DOMAIN && canServeStaticAsset(request)) {
+	if (canServeStaticAsset(request)) {
 		return serveStaticAsset(request, env);
 	}
 
