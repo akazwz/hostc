@@ -71,7 +71,7 @@ export default function Home() {
 			</section>
 
 			{/* Terminal */}
-			<div className="max-w-[540px] mx-auto mb-24">
+			<div className="max-w-135 mx-auto mb-24">
 				<div className="border border-border rounded-sm overflow-hidden bg-card">
 					<div className="flex gap-2 px-4 py-3 border-b border-border bg-muted/30">
 						<span className="w-3 h-3 rounded-full bg-[#ff5f56]" />

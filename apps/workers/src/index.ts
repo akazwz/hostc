@@ -9,6 +9,7 @@ import { HostcDurableObject } from "./durable/tunnel";
 import { createConnectToken, verifyConnectToken } from "./lib/connect-token";
 import { createSessionToken, verifySessionToken } from "./lib/session-token";
 import { canServeStaticAsset, serveStaticAsset } from "./lib/static-site";
+import { createWaitlistSignup } from "./lib/waitlist";
 import {
 	buildTunnelWebSocketUrl,
 	createRandomSubdomain,
@@ -18,6 +19,7 @@ import {
 const INTERNAL_CONNECT_PATH = "/_internal/connect";
 const CONNECT_ROUTE_SUFFIX = "/connect";
 const REFRESH_ROUTE_SUFFIX = "/refresh";
+const WAITLIST_API_PATH = "/api/waitlist";
 
 const worker: ExportedHandler<Env> = {
 	async fetch(request, env): Promise<Response> {
@@ -43,6 +45,10 @@ export default worker;
 async function handleRequest(request: Request, env: Env): Promise<Response> {
 	const url = new URL(request.url);
 
+	if (request.method === "POST" && url.pathname === WAITLIST_API_PATH) {
+		return createWaitlistSignup(request, env.DB, env.WAITLIST_RATE_LIMITER);
+	}
+
 	if (request.method === "POST" && url.pathname === TUNNELS_API_PATH) {
 		return createTunnel(env, url);
 	}
@@ -60,6 +66,12 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
 	if (request.method === "GET" && tunnelId) {
 		return connectTunnel(request, env, tunnelId, url.search);
+	}
+
+	if (url.pathname.startsWith("/api/")) {
+		return new Response("Not Found", {
+			status: 404,
+		});
 	}
 
 	const tunnelSubdomain = extractTunnelSubdomain(

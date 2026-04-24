@@ -3,10 +3,13 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
+		"assets:prepare": "pnpm --dir ../web build && cp ../web/build/client/404/index.html ../web/build/client/404.html",
 		"build": "tsc -p tsconfig.json",
-		"deploy": "wrangler deploy",
-		"dev": "wrangler dev",
-		"start": "wrangler dev",
+		"d1:migrate:local": "wrangler d1 migrations apply DB --local",
+		"d1:migrate:remote": "wrangler d1 migrations apply DB --remote",
+		"deploy": "pnpm run assets:prepare && wrangler deploy",
+		"dev": "pnpm run assets:prepare && wrangler dev",
+		"start": "pnpm run assets:prepare && wrangler dev",
 		"cf-typegen": "wrangler types"
 	},
 	"dependencies": {
@@ -14,7 +17,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^25.6.0",
-		"typescript": "^5.5.2",
-		"wrangler": "^4.83.0"
+		"typescript": "^6.0.3",
+		"wrangler": "^4.85.0"
 	}
 }

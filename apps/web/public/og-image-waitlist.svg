@@ -26,18 +26,18 @@
     </g>
   </g>
 
-  <text x="600" y="220" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="#52525b" text-anchor="middle" letter-spacing="6">
+  <text x="600" y="255" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="#52525b" text-anchor="middle" letter-spacing="6">
     COMING SOON
   </text>
 
-  <text x="600" y="330" font-family="Georgia, serif" font-size="76" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-1">
+  <text x="600" y="360" font-family="Georgia, serif" font-size="76" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-1">
     Custom Subdomains
   </text>
-  <text x="600" y="415" font-family="Georgia, serif" font-size="76" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-1">
+  <text x="600" y="445" font-family="Georgia, serif" font-size="76" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-1">
     &amp; User Accounts.
   </text>
 
-  <text x="600" y="500" font-family="system-ui, sans-serif" font-size="28" font-weight="400" fill="#52525b" text-anchor="middle">
+  <text x="600" y="525" font-family="system-ui, sans-serif" font-size="28" font-weight="400" fill="#52525b" text-anchor="middle">
     hostc · Localhost to the edge
   </text>
 </svg>

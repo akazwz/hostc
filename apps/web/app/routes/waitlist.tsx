@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import type { Route } from "./+types/waitlist";
@@ -43,13 +44,15 @@ export default function Waitlist() {
 
 function WaitlistForm() {
 	const [email, setEmail] = useState("");
+	const [errorMessage, setErrorMessage] = useState("");
 	const [status, setStatus] = useState<
 		"idle" | "loading" | "success" | "error"
 	>("idle");
 
-	async function handleSubmit(e: React.FormEvent) {
+	async function handleSubmit(e: FormEvent<HTMLFormElement>) {
 		e.preventDefault();
 		if (!email) return;
+		setErrorMessage("");
 		setStatus("loading");
 		try {
 			const res = await fetch("/api/waitlist", {
@@ -57,22 +60,30 @@ function WaitlistForm() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ email }),
 			});
-			setStatus(res.ok ? "success" : "error");
+
+			if (res.ok) {
+				setStatus("success");
+				return;
+			}
+
+			const data = (await res.json().catch(() => null)) as
+				| { error?: string }
+				| null;
+
+			setErrorMessage(data?.error || "Something went wrong. Please try again.");
+			setStatus("error");
 		} catch {
+			setErrorMessage("Something went wrong. Please try again.");
 			setStatus("error");
 		}
 	}
 
 	if (status === "success") {
 		return (
-			<div className="w-full max-w-sm p-4 rounded-md border border-border bg-muted/30 flex flex-col items-center justify-center gap-1">
-				<p className="text-sm font-medium text-foreground">
-					🎉 You're on the list!
-				</p>
-				<p className="text-xs text-muted-foreground">
-					We'll be in touch when it's ready.
-				</p>
-			</div>
+			<Alert className="w-full max-w-sm">
+				<AlertTitle>🎉 You're on the list!</AlertTitle>
+				<AlertDescription>We'll be in touch when it's ready.</AlertDescription>
+			</Alert>
 		);
 	}
 
@@ -96,9 +107,9 @@ function WaitlistForm() {
 				</Button>
 			</div>
 			{status === "error" && (
-				<p className="text-xs text-destructive text-left px-1">
-					Something went wrong. Please try again.
-				</p>
+				<Alert variant="destructive">
+					<AlertDescription>{errorMessage}</AlertDescription>
+				</Alert>
 			)}
 		</form>
 	);
