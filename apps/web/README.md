@@ -24,8 +24,6 @@ app/
 |  |- home.tsx             # /
 |  |- waitlist.tsx         # /waitlist
 |  |- error-404.tsx        # /404
-|  |- error-tunnel-not-found.tsx     # /errors/tunnel-not-found
-|  `- error-local-server-down.tsx    # /errors/local-server-down
 |- components/
 |  |- ui/                  # shadcn UI components
 |  |- icons.tsx
@@ -42,8 +40,6 @@ build/client/              # Static build output served by the Worker
 | `/` | Landing page |
 | `/waitlist` | Waitlist page; submits `POST /api/waitlist` to the Worker |
 | `/404` | Generic 404 page |
-| `/errors/tunnel-not-found` | Error page returned when a tunnel does not exist |
-| `/errors/local-server-down` | Error page returned when the local service is unavailable |
 
 All routes are prerendered to static HTML at build time.
 

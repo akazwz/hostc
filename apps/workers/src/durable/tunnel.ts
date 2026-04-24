@@ -544,12 +544,12 @@ export class HostcDurableObject extends DurableObject<Env> {
 		request: Request,
 		status: "not_found" | "local_server_down" = "not_found",
 		message = "No active tunnel is connected for this subdomain",
-	): Promise<Response> | Response {
+	): Response {
 		if (wantsHtmlResponse(request)) {
 			if (status === "local_server_down") {
-				return serveLocalServerDownPage(request, this.env);
+				return serveLocalServerDownPage(request);
 			}
-			return serveTunnelNotFoundPage(request, this.env);
+			return serveTunnelNotFoundPage(request);
 		}
 
 		return jsonError(message, status === "local_server_down" ? 502 : 404);
