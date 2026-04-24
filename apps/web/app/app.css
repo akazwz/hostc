@@ -1,8 +1,49 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/noto-sans";
-@import "@fontsource-variable/playfair-display";
+
+/* latin subset only — avoids loading Cyrillic/Vietnamese/etc. */
+@font-face {
+  font-family: 'Noto Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/noto-sans/files/noto-sans-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* fallback: tiny block window plus preload reduces visible font swapping */
+@font-face {
+  font-family: 'Playfair Display Variable';
+  font-style: normal;
+  font-display: fallback;
+  font-weight: 400 900;
+  src: url('@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* metric-adjusted fallbacks (generated via fontpie) to eliminate layout shift */
+@font-face {
+  font-family: 'Noto Sans Fallback';
+  font-style: normal;
+  font-weight: 100 900;
+  src: local('Arial');
+  ascent-override: 100.41%;
+  descent-override: 27.52%;
+  line-gap-override: 0.00%;
+  size-adjust: 106.47%;
+}
+
+@font-face {
+  font-family: 'Playfair Display Fallback';
+  font-style: normal;
+  font-weight: 400 900;
+  src: local('Times New Roman');
+  ascent-override: 97.38%;
+  descent-override: 22.59%;
+  line-gap-override: 0.00%;
+  size-adjust: 111.11%;
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -76,8 +117,8 @@
 }
 
 @theme inline {
-	--font-sans: "Noto Sans Variable", sans-serif;
-	--font-heading: "Playfair Display Variable", serif;
+	--font-sans: "Noto Sans Variable", "Noto Sans Fallback", sans-serif;
+	--font-heading: "Playfair Display Variable", "Playfair Display Fallback", serif;
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

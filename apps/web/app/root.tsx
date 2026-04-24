@@ -6,11 +6,27 @@ import {
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
+import notoSansLatinWghtNormal from "@fontsource-variable/noto-sans/files/noto-sans-latin-wght-normal.woff2";
+import playfairDisplayLatinWghtNormal from "@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2";
 
 import type { Route } from "./+types/root";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
+	{
+		rel: "preload",
+		href: notoSansLatinWghtNormal,
+		as: "font",
+		type: "font/woff2",
+		crossOrigin: "anonymous",
+	},
+	{
+		rel: "preload",
+		href: playfairDisplayLatinWghtNormal,
+		as: "font",
+		type: "font/woff2",
+		crossOrigin: "anonymous",
+	},
 	{ rel: "icon", href: "/favicon.ico", sizes: "32x32" },
 	{ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
 ];
