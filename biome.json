@@ -13,7 +13,8 @@
 			"!!.pnpm-store",
 			"!!**/dist",
 			"!!**/coverage",
-			"!!**/.wrangler"
+			"!!**/.wrangler",
+			"!apps/web/app/components/ui"
 		]
 	},
 	"formatter": {
@@ -29,6 +30,11 @@
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"
+		}
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
 		}
 	},
 	"assist": {
