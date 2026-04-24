@@ -34,6 +34,23 @@ hostc 3000
 
 > **Public URL**: You'll instantly get a URL like `https://t-a1b2c3d4.hostc.dev` that routes traffic directly to your `http://127.0.0.1:3000`.
 
+## 🗺️ Roadmap
+
+hostc is still early, and the focus right now is making the core tunnel experience solid before adding more surface area.
+
+### Near term
+
+- Harden tunnel routing, connection lifecycle, and error-page behavior.
+- Polish the CLI UX around reconnects, local server failures, and terminal output.
+- Improve self-hosting and local development docs.
+- Add better operational visibility for the Worker and Durable Object path.
+
+### Later
+
+- Reserved or custom subdomains.
+- Basic access control for shared tunnels.
+- A cleaner hosted onboarding flow beyond the current waitlist.
+
 ## 🏗️ Architecture & Monorepo
 
 This project is a Monorepo managed by `pnpm`.
