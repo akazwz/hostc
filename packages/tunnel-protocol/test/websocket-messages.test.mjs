@@ -93,6 +93,21 @@ test("parses websocket tunnel server messages", () => {
 	assert.deepStrictEqual(
 		parseTunnelServerMessage(
 			JSON.stringify({
+				type: "response-body-credit",
+				requestId: "req-1",
+				credit: 32768,
+			}),
+		),
+		{
+			type: "response-body-credit",
+			requestId: "req-1",
+			credit: 32768,
+		},
+	);
+
+	assert.deepStrictEqual(
+		parseTunnelServerMessage(
+			JSON.stringify({
 				type: "websocket-close",
 				requestId: "req-1",
 				code: 1000,
@@ -242,6 +257,17 @@ test("rejects malformed websocket messages", () => {
 			JSON.stringify({
 				type: "client-capabilities",
 				capabilities: "binary-payload",
+			}),
+		),
+		null,
+	);
+
+	assert.equal(
+		parseTunnelServerMessage(
+			JSON.stringify({
+				type: "response-body-credit",
+				requestId: "req-3",
+				credit: 0,
 			}),
 		),
 		null,

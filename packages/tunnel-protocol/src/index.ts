@@ -47,6 +47,12 @@ export type RequestEndMessage = {
 	requestId: string;
 };
 
+export type ResponseBodyCreditMessage = {
+	type: "response-body-credit";
+	requestId: string;
+	credit: number;
+};
+
 export type BinaryPayloadStream =
 	| "request-body"
 	| "response-body"
@@ -130,6 +136,7 @@ export type TunnelServerMessage =
 	| RequestBodyMessage
 	| BinaryPayloadMessage
 	| RequestEndMessage
+	| ResponseBodyCreditMessage
 	| WebSocketConnectMessage
 	| WebSocketFrameMessage
 	| WebSocketCloseMessage;
@@ -256,6 +263,13 @@ function isTunnelServerMessage(
 			return isString(value.requestId) && isBinaryPayloadStream(value.stream);
 		case "request-end":
 			return isString(value.requestId);
+		case "response-body-credit":
+			return (
+				isString(value.requestId) &&
+				typeof value.credit === "number" &&
+				Number.isInteger(value.credit) &&
+				value.credit > 0
+			);
 		case "websocket-connect":
 			return (
 				isString(value.requestId) &&

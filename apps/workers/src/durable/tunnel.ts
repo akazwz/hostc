@@ -45,9 +45,13 @@ const WEBSOCKET_CONNECT_TIMEOUT_MS = 30_000;
 const TUNNEL_REPLACED_CLOSE_CODE = 1012;
 const TUNNEL_ERROR_CLOSE_CODE = 1011;
 const HTTP_BODY_BATCH_TARGET_BYTES = 32 * 1024;
+const RESPONSE_BODY_CREDIT_BATCH_BYTES = HTTP_BODY_BATCH_TARGET_BYTES;
+const RESPONSE_BODY_MAX_OUTSTANDING_CREDIT_BYTES =
+	RESPONSE_BODY_CREDIT_BATCH_BYTES * 4;
 const SOCKET_BACKPRESSURE_HIGH_WATERMARK = 256 * 1024;
 const SOCKET_BACKPRESSURE_LOW_WATERMARK = 64 * 1024;
 const SOCKET_BACKPRESSURE_POLL_MS = 4;
+const RESPONSE_BODY_CREDIT_CAPABILITY = "response-body-credit";
 
 type Deferred<T> = {
 	promise: Promise<T>;
@@ -59,6 +63,9 @@ type PendingResponse = {
 	responseStart: Deferred<ResponseStartMessage>;
 	controller: ReadableStreamDefaultController<Uint8Array> | null;
 	started: boolean;
+	useResponseBodyCredit: boolean;
+	responseBodyCreditsOutstanding: number;
+	responseBodyCreditGrant: Promise<void> | null;
 };
 
 type PendingWebSocketUpgrade = {
@@ -300,7 +307,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 			type: "tunnel-ready",
 			subdomain,
 			publicUrl: buildPublicUrl(this.env.PUBLIC_BASE_DOMAIN, subdomain),
-			capabilities: ["binary-payload"],
+			capabilities: ["binary-payload", RESPONSE_BODY_CREDIT_CAPABILITY],
 		});
 
 		return new Response(null, {
@@ -327,11 +334,28 @@ export class HostcDurableObject extends DurableObject<Env> {
 			responseStart: createDeferred<ResponseStartMessage>(),
 			controller: null,
 			started: false,
+			useResponseBodyCredit: this.clientCapabilities.has(
+				RESPONSE_BODY_CREDIT_CAPABILITY,
+			),
+			responseBodyCreditsOutstanding: 0,
+			responseBodyCreditGrant: null,
 		};
 
 		const responseBody = new ReadableStream<Uint8Array>({
 			start(controller) {
 				pendingResponse.controller = controller;
+			},
+			pull: async (controller) => {
+				if (!pendingResponse.useResponseBodyCredit || !pendingResponse.started) {
+					return;
+				}
+
+				try {
+					await this.ensureResponseBodyCredit(requestId, pendingResponse);
+				} catch (error) {
+					controller.error(asError(error));
+					this.pendingResponses.delete(requestId);
+				}
 			},
 			cancel: () => {
 				this.pendingResponses.delete(requestId);
@@ -437,6 +461,8 @@ export class HostcDurableObject extends DurableObject<Env> {
 
 			if (!responseStart.hasBody) {
 				this.pendingResponses.delete(requestId);
+			} else if (pendingResponse.useResponseBodyCredit) {
+				await this.ensureResponseBodyCredit(requestId, pendingResponse);
 			}
 
 			return new Response(responseStart.hasBody ? responseBody : null, {
@@ -581,7 +607,9 @@ export class HostcDurableObject extends DurableObject<Env> {
 					return;
 				}
 
-				pendingResponse.controller.enqueue(decodeBase64(message.chunk));
+				const chunk = decodeBase64(message.chunk);
+				this.consumeResponseBodyCredit(pendingResponse, chunk.byteLength);
+				pendingResponse.controller.enqueue(chunk);
 				return;
 			}
 
@@ -997,6 +1025,63 @@ export class HostcDurableObject extends DurableObject<Env> {
 		return nextSend;
 	}
 
+	private ensureResponseBodyCredit(
+		requestId: string,
+		pendingResponse: PendingResponse,
+	): Promise<void> {
+		if (!pendingResponse.useResponseBodyCredit || !pendingResponse.started) {
+			return Promise.resolve();
+		}
+
+		if (pendingResponse.responseBodyCreditGrant) {
+			return pendingResponse.responseBodyCreditGrant;
+		}
+
+		const grantPromise = (async () => {
+			const tunnelSocket = this.getTunnelSocket();
+
+			if (!tunnelSocket || tunnelSocket.readyState !== WebSocket.OPEN) {
+				throw new Error("Tunnel connection is unavailable");
+			}
+
+			while (
+				this.pendingResponses.has(requestId) &&
+				pendingResponse.responseBodyCreditsOutstanding <
+					RESPONSE_BODY_MAX_OUTSTANDING_CREDIT_BYTES
+			) {
+				pendingResponse.responseBodyCreditsOutstanding +=
+					RESPONSE_BODY_CREDIT_BATCH_BYTES;
+
+				await this.sendMessage(tunnelSocket, {
+					type: "response-body-credit",
+					requestId,
+					credit: RESPONSE_BODY_CREDIT_BATCH_BYTES,
+				});
+			}
+		})().finally(() => {
+			if (pendingResponse.responseBodyCreditGrant === grantPromise) {
+				pendingResponse.responseBodyCreditGrant = null;
+			}
+		});
+
+		pendingResponse.responseBodyCreditGrant = grantPromise;
+		return grantPromise;
+	}
+
+	private consumeResponseBodyCredit(
+		pendingResponse: PendingResponse,
+		byteLength: number,
+	): void {
+		if (!pendingResponse.useResponseBodyCredit) {
+			return;
+		}
+
+		pendingResponse.responseBodyCreditsOutstanding = Math.max(
+			0,
+			pendingResponse.responseBodyCreditsOutstanding - byteLength,
+		);
+	}
+
 	private handleBinaryTunnelPayload(
 		message: BinaryPayloadMessage,
 		payload: Uint8Array,
@@ -1009,6 +1094,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 					return;
 				}
 
+				this.consumeResponseBodyCredit(pendingResponse, payload.byteLength);
 				pendingResponse.controller.enqueue(payload);
 				return;
 			}

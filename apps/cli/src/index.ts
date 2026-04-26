@@ -39,6 +39,8 @@ type LocalRequestContext = {
 	abortController: AbortController;
 	writer: WritableStreamDefaultWriter<Uint8Array> | null;
 	writeChain: Promise<void>;
+	responseBodyCreditBytes: number;
+	responseBodyCreditWaiters: Array<() => void>;
 };
 
 type LocalWebSocketContext = {
@@ -117,7 +119,7 @@ async function main(): Promise<void> {
 		.description(
 			"Expose a local web service (HTTP + WebSocket) through a hostc tunnel",
 		)
-		.version("1.2.1")
+		.version("1.2.2")
 		.showHelpAfterError();
 
 	program
@@ -644,8 +646,27 @@ async function openTunnelConnection(options: {
 	let sendQueue = Promise.resolve();
 	let pendingBinaryPayload: BinaryPayloadMessage | null = null;
 	let useBinaryPayload = false;
+	let useResponseBodyCredit = false;
 	let opened = false;
 	let ready = false;
+
+	const shouldIgnoreTunnelSendError = (error: unknown): boolean => {
+		return (
+			options.interrupted() ||
+			(error instanceof Error &&
+				error.message === "Tunnel connection is unavailable")
+		);
+	};
+
+	const handleBackgroundTunnelSendError = (error: unknown): void => {
+		if (shouldIgnoreTunnelSendError(error)) {
+			return;
+		}
+
+		console.error(
+			chalk.yellow(`Failed to send tunnel message: ${formatError(error)}`),
+		);
+	};
 
 	options.registerSocket(tunnelSocket);
 
@@ -743,11 +764,22 @@ async function openTunnelConnection(options: {
 						ready = true;
 						options.onReady();
 
+						const negotiatedCapabilities: string[] = [];
+
 						if (message.capabilities?.includes("binary-payload")) {
 							useBinaryPayload = true;
+							negotiatedCapabilities.push("binary-payload");
+						}
+
+						if (message.capabilities?.includes("response-body-credit")) {
+							useResponseBodyCredit = true;
+							negotiatedCapabilities.push("response-body-credit");
+						}
+
+						if (negotiatedCapabilities.length > 0) {
 							queueBackgroundMessage({
 								type: "client-capabilities",
-								capabilities: ["binary-payload"],
+								capabilities: negotiatedCapabilities,
 							});
 						}
 
@@ -781,11 +813,11 @@ async function openTunnelConnection(options: {
 
 				case "request-start":
 					void startLocalRequest(message).catch((error) => {
-						sendMessage({
+						void sendMessage({
 							type: "response-error",
 							requestId: message.requestId,
 							message: formatError(error),
-						});
+						}).catch(handleBackgroundTunnelSendError);
 					});
 					return;
 
@@ -815,15 +847,26 @@ async function openTunnelConnection(options: {
 					return;
 				}
 
+				case "response-body-credit": {
+					const requestContext = localRequests.get(message.requestId);
+
+					if (!requestContext) {
+						return;
+					}
+
+					addResponseBodyCredit(requestContext, message.credit);
+					return;
+				}
+
 				case "websocket-connect":
 					try {
 						startLocalWebSocket(message);
 					} catch (error) {
-						sendMessage({
+						void sendMessage({
 							type: "websocket-reject",
 							requestId: message.requestId,
 							message: formatError(error),
-						});
+						}).catch(handleBackgroundTunnelSendError);
 					}
 					return;
 
@@ -890,6 +933,8 @@ async function openTunnelConnection(options: {
 				abortController,
 				writer,
 				writeChain: Promise.resolve(),
+				responseBodyCreditBytes: 0,
+				responseBodyCreditWaiters: [],
 			};
 
 			localRequests.set(message.requestId, requestContext);
@@ -919,6 +964,39 @@ async function openTunnelConnection(options: {
 					let pendingBodyChunks: Uint8Array[] = [];
 					let pendingBodyBytes = 0;
 
+					const flushPendingResponseBody = async (): Promise<void> => {
+						if (pendingBodyBytes === 0) {
+							return;
+						}
+
+						const batch = concatUint8Arrays(
+							pendingBodyChunks,
+							pendingBodyBytes,
+						);
+
+						pendingBodyChunks = [];
+						pendingBodyBytes = 0;
+
+						if (useResponseBodyCredit) {
+							await consumeResponseBodyCredit(requestContext, batch.byteLength);
+						}
+
+						if (useBinaryPayload) {
+							await sendBinaryPayload(
+								message.requestId,
+								"response-body",
+								batch,
+							);
+							return;
+						}
+
+						await sendMessage({
+							type: "response-body",
+							requestId: message.requestId,
+							chunk: encodeBase64(batch),
+						});
+					};
+
 					try {
 						while (true) {
 							const { done, value } = await reader.read();
@@ -927,54 +1005,27 @@ async function openTunnelConnection(options: {
 								break;
 							}
 
-							pendingBodyChunks.push(value);
-							pendingBodyBytes += value.byteLength;
+							let offset = 0;
 
-							if (pendingBodyBytes >= HTTP_BODY_BATCH_TARGET_BYTES) {
-								const batch = concatUint8Arrays(
-									pendingBodyChunks,
-									pendingBodyBytes,
+							while (offset < value.byteLength) {
+								const chunkByteLength = Math.min(
+									HTTP_BODY_BATCH_TARGET_BYTES - pendingBodyBytes,
+									value.byteLength - offset,
 								);
 
-								if (useBinaryPayload) {
-									await sendBinaryPayload(
-										message.requestId,
-										"response-body",
-										batch,
-									);
-								} else {
-									await sendMessage({
-										type: "response-body",
-										requestId: message.requestId,
-										chunk: encodeBase64(batch),
-									});
+								pendingBodyChunks.push(
+									value.subarray(offset, offset + chunkByteLength),
+								);
+								pendingBodyBytes += chunkByteLength;
+								offset += chunkByteLength;
+
+								if (pendingBodyBytes >= HTTP_BODY_BATCH_TARGET_BYTES) {
+									await flushPendingResponseBody();
 								}
-
-								pendingBodyChunks = [];
-								pendingBodyBytes = 0;
 							}
 						}
 
-						if (pendingBodyBytes > 0) {
-							const batch = concatUint8Arrays(
-								pendingBodyChunks,
-								pendingBodyBytes,
-							);
-
-							if (useBinaryPayload) {
-								await sendBinaryPayload(
-									message.requestId,
-									"response-body",
-									batch,
-								);
-							} else {
-								await sendMessage({
-									type: "response-body",
-									requestId: message.requestId,
-									chunk: encodeBase64(batch),
-								});
-							}
-						}
+						await flushPendingResponseBody();
 					} finally {
 						reader.releaseLock();
 					}
@@ -985,12 +1036,23 @@ async function openTunnelConnection(options: {
 					requestId: message.requestId,
 				});
 			} catch (error) {
-				await sendMessage({
-					type: "response-error",
-					requestId: message.requestId,
-					message: formatError(error),
-				});
+				if (shouldIgnoreTunnelSendError(error)) {
+					return;
+				}
+
+				try {
+					await sendMessage({
+						type: "response-error",
+						requestId: message.requestId,
+						message: formatError(error),
+					});
+				} catch (sendError) {
+					if (!shouldIgnoreTunnelSendError(sendError)) {
+						throw sendError;
+					}
+				}
 			} finally {
+				notifyResponseBodyCreditWaiters(requestContext);
 				localRequests.delete(message.requestId);
 			}
 		}
@@ -1207,7 +1269,7 @@ async function openTunnelConnection(options: {
 		}
 
 		function queueBackgroundMessage(message: TunnelClientMessage): void {
-			void sendMessage(message).catch(() => undefined);
+			void sendMessage(message).catch(handleBackgroundTunnelSendError);
 		}
 
 		function queueBackgroundBinaryPayload(
@@ -1215,7 +1277,9 @@ async function openTunnelConnection(options: {
 			stream: BinaryPayloadMessage["stream"],
 			payload: Uint8Array,
 		): void {
-			void sendBinaryPayload(requestId, stream, payload).catch(() => undefined);
+			void sendBinaryPayload(requestId, stream, payload).catch(
+				handleBackgroundTunnelSendError,
+			);
 		}
 
 		function sendMessage(message: TunnelClientMessage): Promise<void> {
@@ -1310,6 +1374,48 @@ function abortLocalRequests(
 ): void {
 	for (const requestContext of localRequests.values()) {
 		requestContext.abortController.abort();
+		notifyResponseBodyCreditWaiters(requestContext);
+	}
+}
+
+function addResponseBodyCredit(
+	requestContext: LocalRequestContext,
+	creditBytes: number,
+): void {
+	requestContext.responseBodyCreditBytes += creditBytes;
+	notifyResponseBodyCreditWaiters(requestContext);
+}
+
+async function consumeResponseBodyCredit(
+	requestContext: LocalRequestContext,
+	creditBytes: number,
+): Promise<void> {
+	while (requestContext.responseBodyCreditBytes < creditBytes) {
+		if (requestContext.abortController.signal.aborted) {
+			throw new Error("Tunnel connection is unavailable");
+		}
+
+		await new Promise<void>((resolve) => {
+			requestContext.responseBodyCreditWaiters.push(resolve);
+		});
+	}
+
+	requestContext.responseBodyCreditBytes -= creditBytes;
+}
+
+function notifyResponseBodyCreditWaiters(
+	requestContext: LocalRequestContext,
+): void {
+	const waiters = requestContext.responseBodyCreditWaiters;
+
+	if (waiters.length === 0) {
+		return;
+	}
+
+	requestContext.responseBodyCreditWaiters = [];
+
+	for (const resolve of waiters) {
+		resolve();
 	}
 }
 

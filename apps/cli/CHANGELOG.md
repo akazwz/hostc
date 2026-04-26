@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.2] - 2026-04-26
+
+### 修复
+- 修复 CLI 在 `Ctrl-C` 主动关闭 tunnel 时，仍可能打印 `Tunnel connection is unavailable` 栈的问题
+- 为大体积 HTTP 响应增加 response-body credit 流控，降低视频和文件流量场景下隧道缓冲失控导致的崩溃风险
+
 ## [1.2.1] - 2026-04-18
 
 ### 修复
