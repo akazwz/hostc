@@ -346,7 +346,10 @@ export class HostcDurableObject extends DurableObject<Env> {
 				pendingResponse.controller = controller;
 			},
 			pull: async (controller) => {
-				if (!pendingResponse.useResponseBodyCredit || !pendingResponse.started) {
+				if (
+					!pendingResponse.useResponseBodyCredit ||
+					!pendingResponse.started
+				) {
 					return;
 				}
 

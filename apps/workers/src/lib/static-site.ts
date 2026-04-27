@@ -53,7 +53,10 @@ type ErrorPageOptions = {
 	description: string;
 };
 
-function renderErrorPage(request: Request, options: ErrorPageOptions): Response {
+function renderErrorPage(
+	request: Request,
+	options: ErrorPageOptions,
+): Response {
 	const body = request.method === "HEAD" ? null : buildErrorPageHtml(options);
 
 	return new Response(body, {

@@ -9,12 +9,12 @@ import { HostcDurableObject } from "./durable/tunnel";
 import { createConnectToken, verifyConnectToken } from "./lib/connect-token";
 import { createSessionToken, verifySessionToken } from "./lib/session-token";
 import { canServeStaticAsset, serveStaticAsset } from "./lib/static-site";
-import { createWaitlistSignup } from "./lib/waitlist";
 import {
 	buildTunnelWebSocketUrl,
 	createRandomSubdomain,
 	extractTunnelSubdomain,
 } from "./lib/tunnels";
+import { createWaitlistSignup } from "./lib/waitlist";
 
 const INTERNAL_CONNECT_PATH = "/_internal/connect";
 const CONNECT_ROUTE_SUFFIX = "/connect";

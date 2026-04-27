@@ -36,7 +36,10 @@ export async function createWaitlistSignup(
 
 	const contentLength = Number(request.headers.get("content-length") ?? "");
 
-	if (Number.isFinite(contentLength) && contentLength > WAITLIST_REQUEST_MAX_BYTES) {
+	if (
+		Number.isFinite(contentLength) &&
+		contentLength > WAITLIST_REQUEST_MAX_BYTES
+	) {
 		return jsonError("Request body is too large", 413);
 	}
 
@@ -57,7 +60,7 @@ export async function createWaitlistSignup(
 	await database
 		.prepare(
 			`INSERT OR IGNORE INTO waitlist_signups (email, source, created_at)
-			 VALUES (?, ?, ?)` ,
+			 VALUES (?, ?, ?)`,
 		)
 		.bind(email, "web", new Date().toISOString())
 		.run();
