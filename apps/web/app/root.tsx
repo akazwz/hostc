@@ -1,3 +1,5 @@
+import notoSansLatinWghtNormal from "@fontsource-variable/noto-sans/files/noto-sans-latin-wght-normal.woff2";
+import playfairDisplayLatinWghtNormal from "@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2";
 import {
 	isRouteErrorResponse,
 	Links,
@@ -6,8 +8,6 @@ import {
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
-import notoSansLatinWghtNormal from "@fontsource-variable/noto-sans/files/noto-sans-latin-wght-normal.woff2";
-import playfairDisplayLatinWghtNormal from "@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2";
 
 import type { Route } from "./+types/root";
 import "./app.css";

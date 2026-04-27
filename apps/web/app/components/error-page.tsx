@@ -1,6 +1,6 @@
-import { Button } from "~/components/ui/button";
-import { Badge } from "~/components/ui/badge";
 import { GithubIcon } from "~/components/icons";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 
 type ErrorPageProps = {
 	statusCode: string;
@@ -34,7 +34,7 @@ export function ErrorPage({
 						variant="outline"
 						size="lg"
 						nativeButton={false}
-						render={<a href="https://hostc.dev/" />}
+						render={(props) => <a {...props} href="https://hostc.dev/" />}
 					>
 						Open hostc.dev
 					</Button>
@@ -42,13 +42,14 @@ export function ErrorPage({
 						variant="default"
 						size="lg"
 						nativeButton={false}
-						render={
+						render={(props) => (
 							<a
+								{...props}
 								href="https://github.com/akazwz/hostc"
 								target="_blank"
 								rel="noreferrer"
 							/>
-						}
+						)}
 					>
 						<GithubIcon />
 						View on GitHub

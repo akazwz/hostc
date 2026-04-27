@@ -1,9 +1,9 @@
 import { Link } from "react-router";
-import { Button } from "~/components/ui/button";
 import { GithubIcon } from "~/components/icons";
+import { Button } from "~/components/ui/button";
 import type { Route } from "./+types/home";
 
-export function meta({}: Route.MetaArgs) {
+export function meta(_args: Route.MetaArgs) {
 	return [
 		{ title: "hostc | Localhost to the edge" },
 		{
@@ -58,13 +58,14 @@ export default function Home() {
 						size="lg"
 						className="w-full sm:w-auto"
 						nativeButton={false}
-						render={
+						render={(props) => (
 							<a
+								{...props}
 								href="https://github.com/akazwz/hostc"
 								target="_blank"
 								rel="noreferrer"
 							/>
-						}
+						)}
 					>
 						<GithubIcon />
 						Star on GitHub
@@ -115,14 +116,10 @@ export default function Home() {
 					Custom subdomains &amp; user accounts.
 				</h2>
 				<p className="text-muted-foreground max-w-sm mx-auto mb-10 text-base">
-					Persistent tunnels, custom URLs, and team access — leave your email
-					to be the first to get beta access.
+					Persistent tunnels, custom URLs, and team access — leave your email to
+					be the first to get beta access.
 				</p>
-				<Button
-					size="lg"
-					nativeButton={false}
-					render={<Link to="/waitlist" />}
-				>
+				<Button size="lg" nativeButton={false} render={<Link to="/waitlist" />}>
 					Join the Waitlist
 				</Button>
 			</section>
@@ -161,5 +158,3 @@ export default function Home() {
 		</div>
 	);
 }
-
-

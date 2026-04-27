@@ -4,7 +4,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import type { Route } from "./+types/waitlist";
 
-export function meta({}: Route.MetaArgs) {
+export function meta(_args: Route.MetaArgs) {
 	return [
 		{ title: "Join the Waitlist — hostc" },
 		{
@@ -18,9 +18,15 @@ export function meta({}: Route.MetaArgs) {
 			content:
 				"Sign up for early access to custom subdomains and user accounts on hostc.",
 		},
-		{ property: "og:image", content: "https://hostc.dev/og-image-waitlist.png" },
+		{
+			property: "og:image",
+			content: "https://hostc.dev/og-image-waitlist.png",
+		},
 		{ name: "twitter:card", content: "summary_large_image" },
-		{ name: "twitter:image", content: "https://hostc.dev/og-image-waitlist.png" },
+		{
+			name: "twitter:image",
+			content: "https://hostc.dev/og-image-waitlist.png",
+		},
 	];
 }
 
@@ -66,9 +72,9 @@ function WaitlistForm() {
 				return;
 			}
 
-			const data = (await res.json().catch(() => null)) as
-				| { error?: string }
-				| null;
+			const data = (await res.json().catch(() => null)) as {
+				error?: string;
+			} | null;
 
 			setErrorMessage(data?.error || "Something went wrong. Please try again.");
 			setStatus("error");

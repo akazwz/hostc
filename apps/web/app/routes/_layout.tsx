@@ -1,6 +1,6 @@
 import { Link, Outlet } from "react-router";
-import { Button } from "~/components/ui/button";
 import { GithubIcon } from "~/components/icons";
+import { Button } from "~/components/ui/button";
 
 export default function Layout() {
 	return (
@@ -28,13 +28,14 @@ export default function Layout() {
 							variant="ghost"
 							size="sm"
 							nativeButton={false}
-							render={
+							render={(props) => (
 								<a
+									{...props}
 									href="https://github.com/akazwz/hostc"
 									target="_blank"
 									rel="noreferrer"
 								/>
-							}
+							)}
 						>
 							<GithubIcon />
 							<span className="hidden sm:inline">GitHub</span>
@@ -63,4 +64,3 @@ export default function Layout() {
 		</div>
 	);
 }
-
