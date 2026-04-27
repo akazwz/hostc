@@ -43,6 +43,7 @@ hostc 3000 --qr
 ## Environment Variables
 
 - `HOSTC_SERVER_URL`: Override the Hostc server URL for local development, staging, or self-hosted testing. Defaults to `https://hostc.dev`.
+- `HOSTC_DISABLE_UPDATE_CHECK`: Set to `1` to disable the interactive npm update check.
 
 Example:
 

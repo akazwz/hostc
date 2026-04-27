@@ -4,7 +4,7 @@ import {
 } from "@hostc/tunnel-protocol";
 
 export function createRandomSubdomain(): string {
-	return `t-${crypto.randomUUID().slice(0, 8)}`;
+	return `t-${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
 }
 
 export function extractTunnelSubdomain(
@@ -31,15 +31,22 @@ export function extractTunnelSubdomain(
 		return normalizeSubdomain(candidate);
 	}
 
-	const labels = normalizedHostname.split(".");
+	return null;
+}
 
-	if (labels.length < 3) {
-		return null;
-	}
+export function isApplicationHostname(
+	hostname: string,
+	publicBaseDomain: string,
+): boolean {
+	const normalizedHostname = normalizeHostname(hostname);
 
-	const [subdomain] = labels;
-
-	return normalizeSubdomain(subdomain);
+	return (
+		normalizedHostname === normalizeHostname(publicBaseDomain) ||
+		normalizedHostname === "localhost" ||
+		normalizedHostname === "127.0.0.1" ||
+		normalizedHostname === "::1" ||
+		normalizedHostname.endsWith(".localhost")
+	);
 }
 
 export function buildTunnelWebSocketUrl(

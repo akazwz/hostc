@@ -51,7 +51,13 @@ const RESPONSE_BODY_MAX_OUTSTANDING_CREDIT_BYTES =
 const SOCKET_BACKPRESSURE_HIGH_WATERMARK = 256 * 1024;
 const SOCKET_BACKPRESSURE_LOW_WATERMARK = 64 * 1024;
 const SOCKET_BACKPRESSURE_POLL_MS = 4;
+const TUNNEL_PROTOCOL_VERSION = 2;
+const BINARY_PAYLOAD_CAPABILITY = "binary-payload";
 const RESPONSE_BODY_CREDIT_CAPABILITY = "response-body-credit";
+const SERVER_CAPABILITIES = [
+	BINARY_PAYLOAD_CAPABILITY,
+	RESPONSE_BODY_CREDIT_CAPABILITY,
+];
 
 type Deferred<T> = {
 	promise: Promise<T>;
@@ -63,6 +69,7 @@ type PendingResponse = {
 	responseStart: Deferred<ResponseStartMessage>;
 	controller: ReadableStreamDefaultController<Uint8Array> | null;
 	started: boolean;
+	useBinaryPayload: boolean;
 	useResponseBodyCredit: boolean;
 	responseBodyCreditsOutstanding: number;
 	responseBodyCreditGrant: Promise<void> | null;
@@ -76,6 +83,30 @@ type PendingWebSocketUpgrade = {
 type ActiveProxySocket = {
 	socket: WebSocket;
 	remoteClosed: boolean;
+	useBinaryPayload: boolean;
+};
+
+type TunnelConnection = {
+	socket: WebSocket;
+	capabilities: Set<string>;
+};
+
+type ControlSocketAttachment = {
+	kind: "control";
+	generation: string;
+	ready: boolean;
+	capabilities: string[];
+};
+
+type ProxySocketAttachment = {
+	kind: "proxy";
+	requestId: string;
+	useBinaryPayload: boolean;
+};
+
+type HibernatableWebSocket = WebSocket & {
+	serializeAttachment: (value: unknown) => void;
+	deserializeAttachment: () => unknown;
 };
 
 type SocketMetadata =
@@ -93,8 +124,8 @@ export class HostcDurableObject extends DurableObject<Env> {
 	private readonly activeProxySockets = new Map<string, ActiveProxySocket>();
 	private readonly socketSendQueues = new WeakMap<WebSocket, Promise<void>>();
 	private activeControlSocket: WebSocket | null = null;
+	private activeControlGeneration: string | null = null;
 	private pendingControlBinaryPayload: BinaryPayloadMessage | null = null;
-	private clientCapabilities = new Set<string>();
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
@@ -124,6 +155,10 @@ export class HostcDurableObject extends DurableObject<Env> {
 
 		if (metadata?.kind === "proxy") {
 			await this.handleProxySocketMessage(metadata.requestId, message);
+			return;
+		}
+
+		if (metadata?.kind !== "control" || !this.isActiveControlSocket(ws)) {
 			return;
 		}
 
@@ -223,7 +258,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 			return;
 		}
 
-		this.handleTunnelMessage(parsedMessage);
+		this.handleTunnelMessage(ws, parsedMessage);
 	}
 
 	async webSocketClose(
@@ -238,9 +273,12 @@ export class HostcDurableObject extends DurableObject<Env> {
 			return;
 		}
 
+		if (metadata?.kind !== "control" || !this.isActiveControlSocket(ws)) {
+			return;
+		}
+
 		this.clearActiveControlSocket(ws);
 		this.pendingControlBinaryPayload = null;
-		this.clientCapabilities.clear();
 
 		logInfo("tunnel.closed", {
 			code,
@@ -266,9 +304,12 @@ export class HostcDurableObject extends DurableObject<Env> {
 			return;
 		}
 
+		if (metadata?.kind !== "control" || !this.isActiveControlSocket(ws)) {
+			return;
+		}
+
 		this.clearActiveControlSocket(ws);
 		this.pendingControlBinaryPayload = null;
-		this.clientCapabilities.clear();
 
 		logError("tunnel.socket_error", {
 			error: message,
@@ -284,6 +325,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 	private handleTunnelConnection(): Response {
 		const subdomain = this.getTunnelSubdomain();
 		const { 0: clientSocket, 1: serverSocket } = new WebSocketPair();
+		const generation = crypto.randomUUID();
 		const existingConnections =
 			this.ctx.getWebSockets(CONTROL_SOCKET_TAG).length;
 
@@ -297,6 +339,13 @@ export class HostcDurableObject extends DurableObject<Env> {
 		this.disconnectExistingClients();
 		this.ctx.acceptWebSocket(serverSocket, [CONTROL_SOCKET_TAG]);
 		this.activeControlSocket = serverSocket;
+		this.activeControlGeneration = generation;
+		this.saveControlSocketAttachment(serverSocket, {
+			kind: "control",
+			generation,
+			ready: true,
+			capabilities: [],
+		});
 
 		logInfo("tunnel.connected", {
 			subdomain,
@@ -307,7 +356,8 @@ export class HostcDurableObject extends DurableObject<Env> {
 			type: "tunnel-ready",
 			subdomain,
 			publicUrl: buildPublicUrl(this.env.PUBLIC_BASE_DOMAIN, subdomain),
-			capabilities: ["binary-payload", RESPONSE_BODY_CREDIT_CAPABILITY],
+			protocolVersion: TUNNEL_PROTOCOL_VERSION,
+			capabilities: SERVER_CAPABILITIES,
 		});
 
 		return new Response(null, {
@@ -321,11 +371,19 @@ export class HostcDurableObject extends DurableObject<Env> {
 			return this.handleWebSocketProxyRequest(request);
 		}
 
-		const tunnelSocket = this.getTunnelSocket();
+		const tunnelConnection = this.getTunnelConnection();
 
-		if (!tunnelSocket) {
+		if (!tunnelConnection) {
 			return this.createUnavailableTunnelResponse(request);
 		}
+
+		const tunnelSocket = tunnelConnection.socket;
+		const useBinaryPayload = tunnelConnection.capabilities.has(
+			BINARY_PAYLOAD_CAPABILITY,
+		);
+		const useResponseBodyCredit = tunnelConnection.capabilities.has(
+			RESPONSE_BODY_CREDIT_CAPABILITY,
+		);
 
 		const requestUrl = new URL(request.url);
 		const requestId = crypto.randomUUID();
@@ -334,9 +392,8 @@ export class HostcDurableObject extends DurableObject<Env> {
 			responseStart: createDeferred<ResponseStartMessage>(),
 			controller: null,
 			started: false,
-			useResponseBodyCredit: this.clientCapabilities.has(
-				RESPONSE_BODY_CREDIT_CAPABILITY,
-			),
+			useBinaryPayload,
+			useResponseBodyCredit,
 			responseBodyCreditsOutstanding: 0,
 			responseBodyCreditGrant: null,
 		};
@@ -360,8 +417,13 @@ export class HostcDurableObject extends DurableObject<Env> {
 					this.pendingResponses.delete(requestId);
 				}
 			},
-			cancel: () => {
+			cancel: async () => {
 				this.pendingResponses.delete(requestId);
+				await this.cancelLocalRequest(
+					tunnelSocket,
+					requestId,
+					"Public response stream was cancelled",
+				);
 			},
 		});
 
@@ -375,6 +437,8 @@ export class HostcDurableObject extends DurableObject<Env> {
 				url: `${requestUrl.pathname}${requestUrl.search}`,
 				headers: getForwardHttpHeaders(request),
 				hasBody: request.body !== null,
+				binaryPayload: pendingResponse.useBinaryPayload,
+				responseBodyCredit: pendingResponse.useResponseBodyCredit,
 			});
 
 			if (request.body) {
@@ -399,7 +463,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 								pendingBodyBytes,
 							);
 
-							if (this.clientCapabilities.has("binary-payload")) {
+							if (pendingResponse.useBinaryPayload) {
 								await this.sendBinaryPayload(
 									tunnelSocket,
 									{
@@ -428,7 +492,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 							pendingBodyBytes,
 						);
 
-						if (this.clientCapabilities.has("binary-payload")) {
+						if (pendingResponse.useBinaryPayload) {
 							await this.sendBinaryPayload(
 								tunnelSocket,
 								{
@@ -483,6 +547,11 @@ export class HostcDurableObject extends DurableObject<Env> {
 			});
 			this.pendingResponses.delete(requestId);
 			pendingResponse.controller?.error(requestError);
+			await this.cancelLocalRequest(
+				tunnelSocket,
+				requestId,
+				requestError.message,
+			);
 
 			return this.createUnavailableTunnelResponse(
 				request,
@@ -495,11 +564,16 @@ export class HostcDurableObject extends DurableObject<Env> {
 	private async handleWebSocketProxyRequest(
 		request: Request,
 	): Promise<Response> {
-		const tunnelSocket = this.getTunnelSocket();
+		const tunnelConnection = this.getTunnelConnection();
 
-		if (!tunnelSocket) {
+		if (!tunnelConnection) {
 			return jsonError("No active tunnel is connected for this subdomain", 404);
 		}
+
+		const tunnelSocket = tunnelConnection.socket;
+		const useBinaryPayload = tunnelConnection.capabilities.has(
+			BINARY_PAYLOAD_CAPABILITY,
+		);
 
 		const requestUrl = new URL(request.url);
 		const requestId = crypto.randomUUID();
@@ -519,6 +593,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 				url: `${requestUrl.pathname}${requestUrl.search}`,
 				headers: getForwardWebSocketHeaders(request),
 				protocols: requestedProtocols,
+				binaryPayload: useBinaryPayload,
 			});
 
 			const accepted = await withTimeout(
@@ -537,6 +612,12 @@ export class HostcDurableObject extends DurableObject<Env> {
 			this.activeProxySockets.set(requestId, {
 				socket: serverSocket,
 				remoteClosed: false,
+				useBinaryPayload,
+			});
+			this.saveProxySocketAttachment(serverSocket, {
+				kind: "proxy",
+				requestId,
+				useBinaryPayload,
 			});
 
 			const responseHeaders = new Headers();
@@ -562,6 +643,17 @@ export class HostcDurableObject extends DurableObject<Env> {
 				TUNNEL_ERROR_CLOSE_CODE,
 				normalizeWebSocketCloseReason(requestError.message),
 			);
+			await this.sendMessage(tunnelSocket, {
+				type: "websocket-close",
+				requestId,
+				code: TUNNEL_ERROR_CLOSE_CODE,
+				reason: requestError.message,
+			}).catch((sendError) => {
+				logError("proxy.websocket_cancel_send_failed", {
+					requestId,
+					error: asErrorMessage(sendError),
+				});
+			});
 
 			return jsonError(requestError.message, 502);
 		} finally {
@@ -584,8 +676,44 @@ export class HostcDurableObject extends DurableObject<Env> {
 		return jsonError(message, status === "local_server_down" ? 502 : 404);
 	}
 
-	private handleTunnelMessage(message: TunnelClientMessage): void {
+	private handleTunnelMessage(ws: WebSocket, message: TunnelClientMessage): void {
 		switch (message.type) {
+			case "client-ready": {
+				if (message.protocolVersion !== TUNNEL_PROTOCOL_VERSION) {
+					this.queueMessage(ws, {
+						type: "error",
+						message: "Unsupported tunnel protocol version",
+					});
+					ws.close(1002, "Unsupported tunnel protocol version");
+					return;
+				}
+
+				const capabilities = normalizeClientCapabilities(message.capabilities);
+				const attachment = this.getControlSocketAttachment(ws);
+
+				if (!attachment) {
+					return;
+				}
+
+				this.saveControlSocketAttachment(ws, {
+					...attachment,
+					ready: true,
+					capabilities,
+				});
+
+				this.queueMessage(ws, {
+					type: "tunnel-accepted",
+					subdomain: this.getTunnelSubdomain(),
+					publicUrl: buildPublicUrl(
+						this.env.PUBLIC_BASE_DOMAIN,
+						this.getTunnelSubdomain(),
+					),
+					protocolVersion: TUNNEL_PROTOCOL_VERSION,
+					capabilities,
+				});
+				return;
+			}
+
 			case "response-start": {
 				const pendingResponse = this.pendingResponses.get(message.requestId);
 
@@ -722,9 +850,20 @@ export class HostcDurableObject extends DurableObject<Env> {
 				return;
 			}
 
-			case "client-capabilities":
-				this.clientCapabilities = new Set(message.capabilities);
+			case "client-capabilities": {
+				const capabilities = normalizeClientCapabilities(message.capabilities);
+				const attachment = this.getControlSocketAttachment(ws);
+
+				if (attachment) {
+					this.saveControlSocketAttachment(ws, {
+						...attachment,
+						ready: true,
+						capabilities,
+					});
+				}
+
 				return;
+			}
 
 			case "binary-payload":
 				return;
@@ -748,12 +887,12 @@ export class HostcDurableObject extends DurableObject<Env> {
 		message: string | ArrayBuffer,
 	): Promise<void> {
 		const activeProxySocket = this.getActiveProxySocket(requestId);
-		const tunnelSocket = this.getTunnelSocket();
+		const tunnelConnection = this.getTunnelConnection();
 
 		if (
 			!activeProxySocket ||
-			!tunnelSocket ||
-			tunnelSocket.readyState !== WebSocket.OPEN
+			!tunnelConnection ||
+			tunnelConnection.socket.readyState !== WebSocket.OPEN
 		) {
 			if (activeProxySocket && isSocketWritable(activeProxySocket.socket)) {
 				activeProxySocket.remoteClosed = true;
@@ -767,6 +906,8 @@ export class HostcDurableObject extends DurableObject<Env> {
 			return;
 		}
 
+		const tunnelSocket = tunnelConnection.socket;
+
 		try {
 			if (typeof message === "string") {
 				await this.sendMessage(tunnelSocket, {
@@ -775,7 +916,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 					chunk: encodeTextBase64(message),
 					isBinary: false,
 				});
-			} else if (this.clientCapabilities.has("binary-payload")) {
+			} else if (activeProxySocket.useBinaryPayload) {
 				await this.sendBinaryPayload(
 					tunnelSocket,
 					{
@@ -817,21 +958,21 @@ export class HostcDurableObject extends DurableObject<Env> {
 		reason: string,
 	): Promise<void> {
 		const activeProxySocket = this.getActiveProxySocket(requestId);
-		const tunnelSocket = this.getTunnelSocket();
+		const tunnelConnection = this.getTunnelConnection();
 		const remoteClosed = activeProxySocket?.remoteClosed ?? false;
 
 		this.activeProxySockets.delete(requestId);
 
 		if (
 			remoteClosed ||
-			!tunnelSocket ||
-			tunnelSocket.readyState !== WebSocket.OPEN
+			!tunnelConnection ||
+			tunnelConnection.socket.readyState !== WebSocket.OPEN
 		) {
 			return;
 		}
 
 		try {
-			await this.sendMessage(tunnelSocket, {
+			await this.sendMessage(tunnelConnection.socket, {
 				type: "websocket-close",
 				requestId,
 				code,
@@ -845,16 +986,42 @@ export class HostcDurableObject extends DurableObject<Env> {
 		}
 	}
 
-	private getTunnelSocket(): WebSocket | null {
+	private getTunnelConnection(): TunnelConnection | null {
 		if (
 			this.activeControlSocket &&
-			this.activeControlSocket.readyState !== WebSocket.CLOSED
+			this.activeControlSocket.readyState === WebSocket.OPEN
 		) {
-			return this.activeControlSocket;
+			const attachment = this.getControlSocketAttachment(
+				this.activeControlSocket,
+			);
+
+			if (attachment?.ready) {
+				return {
+					socket: this.activeControlSocket,
+					capabilities: new Set(attachment.capabilities),
+				};
+			}
 		}
 
 		this.restoreActiveControlSocket();
-		return this.activeControlSocket;
+
+		if (
+			!this.activeControlSocket ||
+			this.activeControlSocket.readyState !== WebSocket.OPEN
+		) {
+			return null;
+		}
+
+		const attachment = this.getControlSocketAttachment(this.activeControlSocket);
+
+		if (!attachment?.ready) {
+			return null;
+		}
+
+		return {
+			socket: this.activeControlSocket,
+			capabilities: new Set(attachment.capabilities),
+		};
 	}
 
 	private restoreActiveControlSocket(): void {
@@ -862,6 +1029,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 
 		if (sockets.length === 0) {
 			this.activeControlSocket = null;
+			this.activeControlGeneration = null;
 			return;
 		}
 
@@ -874,7 +1042,10 @@ export class HostcDurableObject extends DurableObject<Env> {
 			);
 		}
 
+		const attachment = this.getControlSocketAttachment(activeSocket);
+
 		this.activeControlSocket = activeSocket;
+		this.activeControlGeneration = attachment?.generation ?? null;
 	}
 
 	private getActiveProxySocket(requestId: string): ActiveProxySocket | null {
@@ -891,9 +1062,12 @@ export class HostcDurableObject extends DurableObject<Env> {
 				continue;
 			}
 
+			const attachment = this.getProxySocketAttachment(socket);
+
 			const restoredSocket: ActiveProxySocket = {
 				socket,
 				remoteClosed: false,
+				useBinaryPayload: attachment?.useBinaryPayload ?? false,
 			};
 
 			this.activeProxySockets.set(metadata.requestId, restoredSocket);
@@ -907,9 +1081,12 @@ export class HostcDurableObject extends DurableObject<Env> {
 	}
 
 	private disconnectExistingClients(): void {
+		const hadExistingClients =
+			this.ctx.getWebSockets(CONTROL_SOCKET_TAG).length > 0;
+
 		this.activeControlSocket = null;
+		this.activeControlGeneration = null;
 		this.pendingControlBinaryPayload = null;
-		this.clientCapabilities.clear();
 
 		for (const socket of this.ctx.getWebSockets(CONTROL_SOCKET_TAG)) {
 			socket.close(
@@ -917,11 +1094,21 @@ export class HostcDurableObject extends DurableObject<Env> {
 				"Replaced by a newer tunnel connection",
 			);
 		}
+
+		if (hadExistingClients) {
+			this.failPendingResponses(new Error("Tunnel connection replaced"));
+			this.failPendingUpgrades(new Error("Tunnel connection replaced"));
+			this.closeActiveProxySockets(
+				TUNNEL_REPLACED_CLOSE_CODE,
+				"Tunnel connection replaced",
+			);
+		}
 	}
 
 	private clearActiveControlSocket(socket: WebSocket): void {
 		if (this.activeControlSocket === socket) {
 			this.activeControlSocket = null;
+			this.activeControlGeneration = null;
 		}
 	}
 
@@ -933,9 +1120,12 @@ export class HostcDurableObject extends DurableObject<Env> {
 				continue;
 			}
 
+			const attachment = this.getProxySocketAttachment(socket);
+
 			this.activeProxySockets.set(metadata.requestId, {
 				socket,
 				remoteClosed: false,
+				useBinaryPayload: attachment?.useBinaryPayload ?? false,
 			});
 		}
 	}
@@ -1041,9 +1231,12 @@ export class HostcDurableObject extends DurableObject<Env> {
 		}
 
 		const grantPromise = (async () => {
-			const tunnelSocket = this.getTunnelSocket();
+			const tunnelConnection = this.getTunnelConnection();
 
-			if (!tunnelSocket || tunnelSocket.readyState !== WebSocket.OPEN) {
+			if (
+				!tunnelConnection ||
+				tunnelConnection.socket.readyState !== WebSocket.OPEN
+			) {
 				throw new Error("Tunnel connection is unavailable");
 			}
 
@@ -1055,7 +1248,7 @@ export class HostcDurableObject extends DurableObject<Env> {
 				pendingResponse.responseBodyCreditsOutstanding +=
 					RESPONSE_BODY_CREDIT_BATCH_BYTES;
 
-				await this.sendMessage(tunnelSocket, {
+				await this.sendMessage(tunnelConnection.socket, {
 					type: "response-body-credit",
 					requestId,
 					credit: RESPONSE_BODY_CREDIT_BATCH_BYTES,
@@ -1069,6 +1262,29 @@ export class HostcDurableObject extends DurableObject<Env> {
 
 		pendingResponse.responseBodyCreditGrant = grantPromise;
 		return grantPromise;
+	}
+
+	private async cancelLocalRequest(
+		socket: WebSocket,
+		requestId: string,
+		reason: string,
+	): Promise<void> {
+		if (socket.readyState !== WebSocket.OPEN) {
+			return;
+		}
+
+		try {
+			await this.sendMessage(socket, {
+				type: "request-cancel",
+				requestId,
+				reason,
+			});
+		} catch (error) {
+			logError("proxy.request_cancel_send_failed", {
+				requestId,
+				error: asErrorMessage(error),
+			});
+		}
 	}
 
 	private consumeResponseBodyCredit(
@@ -1143,6 +1359,55 @@ export class HostcDurableObject extends DurableObject<Env> {
 		return subdomain;
 	}
 
+	private isActiveControlSocket(ws: WebSocket): boolean {
+		if (this.activeControlSocket === ws) {
+			return true;
+		}
+
+		if (!this.activeControlSocket) {
+			this.restoreActiveControlSocket();
+		}
+
+		if (this.activeControlSocket === ws) {
+			return true;
+		}
+
+		const attachment = this.getControlSocketAttachment(ws);
+		return (
+			attachment !== null &&
+			this.activeControlGeneration !== null &&
+			attachment.generation === this.activeControlGeneration
+		);
+	}
+
+	private saveControlSocketAttachment(
+		ws: WebSocket,
+		attachment: ControlSocketAttachment,
+	): void {
+		getHibernatableWebSocket(ws).serializeAttachment(attachment);
+	}
+
+	private getControlSocketAttachment(
+		ws: WebSocket,
+	): ControlSocketAttachment | null {
+		const attachment = getHibernatableWebSocket(ws).deserializeAttachment();
+		return isControlSocketAttachment(attachment) ? attachment : null;
+	}
+
+	private saveProxySocketAttachment(
+		ws: WebSocket,
+		attachment: ProxySocketAttachment,
+	): void {
+		getHibernatableWebSocket(ws).serializeAttachment(attachment);
+	}
+
+	private getProxySocketAttachment(
+		ws: WebSocket,
+	): ProxySocketAttachment | null {
+		const attachment = getHibernatableWebSocket(ws).deserializeAttachment();
+		return isProxySocketAttachment(attachment) ? attachment : null;
+	}
+
 	private getSocketMetadata(ws: WebSocket): SocketMetadata | null {
 		const tags = this.ctx.getTags(ws);
 
@@ -1185,6 +1450,42 @@ function createDeferred<T>(): Deferred<T> {
 		resolve,
 		reject,
 	};
+}
+
+function normalizeClientCapabilities(capabilities: string[]): string[] {
+	return SERVER_CAPABILITIES.filter((capability) =>
+		capabilities.includes(capability),
+	);
+}
+
+function getHibernatableWebSocket(ws: WebSocket): HibernatableWebSocket {
+	return ws as HibernatableWebSocket;
+}
+
+function isControlSocketAttachment(
+	value: unknown,
+): value is ControlSocketAttachment {
+	return (
+		isRecord(value) &&
+		value.kind === "control" &&
+		typeof value.generation === "string" &&
+		typeof value.ready === "boolean" &&
+		Array.isArray(value.capabilities) &&
+		value.capabilities.every((capability) => typeof capability === "string")
+	);
+}
+
+function isProxySocketAttachment(value: unknown): value is ProxySocketAttachment {
+	return (
+		isRecord(value) &&
+		value.kind === "proxy" &&
+		typeof value.requestId === "string" &&
+		typeof value.useBinaryPayload === "boolean"
+	);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 function getForwardHttpHeaders(request: Request): HeaderEntry[] {

@@ -28,6 +28,7 @@ test("parses websocket tunnel server messages", () => {
 				type: "tunnel-ready",
 				subdomain: "test",
 				publicUrl: "https://test.example.com",
+				protocolVersion: 2,
 				capabilities: ["binary-payload"],
 			}),
 		),
@@ -35,7 +36,27 @@ test("parses websocket tunnel server messages", () => {
 			type: "tunnel-ready",
 			subdomain: "test",
 			publicUrl: "https://test.example.com",
+			protocolVersion: 2,
 			capabilities: ["binary-payload"],
+		},
+	);
+
+	assert.deepStrictEqual(
+		parseTunnelServerMessage(
+			JSON.stringify({
+				type: "tunnel-accepted",
+				subdomain: "test",
+				publicUrl: "https://test.example.com",
+				protocolVersion: 2,
+				capabilities: ["binary-payload", "response-body-credit"],
+			}),
+		),
+		{
+			type: "tunnel-accepted",
+			subdomain: "test",
+			publicUrl: "https://test.example.com",
+			protocolVersion: 2,
+			capabilities: ["binary-payload", "response-body-credit"],
 		},
 	);
 
@@ -47,6 +68,7 @@ test("parses websocket tunnel server messages", () => {
 				url: "/socket?room=demo",
 				headers: [["authorization", "Bearer demo"]],
 				protocols: ["chat", "json"],
+				binaryPayload: true,
 			}),
 		),
 		{
@@ -55,6 +77,87 @@ test("parses websocket tunnel server messages", () => {
 			url: "/socket?room=demo",
 			headers: [["authorization", "Bearer demo"]],
 			protocols: ["chat", "json"],
+			binaryPayload: true,
+		},
+	);
+
+	assert.deepStrictEqual(
+		parseTunnelServerMessage(
+			JSON.stringify({
+				type: "websocket-connect",
+				requestId: "req-legacy-ws",
+				url: "/socket",
+				headers: [],
+				protocols: [],
+			}),
+		),
+		{
+			type: "websocket-connect",
+			requestId: "req-legacy-ws",
+			url: "/socket",
+			headers: [],
+			protocols: [],
+		},
+	);
+
+	assert.deepStrictEqual(
+		parseTunnelServerMessage(
+			JSON.stringify({
+				type: "request-start",
+				requestId: "req-1",
+				method: "POST",
+				url: "/submit",
+				headers: [["content-type", "application/json"]],
+				hasBody: true,
+				binaryPayload: true,
+				responseBodyCredit: true,
+			}),
+		),
+		{
+			type: "request-start",
+			requestId: "req-1",
+			method: "POST",
+			url: "/submit",
+			headers: [["content-type", "application/json"]],
+			hasBody: true,
+			binaryPayload: true,
+			responseBodyCredit: true,
+		},
+	);
+
+	assert.deepStrictEqual(
+		parseTunnelServerMessage(
+			JSON.stringify({
+				type: "request-start",
+				requestId: "req-legacy-http",
+				method: "GET",
+				url: "/",
+				headers: [],
+				hasBody: false,
+			}),
+		),
+		{
+			type: "request-start",
+			requestId: "req-legacy-http",
+			method: "GET",
+			url: "/",
+			headers: [],
+			hasBody: false,
+		},
+	);
+
+	assert.deepStrictEqual(
+		parseTunnelServerMessage(
+			JSON.stringify({
+				type: "request-cancel",
+				requestId: "req-1",
+				reason: "client closed",
+			}),
+		),
+		{
+			type: "request-cancel",
+			requestId: "req-1",
+			reason: "client closed",
 		},
 	);
 
@@ -185,6 +288,21 @@ test("parses websocket tunnel client messages", () => {
 	assert.deepStrictEqual(
 		parseTunnelClientMessage(
 			JSON.stringify({
+				type: "client-ready",
+				protocolVersion: 2,
+				capabilities: ["binary-payload", "response-body-credit"],
+			}),
+		),
+		{
+			type: "client-ready",
+			protocolVersion: 2,
+			capabilities: ["binary-payload", "response-body-credit"],
+		},
+	);
+
+	assert.deepStrictEqual(
+		parseTunnelClientMessage(
+			JSON.stringify({
 				type: "websocket-frame",
 				requestId: "req-2",
 				chunk: "AQIDBA==",
@@ -224,6 +342,34 @@ test("rejects malformed websocket messages", () => {
 				url: "/socket",
 				headers: [["x-test", "1"]],
 				protocols: [123],
+				binaryPayload: true,
+			}),
+		),
+		null,
+	);
+
+	assert.equal(
+		parseTunnelServerMessage(
+			JSON.stringify({
+				type: "request-start",
+				requestId: "req-3",
+				method: "GET",
+				url: "/",
+				headers: [],
+				hasBody: false,
+				binaryPayload: "yes",
+				responseBodyCredit: false,
+			}),
+		),
+		null,
+	);
+
+	assert.equal(
+		parseTunnelClientMessage(
+			JSON.stringify({
+				type: "client-ready",
+				protocolVersion: "2",
+				capabilities: ["binary-payload"],
 			}),
 		),
 		null,
