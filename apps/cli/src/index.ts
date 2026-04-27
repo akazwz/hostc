@@ -4,6 +4,7 @@ import type { IncomingMessage } from "node:http";
 import {
 	type BinaryPayloadMessage,
 	buildTunnelRefreshPath,
+	CLI_ERROR_REPORTS_API_PATH,
 	type CreateTunnelResponse,
 	type HeaderEntry,
 	parseCreateTunnelResponse,
@@ -75,6 +76,7 @@ class CliError extends Error {
 	constructor(
 		message: string,
 		readonly alreadyReported = false,
+		readonly reportable = false,
 	) {
 		super(message);
 		this.name = "CliError";
@@ -83,13 +85,17 @@ class CliError extends Error {
 
 const DEFAULT_SERVER = "https://hostc.dev";
 const CLI_PACKAGE_NAME = "hostc";
-const CLI_VERSION = "1.2.3";
+const CLI_VERSION = "1.2.5";
 const NPM_LATEST_PACKAGE_URL = `https://registry.npmjs.org/${CLI_PACKAGE_NAME}/latest`;
 const SERVER_OVERRIDE_ENV = "HOSTC_SERVER_URL";
 const DISABLE_UPDATE_CHECK_ENV = "HOSTC_DISABLE_UPDATE_CHECK";
+const DISABLE_ERROR_REPORTING_ENV = "HOSTC_DISABLE_ERROR_REPORTING";
 const NO_UPDATE_NOTIFIER_ENV = "NO_UPDATE_NOTIFIER";
+const DO_NOT_TRACK_ENV = "DO_NOT_TRACK";
+const DEFAULT_LOCAL_HOST = "localhost";
 const SPINNER_FRAMES = ["-", "\\", "|", "/"];
 const UPDATE_CHECK_TIMEOUT_MS = 1500;
+const ERROR_REPORT_TIMEOUT_MS = 1200;
 const SESSION_REFRESH_INTERVAL_MS = 5 * 60_000;
 const SESSION_REFRESH_RETRY_MS = 30_000;
 const DEFAULT_WEBSOCKET_CLOSE_CODE = 1011;
@@ -140,7 +146,7 @@ async function main(): Promise<void> {
 			"--local-host <host>",
 			"Host of the local service",
 			parseLocalHost,
-			"127.0.0.1",
+			DEFAULT_LOCAL_HOST,
 		)
 		.option(
 			"--qr",
@@ -277,7 +283,7 @@ async function runHttpTunnel(options: HttpTunnelOptions): Promise<void> {
 					spinner.fail(message);
 				}
 
-				throw new CliError(message, true);
+				throw new CliError(message, true, true);
 			}
 
 			activeSocket = null;
@@ -325,10 +331,12 @@ async function runHttpTunnel(options: HttpTunnelOptions): Promise<void> {
 	}
 }
 
-void main().catch((error) => {
+void main().catch(async (error) => {
 	if (!(error instanceof CliError && error.alreadyReported)) {
 		console.error(chalk.red(formatError(error)));
 	}
+
+	await reportCliErrorIfNeeded(error);
 
 	process.exit(1);
 });
@@ -536,6 +544,96 @@ async function notifyCliUpdateIfAvailable(): Promise<void> {
 	console.error(chalk.gray(`Run: npm install -g ${CLI_PACKAGE_NAME}@latest`));
 }
 
+async function reportCliErrorIfNeeded(error: unknown): Promise<void> {
+	if (!shouldReportCliError(error)) {
+		return;
+	}
+
+	const controller = new AbortController();
+	const timeout = setTimeout(() => {
+		controller.abort();
+	}, ERROR_REPORT_TIMEOUT_MS);
+	timeout.unref?.();
+
+	try {
+		await fetch(new URL(CLI_ERROR_REPORTS_API_PATH, DEFAULT_SERVER), {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"user-agent": `${CLI_PACKAGE_NAME}/${CLI_VERSION}`,
+			},
+			body: JSON.stringify(buildCliErrorReport(error)),
+			signal: controller.signal,
+		});
+	} catch {
+		// Error reporting must never make the original CLI failure noisier.
+	} finally {
+		clearTimeout(timeout);
+	}
+}
+
+function shouldReportCliError(error: unknown): boolean {
+	if (process.env[SERVER_OVERRIDE_ENV] !== undefined) {
+		return false;
+	}
+
+	if (
+		isTruthyEnvValue(process.env[DISABLE_ERROR_REPORTING_ENV]) ||
+		isTruthyEnvValue(process.env[DO_NOT_TRACK_ENV])
+	) {
+		return false;
+	}
+
+	if (error instanceof InvalidArgumentError) {
+		return false;
+	}
+
+	if (error instanceof CliError) {
+		return error.reportable;
+	}
+
+	return true;
+}
+
+function buildCliErrorReport(error: unknown): Record<string, string | null> {
+	const errorObject = error instanceof Error ? error : null;
+	const errorName = errorObject?.name ?? typeof error;
+	const errorMessage = formatError(error);
+	const stack = errorObject?.stack ?? null;
+
+	return {
+		cliVersion: CLI_VERSION,
+		nodeVersion: process.version,
+		platform: process.platform,
+		arch: process.arch,
+		command: "tunnel",
+		errorName: sanitizeReportText(errorName, 80),
+		errorMessage: sanitizeReportText(errorMessage, 500),
+		stack: stack ? sanitizeReportText(stack, 4 * 1024) : null,
+	};
+}
+
+function sanitizeReportText(value: string, maxLength: number): string {
+	let sanitized = value;
+
+	for (const replacement of [process.cwd(), process.env.HOME ?? ""]) {
+		if (replacement) {
+			sanitized = sanitized.split(replacement).join("<path>");
+		}
+	}
+
+	sanitized = sanitized
+		.replace(/Bearer\s+[^\s]+/gi, "Bearer <redacted>")
+		.replace(
+			/([?&](?:token|sessionToken|connectToken)=)[^&\s]+/gi,
+			"$1<redacted>",
+		)
+		.replace(/(authorization[:=]\s*)[^\s]+/gi, "$1<redacted>")
+		.replace(/(HOSTC_[A-Z_]*(?:TOKEN|SECRET)[A-Z_]*=)[^\s]+/g, "$1<redacted>");
+
+	return sanitized.slice(0, maxLength);
+}
+
 function shouldCheckForCliUpdate(): boolean {
 	if (!process.stderr.isTTY) {
 		return false;
@@ -545,8 +643,10 @@ function shouldCheckForCliUpdate(): boolean {
 		return false;
 	}
 
-	return !isTruthyEnvValue(process.env[DISABLE_UPDATE_CHECK_ENV]) &&
-		!isTruthyEnvValue(process.env[NO_UPDATE_NOTIFIER_ENV]);
+	return (
+		!isTruthyEnvValue(process.env[DISABLE_UPDATE_CHECK_ENV]) &&
+		!isTruthyEnvValue(process.env[NO_UPDATE_NOTIFIER_ENV])
+	);
 }
 
 async function fetchLatestCliVersion(): Promise<string | null> {
@@ -920,7 +1020,9 @@ async function openTunnelConnection(options: {
 
 			switch (message.type) {
 				case "tunnel-ready": {
-					const capabilities = negotiateCapabilities(message.capabilities ?? []);
+					const capabilities = negotiateCapabilities(
+						message.capabilities ?? [],
+					);
 
 					if (message.protocolVersion === undefined) {
 						legacyCapabilities = new Set(capabilities);

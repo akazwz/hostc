@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.5] - 2026-04-27
+
+### 变更
+- CLI 默认本地服务 host 从 `127.0.0.1` 调整为 `localhost`，可通过 `--local-host 127.0.0.1` 回退
+
+## [1.2.4] - 2026-04-27
+
+### 新增
+- CLI 遇到可上报的 fatal error 时会上传脱敏错误摘要，可通过 `HOSTC_DISABLE_ERROR_REPORTING=1` 或 `DO_NOT_TRACK=1` 关闭
+
 ## [1.2.3] - 2026-04-27
 
 ### 新增

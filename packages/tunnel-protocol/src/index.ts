@@ -1,4 +1,5 @@
 export const TUNNELS_API_PATH = "/api/tunnels";
+export const CLI_ERROR_REPORTS_API_PATH = "/api/cli-errors";
 
 export type HeaderEntry = [name: string, value: string];
 

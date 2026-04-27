@@ -13,7 +13,8 @@
 		"cf-typegen": "wrangler types"
 	},
 	"dependencies": {
-		"@hostc/tunnel-protocol": "workspace:*"
+		"@hostc/tunnel-protocol": "workspace:*",
+		"hono": "^4.12.15"
 	},
 	"devDependencies": {
 		"@types/node": "^25.6.0",

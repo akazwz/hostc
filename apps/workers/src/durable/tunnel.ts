@@ -676,7 +676,10 @@ export class HostcDurableObject extends DurableObject<Env> {
 		return jsonError(message, status === "local_server_down" ? 502 : 404);
 	}
 
-	private handleTunnelMessage(ws: WebSocket, message: TunnelClientMessage): void {
+	private handleTunnelMessage(
+		ws: WebSocket,
+		message: TunnelClientMessage,
+	): void {
 		switch (message.type) {
 			case "client-ready": {
 				if (message.protocolVersion !== TUNNEL_PROTOCOL_VERSION) {
@@ -1012,7 +1015,9 @@ export class HostcDurableObject extends DurableObject<Env> {
 			return null;
 		}
 
-		const attachment = this.getControlSocketAttachment(this.activeControlSocket);
+		const attachment = this.getControlSocketAttachment(
+			this.activeControlSocket,
+		);
 
 		if (!attachment?.ready) {
 			return null;
@@ -1475,7 +1480,9 @@ function isControlSocketAttachment(
 	);
 }
 
-function isProxySocketAttachment(value: unknown): value is ProxySocketAttachment {
+function isProxySocketAttachment(
+	value: unknown,
+): value is ProxySocketAttachment {
 	return (
 		isRecord(value) &&
 		value.kind === "proxy" &&

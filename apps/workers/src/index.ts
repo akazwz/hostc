@@ -1,11 +1,14 @@
 import {
 	buildPublicUrl,
+	CLI_ERROR_REPORTS_API_PATH,
 	type CreateTunnelResponse,
 	normalizeSubdomain,
 	type RefreshTunnelSessionResponse,
 	TUNNELS_API_PATH,
 } from "@hostc/tunnel-protocol";
+import { Hono } from "hono";
 import { HostcDurableObject } from "./durable/tunnel";
+import { createCliErrorReport } from "./lib/cli-errors";
 import { createConnectToken, verifyConnectToken } from "./lib/connect-token";
 import { createSessionToken, verifySessionToken } from "./lib/session-token";
 import { canServeStaticAsset, serveStaticAsset } from "./lib/static-site";
@@ -18,9 +21,69 @@ import {
 import { createWaitlistSignup } from "./lib/waitlist";
 
 const INTERNAL_CONNECT_PATH = "/_internal/connect";
-const CONNECT_ROUTE_SUFFIX = "/connect";
-const REFRESH_ROUTE_SUFFIX = "/refresh";
 const WAITLIST_API_PATH = "/api/waitlist";
+
+const app = new Hono<{ Bindings: Env }>();
+
+app.post(WAITLIST_API_PATH, (context) =>
+	createWaitlistSignup(
+		context.req.raw,
+		context.env.DB,
+		context.env.WAITLIST_RATE_LIMITER,
+	),
+);
+
+app.post(CLI_ERROR_REPORTS_API_PATH, (context) =>
+	createCliErrorReport(
+		context.req.raw,
+		context.env.DB,
+		context.env.WAITLIST_RATE_LIMITER,
+	),
+);
+
+app.post(TUNNELS_API_PATH, (context) =>
+	createTunnel(context.env, new URL(context.req.url)),
+);
+
+app.post(`${TUNNELS_API_PATH}/:tunnelId/refresh`, (context) =>
+	refreshTunnelSession(
+		context.req.raw,
+		context.env,
+		context.req.param("tunnelId"),
+		new URL(context.req.url),
+	),
+);
+
+app.get(`${TUNNELS_API_PATH}/:tunnelId/connect`, (context) =>
+	connectTunnel(
+		context.req.raw,
+		context.env,
+		context.req.param("tunnelId"),
+		new URL(context.req.url).search,
+	),
+);
+
+app.all("/api/*", () => new Response("Not Found", { status: 404 }));
+
+app.all("*", (context) => {
+	if (canServeStaticAsset(context.req.raw)) {
+		return serveStaticAsset(context.req.raw, context.env);
+	}
+
+	return new Response("Not Found", { status: 404 });
+});
+
+app.onError((error, context) => {
+	console.error(
+		JSON.stringify({
+			event: "worker.unhandled_error",
+			error: asErrorMessage(error),
+			path: new URL(context.req.url).pathname,
+		}),
+	);
+
+	return jsonError("Internal server error", 500);
+});
 
 const worker: ExportedHandler<Env> = {
 	async fetch(request, env): Promise<Response> {
@@ -61,42 +124,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 		});
 	}
 
-	if (request.method === "POST" && url.pathname === WAITLIST_API_PATH) {
-		return createWaitlistSignup(request, env.DB, env.WAITLIST_RATE_LIMITER);
-	}
-
-	if (request.method === "POST" && url.pathname === TUNNELS_API_PATH) {
-		return createTunnel(env, url);
-	}
-
-	const refreshTunnelId = matchTunnelRouteId(
-		url.pathname,
-		REFRESH_ROUTE_SUFFIX,
-	);
-
-	if (request.method === "POST" && refreshTunnelId) {
-		return refreshTunnelSession(request, env, refreshTunnelId, url);
-	}
-
-	const tunnelId = matchTunnelRouteId(url.pathname, CONNECT_ROUTE_SUFFIX);
-
-	if (request.method === "GET" && tunnelId) {
-		return connectTunnel(request, env, tunnelId, url.search);
-	}
-
-	if (url.pathname.startsWith("/api/")) {
-		return new Response("Not Found", {
-			status: 404,
-		});
-	}
-
-	if (canServeStaticAsset(request)) {
-		return serveStaticAsset(request, env);
-	}
-
-	return new Response("Not Found", {
-		status: 404,
-	});
+	return app.fetch(request, env);
 }
 
 async function createTunnel(env: Env, requestUrl: URL): Promise<Response> {
@@ -157,26 +185,6 @@ async function connectTunnel(
 	return tunnelStub.fetch(
 		new Request(`https://hostc.internal${INTERNAL_CONNECT_PATH}`, request),
 	);
-}
-
-function matchTunnelRouteId(pathname: string, suffix: string): string | null {
-	const prefix = `${TUNNELS_API_PATH}/`;
-
-	if (!pathname.startsWith(prefix) || !pathname.endsWith(suffix)) {
-		return null;
-	}
-
-	const tunnelId = pathname.slice(prefix.length, -suffix.length);
-
-	if (!tunnelId || tunnelId.includes("/")) {
-		return null;
-	}
-
-	try {
-		return decodeURIComponent(tunnelId);
-	} catch {
-		return null;
-	}
 }
 
 async function issueTunnelSession(
