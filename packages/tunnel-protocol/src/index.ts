@@ -19,7 +19,16 @@ export type TunnelReadyMessage = {
 	type: "tunnel-ready";
 	subdomain: string;
 	publicUrl: string;
+	protocolVersion?: number;
 	capabilities?: string[];
+};
+
+export type TunnelAcceptedMessage = {
+	type: "tunnel-accepted";
+	subdomain: string;
+	publicUrl: string;
+	protocolVersion: number;
+	capabilities: string[];
 };
 
 export type ErrorMessage = {
@@ -34,6 +43,14 @@ export type RequestStartMessage = {
 	url: string;
 	headers: HeaderEntry[];
 	hasBody: boolean;
+	binaryPayload?: boolean;
+	responseBodyCredit?: boolean;
+};
+
+export type RequestCancelMessage = {
+	type: "request-cancel";
+	requestId: string;
+	reason: string;
 };
 
 export type RequestBodyMessage = {
@@ -69,12 +86,19 @@ export type ClientCapabilitiesMessage = {
 	capabilities: string[];
 };
 
+export type ClientReadyMessage = {
+	type: "client-ready";
+	protocolVersion: number;
+	capabilities: string[];
+};
+
 export type WebSocketConnectMessage = {
 	type: "websocket-connect";
 	requestId: string;
 	url: string;
 	headers: HeaderEntry[];
 	protocols: string[];
+	binaryPayload?: boolean;
 };
 
 export type WebSocketAcceptMessage = {
@@ -131,11 +155,13 @@ export type ResponseErrorMessage = {
 
 export type TunnelServerMessage =
 	| TunnelReadyMessage
+	| TunnelAcceptedMessage
 	| ErrorMessage
 	| RequestStartMessage
 	| RequestBodyMessage
 	| BinaryPayloadMessage
 	| RequestEndMessage
+	| RequestCancelMessage
 	| ResponseBodyCreditMessage
 	| WebSocketConnectMessage
 	| WebSocketFrameMessage
@@ -143,6 +169,7 @@ export type TunnelServerMessage =
 
 export type TunnelClientMessage =
 	| ErrorMessage
+	| ClientReadyMessage
 	| ClientCapabilitiesMessage
 	| ResponseStartMessage
 	| ResponseBodyMessage
@@ -245,7 +272,18 @@ function isTunnelServerMessage(
 			return (
 				isString(value.subdomain) &&
 				isString(value.publicUrl) &&
+				isOptionalNumber(value.protocolVersion) &&
+				(value.protocolVersion === undefined ||
+					Number.isInteger(value.protocolVersion)) &&
 				(value.capabilities === undefined || isStringArray(value.capabilities))
+			);
+		case "tunnel-accepted":
+			return (
+				isString(value.subdomain) &&
+				isString(value.publicUrl) &&
+				typeof value.protocolVersion === "number" &&
+				Number.isInteger(value.protocolVersion) &&
+				isStringArray(value.capabilities)
 			);
 		case "error":
 			return isString(value.message);
@@ -255,7 +293,9 @@ function isTunnelServerMessage(
 				isString(value.method) &&
 				isString(value.url) &&
 				isHeaderEntries(value.headers) &&
-				typeof value.hasBody === "boolean"
+				typeof value.hasBody === "boolean" &&
+				isOptionalBoolean(value.binaryPayload) &&
+				isOptionalBoolean(value.responseBodyCredit)
 			);
 		case "request-body":
 			return isString(value.requestId) && isString(value.chunk);
@@ -263,6 +303,8 @@ function isTunnelServerMessage(
 			return isString(value.requestId) && isBinaryPayloadStream(value.stream);
 		case "request-end":
 			return isString(value.requestId);
+		case "request-cancel":
+			return isString(value.requestId) && isString(value.reason);
 		case "response-body-credit":
 			return (
 				isString(value.requestId) &&
@@ -275,7 +317,8 @@ function isTunnelServerMessage(
 				isString(value.requestId) &&
 				isString(value.url) &&
 				isHeaderEntries(value.headers) &&
-				isStringArray(value.protocols)
+				isStringArray(value.protocols) &&
+				isOptionalBoolean(value.binaryPayload)
 			);
 		case "websocket-frame":
 			return (
@@ -300,6 +343,12 @@ function isTunnelClientMessage(
 	switch (value.type) {
 		case "error":
 			return isString(value.message);
+		case "client-ready":
+			return (
+				typeof value.protocolVersion === "number" &&
+				Number.isInteger(value.protocolVersion) &&
+				isStringArray(value.capabilities)
+			);
 		case "client-capabilities":
 			return isStringArray(value.capabilities);
 		case "response-start":
@@ -392,6 +441,10 @@ function isString(value: unknown): value is string {
 
 function isOptionalNumber(value: unknown): value is number | undefined {
 	return value === undefined || typeof value === "number";
+}
+
+function isOptionalBoolean(value: unknown): value is boolean | undefined {
+	return value === undefined || typeof value === "boolean";
 }
 
 function isOptionalString(value: unknown): value is string | undefined {

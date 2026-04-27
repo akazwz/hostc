@@ -37,6 +37,7 @@ type RequestInitWithDuplex = RequestInit & {
 
 type LocalRequestContext = {
 	abortController: AbortController;
+	cancelled: boolean;
 	writer: WritableStreamDefaultWriter<Uint8Array> | null;
 	writeChain: Promise<void>;
 	responseBodyCreditBytes: number;
@@ -48,6 +49,7 @@ type LocalWebSocketContext = {
 	opened: boolean;
 	remoteClosed: boolean;
 	handshakeSettled: boolean;
+	useBinaryPayload: boolean;
 };
 
 type Spinner = {
@@ -80,13 +82,22 @@ class CliError extends Error {
 }
 
 const DEFAULT_SERVER = "https://hostc.dev";
+const CLI_PACKAGE_NAME = "hostc";
+const CLI_VERSION = "1.2.3";
+const NPM_LATEST_PACKAGE_URL = `https://registry.npmjs.org/${CLI_PACKAGE_NAME}/latest`;
 const SERVER_OVERRIDE_ENV = "HOSTC_SERVER_URL";
+const DISABLE_UPDATE_CHECK_ENV = "HOSTC_DISABLE_UPDATE_CHECK";
+const NO_UPDATE_NOTIFIER_ENV = "NO_UPDATE_NOTIFIER";
 const SPINNER_FRAMES = ["-", "\\", "|", "/"];
+const UPDATE_CHECK_TIMEOUT_MS = 1500;
 const SESSION_REFRESH_INTERVAL_MS = 5 * 60_000;
 const SESSION_REFRESH_RETRY_MS = 30_000;
 const DEFAULT_WEBSOCKET_CLOSE_CODE = 1011;
 const TUNNEL_REPLACED_CLOSE_CODE = 1012;
 const HTTP_BODY_BATCH_TARGET_BYTES = 32 * 1024;
+const TUNNEL_PROTOCOL_VERSION = 2;
+const BINARY_PAYLOAD_CAPABILITY = "binary-payload";
+const RESPONSE_BODY_CREDIT_CAPABILITY = "response-body-credit";
 const TUNNEL_SOCKET_BACKPRESSURE_HIGH_WATERMARK = 256 * 1024;
 const TUNNEL_SOCKET_BACKPRESSURE_LOW_WATERMARK = 64 * 1024;
 const TUNNEL_SOCKET_BACKPRESSURE_POLL_MS = 4;
@@ -119,7 +130,7 @@ async function main(): Promise<void> {
 		.description(
 			"Expose a local web service (HTTP + WebSocket) through a hostc tunnel",
 		)
-		.version("1.2.2")
+		.version(CLI_VERSION)
 		.showHelpAfterError();
 
 	program
@@ -154,6 +165,8 @@ async function main(): Promise<void> {
 }
 
 async function runHttpTunnel(options: HttpTunnelOptions): Promise<void> {
+	await notifyCliUpdateIfAvailable();
+
 	const tunnelServer = resolveTunnelServerUrl();
 	const localOrigin = buildLocalOrigin(options.localHost, options.port);
 	const spinner = createSpinner(`Creating tunnel -> ${localOrigin.href}`);
@@ -504,6 +517,113 @@ function invokeOptionalCallback(callback: (() => void) | null): void {
 	}
 }
 
+async function notifyCliUpdateIfAvailable(): Promise<void> {
+	if (!shouldCheckForCliUpdate()) {
+		return;
+	}
+
+	const latestVersion = await fetchLatestCliVersion();
+
+	if (!latestVersion || !isVersionGreater(latestVersion, CLI_VERSION)) {
+		return;
+	}
+
+	console.error(
+		chalk.yellow(
+			`Update available: ${CLI_PACKAGE_NAME} ${CLI_VERSION} -> ${latestVersion}`,
+		),
+	);
+	console.error(chalk.gray(`Run: npm install -g ${CLI_PACKAGE_NAME}@latest`));
+}
+
+function shouldCheckForCliUpdate(): boolean {
+	if (!process.stderr.isTTY) {
+		return false;
+	}
+
+	if (process.env[SERVER_OVERRIDE_ENV] !== undefined) {
+		return false;
+	}
+
+	return !isTruthyEnvValue(process.env[DISABLE_UPDATE_CHECK_ENV]) &&
+		!isTruthyEnvValue(process.env[NO_UPDATE_NOTIFIER_ENV]);
+}
+
+async function fetchLatestCliVersion(): Promise<string | null> {
+	const controller = new AbortController();
+	const timeout = setTimeout(() => {
+		controller.abort();
+	}, UPDATE_CHECK_TIMEOUT_MS);
+	timeout.unref?.();
+
+	try {
+		const response = await fetch(NPM_LATEST_PACKAGE_URL, {
+			headers: {
+				accept: "application/json",
+				"user-agent": `${CLI_PACKAGE_NAME}/${CLI_VERSION}`,
+			},
+			signal: controller.signal,
+		});
+
+		if (!response.ok) {
+			return null;
+		}
+
+		const parsed: unknown = await response.json();
+
+		if (!isRecord(parsed) || typeof parsed.version !== "string") {
+			return null;
+		}
+
+		return parsed.version;
+	} catch {
+		return null;
+	} finally {
+		clearTimeout(timeout);
+	}
+}
+
+function isVersionGreater(candidate: string, current: string): boolean {
+	const candidateVersion = parseSemver(candidate);
+	const currentVersion = parseSemver(current);
+
+	if (!candidateVersion || !currentVersion) {
+		return false;
+	}
+
+	for (let index = 0; index < candidateVersion.length; index += 1) {
+		if (candidateVersion[index] !== currentVersion[index]) {
+			return candidateVersion[index] > currentVersion[index];
+		}
+	}
+
+	return false;
+}
+
+function parseSemver(value: string): [number, number, number] | null {
+	const match = /^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(value.trim());
+
+	if (!match) {
+		return null;
+	}
+
+	return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function isTruthyEnvValue(value: string | undefined): boolean {
+	if (value === undefined) {
+		return false;
+	}
+
+	return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}
+
+function negotiateCapabilities(serverCapabilities: string[]): string[] {
+	return [BINARY_PAYLOAD_CAPABILITY, RESPONSE_BODY_CREDIT_CAPABILITY].filter(
+		(capability) => serverCapabilities.includes(capability),
+	);
+}
+
 function buildCreateTunnelUrl(server: string): string {
 	const serverUrl = new URL(server);
 
@@ -645,8 +765,7 @@ async function openTunnelConnection(options: {
 	const localSockets = new Map<string, LocalWebSocketContext>();
 	let sendQueue = Promise.resolve();
 	let pendingBinaryPayload: BinaryPayloadMessage | null = null;
-	let useBinaryPayload = false;
-	let useResponseBodyCredit = false;
+	let legacyCapabilities = new Set<string>();
 	let opened = false;
 	let ready = false;
 
@@ -724,6 +843,47 @@ async function openTunnelConnection(options: {
 			});
 		});
 
+		function markTunnelReady(publicUrl: string): void {
+			if (ready) {
+				return;
+			}
+
+			ready = true;
+			options.onReady();
+
+			if (options.initialConnection) {
+				options.spinner.succeed(
+					`Tunnel ready ${options.tunnel.subdomain} -> ${options.localOrigin.href}`,
+				);
+				logPublicUrl(publicUrl, options.qr);
+				return;
+			}
+
+			console.log(
+				chalk.green(
+					`Tunnel reconnected ${options.tunnel.subdomain} -> ${options.localOrigin.href}`,
+				),
+			);
+		}
+
+		function shouldUseBinaryPayload(
+			message: RequestStartMessage | WebSocketConnectMessage,
+		): boolean {
+			return (
+				message.binaryPayload ??
+				legacyCapabilities.has(BINARY_PAYLOAD_CAPABILITY)
+			);
+		}
+
+		function shouldUseResponseBodyCredit(
+			message: RequestStartMessage,
+		): boolean {
+			return (
+				message.responseBodyCredit ??
+				legacyCapabilities.has(RESPONSE_BODY_CREDIT_CAPABILITY)
+			);
+		}
+
 		async function handleServerMessage(event: MessageEvent): Promise<void> {
 			const incomingMessage = await readTunnelSocketMessage(event.data);
 
@@ -759,44 +919,42 @@ async function openTunnelConnection(options: {
 			}
 
 			switch (message.type) {
-				case "tunnel-ready":
-					if (!ready) {
-						ready = true;
-						options.onReady();
+				case "tunnel-ready": {
+					const capabilities = negotiateCapabilities(message.capabilities ?? []);
 
-						const negotiatedCapabilities: string[] = [];
+					if (message.protocolVersion === undefined) {
+						legacyCapabilities = new Set(capabilities);
 
-						if (message.capabilities?.includes("binary-payload")) {
-							useBinaryPayload = true;
-							negotiatedCapabilities.push("binary-payload");
-						}
-
-						if (message.capabilities?.includes("response-body-credit")) {
-							useResponseBodyCredit = true;
-							negotiatedCapabilities.push("response-body-credit");
-						}
-
-						if (negotiatedCapabilities.length > 0) {
+						if (capabilities.length > 0) {
 							queueBackgroundMessage({
 								type: "client-capabilities",
-								capabilities: negotiatedCapabilities,
+								capabilities,
 							});
 						}
 
-						if (options.initialConnection) {
-							options.spinner.succeed(
-								`Tunnel ready ${options.tunnel.subdomain} -> ${options.localOrigin.href}`,
-							);
-							logPublicUrl(message.publicUrl, options.qr);
-						} else {
-							console.log(
-								chalk.green(
-									`Tunnel reconnected ${options.tunnel.subdomain} -> ${options.localOrigin.href}`,
-								),
-							);
-						}
+						markTunnelReady(message.publicUrl);
+						return;
 					}
 
+					if (message.protocolVersion !== TUNNEL_PROTOCOL_VERSION) {
+						throw new Error("Unsupported tunnel protocol version");
+					}
+
+					await sendMessage({
+						type: "client-ready",
+						protocolVersion: TUNNEL_PROTOCOL_VERSION,
+						capabilities,
+					});
+					return;
+				}
+
+				case "tunnel-accepted":
+					if (message.protocolVersion !== TUNNEL_PROTOCOL_VERSION) {
+						throw new Error("Unsupported tunnel protocol version");
+					}
+
+					legacyCapabilities = new Set(message.capabilities);
+					markTunnelReady(message.publicUrl);
 					return;
 
 				case "error":
@@ -822,30 +980,24 @@ async function openTunnelConnection(options: {
 					return;
 
 				case "request-body": {
-					const requestContext = localRequests.get(message.requestId);
-
-					if (!requestContext?.writer) {
-						return;
-					}
-
-					requestContext.writeChain = requestContext.writeChain.then(() =>
-						requestContext.writer?.write(decodeBase64(message.chunk)),
+					queueLocalRequestWrite(message.requestId, (_context, writer) =>
+						writer.write(decodeBase64(message.chunk)),
 					);
 					return;
 				}
 
 				case "request-end": {
-					const requestContext = localRequests.get(message.requestId);
-
-					if (!requestContext?.writer) {
-						return;
-					}
-
-					requestContext.writeChain = requestContext.writeChain.then(() =>
-						requestContext.writer?.close(),
+					queueLocalRequestWrite(message.requestId, (context, writer) =>
+						writer.close().then(() => {
+							context.writer = null;
+						}),
 					);
 					return;
 				}
+
+				case "request-cancel":
+					cancelLocalRequest(message.requestId, message.reason);
+					return;
 
 				case "response-body-credit": {
 					const requestContext = localRequests.get(message.requestId);
@@ -890,14 +1042,8 @@ async function openTunnelConnection(options: {
 		): void {
 			switch (message.stream) {
 				case "request-body": {
-					const requestContext = localRequests.get(message.requestId);
-
-					if (!requestContext?.writer) {
-						return;
-					}
-
-					requestContext.writeChain = requestContext.writeChain.then(() =>
-						requestContext.writer?.write(payload),
+					queueLocalRequestWrite(message.requestId, (_context, writer) =>
+						writer.write(payload),
 					);
 					return;
 				}
@@ -918,6 +1064,8 @@ async function openTunnelConnection(options: {
 			const proxyHeaders = new Headers(
 				stripHttpHopByHopHeaders(message.headers),
 			);
+			const useBinaryPayload = shouldUseBinaryPayload(message);
+			const useResponseBodyCredit = shouldUseResponseBodyCredit(message);
 			const abortController = new AbortController();
 
 			let bodyStream: ReadableStream<Uint8Array> | undefined;
@@ -931,6 +1079,7 @@ async function openTunnelConnection(options: {
 
 			const requestContext: LocalRequestContext = {
 				abortController,
+				cancelled: false,
 				writer,
 				writeChain: Promise.resolve(),
 				responseBodyCreditBytes: 0,
@@ -1036,7 +1185,7 @@ async function openTunnelConnection(options: {
 					requestId: message.requestId,
 				});
 			} catch (error) {
-				if (shouldIgnoreTunnelSendError(error)) {
+				if (requestContext.cancelled || shouldIgnoreTunnelSendError(error)) {
 					return;
 				}
 
@@ -1069,6 +1218,7 @@ async function openTunnelConnection(options: {
 				opened: false,
 				remoteClosed: false,
 				handshakeSettled: false,
+				useBinaryPayload: shouldUseBinaryPayload(message),
 			};
 
 			localSockets.set(message.requestId, socketContext);
@@ -1099,7 +1249,7 @@ async function openTunnelConnection(options: {
 
 			localSocket.on("message", (data: RawData, isBinary: boolean) => {
 				if (isBinary) {
-					if (useBinaryPayload) {
+					if (socketContext.useBinaryPayload) {
 						queueBackgroundBinaryPayload(
 							message.requestId,
 							"websocket-frame",
@@ -1254,6 +1404,12 @@ async function openTunnelConnection(options: {
 
 			socketContext.remoteClosed = true;
 
+			if (socketContext.socket.readyState === LocalWebSocket.CONNECTING) {
+				socketContext.socket.terminate();
+				localSockets.delete(requestId);
+				return;
+			}
+
 			if (
 				socketContext.socket.readyState === LocalWebSocket.CLOSING ||
 				socketContext.socket.readyState === LocalWebSocket.CLOSED
@@ -1266,6 +1422,61 @@ async function openTunnelConnection(options: {
 				normalizeWebSocketCloseCode(code),
 				normalizeWebSocketCloseReason(reason),
 			);
+		}
+
+		function cancelLocalRequest(requestId: string, reason: string): void {
+			const requestContext = localRequests.get(requestId);
+
+			if (!requestContext) {
+				return;
+			}
+
+			requestContext.cancelled = true;
+			requestContext.abortController.abort(new Error(reason));
+			notifyResponseBodyCreditWaiters(requestContext);
+
+			const writer = requestContext.writer;
+			requestContext.writer = null;
+
+			if (writer) {
+				requestContext.writeChain = requestContext.writeChain
+					.catch(() => undefined)
+					.then(() => writer.abort(reason))
+					.catch(() => undefined);
+			}
+		}
+
+		function queueLocalRequestWrite(
+			requestId: string,
+			operation: (
+				context: LocalRequestContext,
+				writer: WritableStreamDefaultWriter<Uint8Array>,
+			) => Promise<void>,
+		): void {
+			const requestContext = localRequests.get(requestId);
+			const writer = requestContext?.writer;
+
+			if (!requestContext || !writer) {
+				return;
+			}
+
+			requestContext.writeChain = requestContext.writeChain
+				.catch(() => undefined)
+				.then(async () => {
+					if (
+						requestContext.cancelled ||
+						requestContext.abortController.signal.aborted
+					) {
+						return;
+					}
+
+					await operation(requestContext, writer);
+				})
+				.catch((error) => {
+					requestContext.cancelled = true;
+					requestContext.abortController.abort(error);
+					notifyResponseBodyCreditWaiters(requestContext);
+				});
 		}
 
 		function queueBackgroundMessage(message: TunnelClientMessage): void {
@@ -1373,6 +1584,7 @@ function abortLocalRequests(
 	localRequests: Map<string, LocalRequestContext>,
 ): void {
 	for (const requestContext of localRequests.values()) {
+		requestContext.cancelled = true;
 		requestContext.abortController.abort();
 		notifyResponseBodyCreditWaiters(requestContext);
 	}
@@ -1612,4 +1824,8 @@ function parseErrorMessage(rawBody: string): string | null {
 	} catch {
 		return rawBody.trim() || null;
 	}
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }

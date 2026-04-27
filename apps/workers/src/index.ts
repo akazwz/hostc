@@ -13,6 +13,7 @@ import {
 	buildTunnelWebSocketUrl,
 	createRandomSubdomain,
 	extractTunnelSubdomain,
+	isApplicationHostname,
 } from "./lib/tunnels";
 import { createWaitlistSignup } from "./lib/waitlist";
 
@@ -54,7 +55,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 		return proxyTunnelRequest(request, env, tunnelSubdomain);
 	}
 
-	if (url.hostname !== env.PUBLIC_BASE_DOMAIN) {
+	if (!isApplicationHostname(url.hostname, env.PUBLIC_BASE_DOMAIN)) {
 		return new Response("Not Found", {
 			status: 404,
 		});
