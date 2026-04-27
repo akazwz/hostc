@@ -127,6 +127,9 @@ importers:
       '@hostc/tunnel-protocol':
         specifier: workspace:*
         version: link:../../packages/tunnel-protocol
+      hono:
+        specifier: ^4.12.15
+        version: 4.12.15
     devDependencies:
       '@types/node':
         specifier: ^25.6.0

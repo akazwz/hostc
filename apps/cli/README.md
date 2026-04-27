@@ -37,13 +37,15 @@ hostc 3000 --qr
 
 ## Options
 
-- `--local-host <host>`: Host of the local service. Defaults to `127.0.0.1`.
+- `--local-host <host>`: Host of the local service. Defaults to `localhost`.
 - `--qr`: Show a scannable QR code for the public URL when stdout is a TTY.
 
 ## Environment Variables
 
 - `HOSTC_SERVER_URL`: Override the Hostc server URL for local development, staging, or self-hosted testing. Defaults to `https://hostc.dev`.
 - `HOSTC_DISABLE_UPDATE_CHECK`: Set to `1` to disable the interactive npm update check.
+- `HOSTC_DISABLE_ERROR_REPORTING`: Set to `1` to disable sanitized fatal error reports.
+- `DO_NOT_TRACK`: Set to `1` to disable sanitized fatal error reports.
 
 Example:
 
@@ -63,13 +65,13 @@ HOSTC_SERVER_URL=http://127.0.0.1:8787 hostc 3000
 
 ```text
 $ hostc 3000
-Tunnel ready t-a1b2c3d4 -> http://127.0.0.1:3000/
+Tunnel ready t-a1b2c3d4 -> http://localhost:3000/
 Public URL: https://t-a1b2c3d4.hostc.dev
 ```
 
 ```text
 $ hostc 3000 --qr
-Tunnel ready t-a1b2c3d4 -> http://127.0.0.1:3000/
+Tunnel ready t-a1b2c3d4 -> http://localhost:3000/
 Public URL: https://t-a1b2c3d4.hostc.dev
 Scan on your phone:
 <QR code shown in interactive terminals>

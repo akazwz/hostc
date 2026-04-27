@@ -300,8 +300,7 @@ class LegacyCliSimulator {
 	canReceiveLegacyWebSocket(message) {
 		const parsed = parseServerMessage(message);
 		return (
-			parsed.type === "websocket-connect" &&
-			Array.isArray(parsed.protocols)
+			parsed.type === "websocket-connect" && Array.isArray(parsed.protocols)
 		);
 	}
 }
