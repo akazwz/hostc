@@ -19,7 +19,11 @@ import {
 import chalk from "chalk";
 import { Command, InvalidArgumentError } from "commander";
 import { renderUnicode } from "uqr";
-import { WebSocket as LocalWebSocket, type RawData } from "ws";
+import {
+	WebSocket as LocalWebSocket,
+	type MessageEvent as LocalWebSocketMessageEvent,
+	type RawData,
+} from "ws";
 
 type HttpCommandOptions = {
 	localHost: string;
@@ -85,7 +89,7 @@ class CliError extends Error {
 
 const DEFAULT_SERVER = "https://hostc.dev";
 const CLI_PACKAGE_NAME = "hostc";
-const CLI_VERSION = "1.2.5";
+const CLI_VERSION = "1.2.6";
 const NPM_LATEST_PACKAGE_URL = `https://registry.npmjs.org/${CLI_PACKAGE_NAME}/latest`;
 const SERVER_OVERRIDE_ENV = "HOSTC_SERVER_URL";
 const DISABLE_UPDATE_CHECK_ENV = "HOSTC_DISABLE_UPDATE_CHECK";
@@ -179,7 +183,7 @@ async function runHttpTunnel(options: HttpTunnelOptions): Promise<void> {
 	let tunnel: CreateTunnelResponse;
 	let interrupted = false;
 	let readyOnce = false;
-	let activeSocket: WebSocket | null = null;
+	let activeSocket: LocalWebSocket | null = null;
 	let stopSessionRefreshLoop: (() => void) | null = null;
 	let refreshPromise: Promise<void> | null = null;
 
@@ -199,8 +203,8 @@ async function runHttpTunnel(options: HttpTunnelOptions): Promise<void> {
 	const closeTunnel = (code = 1000, reason = "Interrupted"): void => {
 		if (
 			activeSocket &&
-			(activeSocket.readyState === WebSocket.OPEN ||
-				activeSocket.readyState === WebSocket.CONNECTING)
+			(activeSocket.readyState === LocalWebSocket.OPEN ||
+				activeSocket.readyState === LocalWebSocket.CONNECTING)
 		) {
 			activeSocket.close(code, reason);
 		}
@@ -857,10 +861,10 @@ async function openTunnelConnection(options: {
 	initialConnection: boolean;
 	qr: boolean;
 	interrupted: () => boolean;
-	registerSocket: (socket: WebSocket | null) => void;
+	registerSocket: (socket: LocalWebSocket | null) => void;
 	onReady: () => void;
 }): Promise<ConnectionOutcome> {
-	const tunnelSocket = new WebSocket(options.tunnel.websocketUrl);
+	const tunnelSocket = new LocalWebSocket(options.tunnel.websocketUrl);
 	const localRequests = new Map<string, LocalRequestContext>();
 	const localSockets = new Map<string, LocalWebSocketContext>();
 	let sendQueue = Promise.resolve();
@@ -905,8 +909,8 @@ async function openTunnelConnection(options: {
 				reject(new Error(formatError(error)));
 
 				if (
-					tunnelSocket.readyState === WebSocket.OPEN ||
-					tunnelSocket.readyState === WebSocket.CONNECTING
+					tunnelSocket.readyState === LocalWebSocket.OPEN ||
+					tunnelSocket.readyState === LocalWebSocket.CONNECTING
 				) {
 					tunnelSocket.close(1011, "Client error");
 				}
@@ -984,7 +988,9 @@ async function openTunnelConnection(options: {
 			);
 		}
 
-		async function handleServerMessage(event: MessageEvent): Promise<void> {
+		async function handleServerMessage(
+			event: LocalWebSocketMessageEvent,
+		): Promise<void> {
 			const incomingMessage = await readTunnelSocketMessage(event.data);
 
 			if (incomingMessage.kind === "binary") {
@@ -1063,8 +1069,8 @@ async function openTunnelConnection(options: {
 					reject(new Error(message.message));
 
 					if (
-						tunnelSocket.readyState === WebSocket.OPEN ||
-						tunnelSocket.readyState === WebSocket.CONNECTING
+						tunnelSocket.readyState === LocalWebSocket.OPEN ||
+						tunnelSocket.readyState === LocalWebSocket.CONNECTING
 					) {
 						tunnelSocket.close(1011, "Server error");
 					}
@@ -1623,7 +1629,7 @@ async function openTunnelConnection(options: {
 					for (const frame of frames) {
 						await waitForTunnelSocketCapacity(tunnelSocket);
 
-						if (tunnelSocket.readyState !== WebSocket.OPEN) {
+						if (tunnelSocket.readyState !== LocalWebSocket.OPEN) {
 							throw new Error("Tunnel connection is unavailable");
 						}
 
@@ -1641,7 +1647,9 @@ async function openTunnelConnection(options: {
 	});
 }
 
-async function readTunnelSocketMessage(data: MessageEvent["data"]): Promise<
+async function readTunnelSocketMessage(
+	data: LocalWebSocketMessageEvent["data"],
+): Promise<
 	| {
 			kind: "text";
 			text: string;
@@ -1798,7 +1806,9 @@ function buildLocalWebSocketUrl(localOrigin: URL, path: string): string {
 	return proxyUrl.toString();
 }
 
-async function waitForTunnelSocketCapacity(socket: WebSocket): Promise<void> {
+async function waitForTunnelSocketCapacity(
+	socket: LocalWebSocket,
+): Promise<void> {
 	if (
 		getTunnelSocketBufferedAmount(socket) <=
 		TUNNEL_SOCKET_BACKPRESSURE_HIGH_WATERMARK
@@ -1807,7 +1817,7 @@ async function waitForTunnelSocketCapacity(socket: WebSocket): Promise<void> {
 	}
 
 	while (
-		socket.readyState === WebSocket.OPEN &&
+		socket.readyState === LocalWebSocket.OPEN &&
 		getTunnelSocketBufferedAmount(socket) >
 			TUNNEL_SOCKET_BACKPRESSURE_LOW_WATERMARK
 	) {
@@ -1815,7 +1825,7 @@ async function waitForTunnelSocketCapacity(socket: WebSocket): Promise<void> {
 	}
 }
 
-function getTunnelSocketBufferedAmount(socket: WebSocket): number {
+function getTunnelSocketBufferedAmount(socket: LocalWebSocket): number {
 	return typeof socket.bufferedAmount === "number" ? socket.bufferedAmount : 0;
 }
 
