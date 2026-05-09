@@ -9,9 +9,10 @@
 		"ignoreUnknown": false,
 		"includes": [
 			"**",
-			"!apps/workers/worker-configuration.d.ts",
+			"!apps/server/worker-configuration.d.ts",
 			"!!.pnpm-store",
 			"!!**/dist",
+			"!!**/dist-test",
 			"!!**/coverage",
 			"!!**/.wrangler",
 			"!apps/web/app/components/ui"

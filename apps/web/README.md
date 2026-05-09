@@ -1,8 +1,8 @@
 # @hostc/web
 
-This package contains the hostc.dev frontend: the landing page, the waitlist page, and the static error pages used by the Worker.
+This package contains the hostc.dev frontend assets that predate the tunnel-server refactor.
 
-It is a fully static React Router v7 app built with `ssr: false` and `prerender: true`. The output is static HTML, CSS, and JS. It is not deployed on its own. Instead, [`apps/workers`](../workers) serves the built files through Cloudflare Static Assets.
+It is a fully static React Router v7 app built with `ssr: false` and `prerender: true`. The refactored tunnel server in [`apps/server`](../server) intentionally does not serve static assets, waitlist routes, or web UI. Treat [`docs/refactor`](../../docs/refactor) as the current source of truth for tunnel server behavior.
 
 ## Stack
 
@@ -30,7 +30,7 @@ app/
 |  `- error-page.tsx
 `- lib/utils.ts
 public/                    # Favicon, OG images, and other static files
-build/client/              # Static build output served by the Worker
+build/client/              # Static build output
 ```
 
 ## Routes
@@ -38,7 +38,7 @@ build/client/              # Static build output served by the Worker
 | Path | Purpose |
 | --- | --- |
 | `/` | Landing page |
-| `/waitlist` | Waitlist page; submits `POST /api/waitlist` to the Worker |
+| `/waitlist` | Legacy waitlist page; not handled by the refactored tunnel server |
 | `/404` | Generic 404 page |
 
 All routes are prerendered to static HTML at build time.
@@ -52,13 +52,7 @@ pnpm install
 pnpm -F web dev
 ```
 
-The waitlist form depends on the Worker endpoint at `/api/waitlist`. For an end-to-end local setup, run the Worker in another terminal:
-
-```bash
-pnpm -F workers dev
-```
-
-For the closest match to production behavior, access the app through the Worker port while both processes are running.
+The waitlist form targets a legacy endpoint that is not part of the refactored tunnel server.
 
 ## Build And Typecheck
 
@@ -71,11 +65,7 @@ pnpm -F web typecheck
 
 ## Deployment
 
-This app is deployed together with the Worker, not as a standalone site.
-
-`pnpm -F workers deploy` and `pnpm -F workers dev` both run the Worker package's `assets:prepare` script first. That script builds the web app and copies `build/client/404/index.html` to `build/client/404.html` so Cloudflare asset handling can use it correctly.
-
-[`apps/workers/wrangler.jsonc`](../workers/wrangler.jsonc) points `assets.directory` to `../web/build/client`, so the Worker serves the web build output directly.
+This app is not deployed by the refactored tunnel server. A future web deployment should be configured separately from [`apps/server`](../server), which is tunnel-only and has no Static Assets binding.
 
 ## Styling And Theme
 

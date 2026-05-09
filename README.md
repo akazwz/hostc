@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./apps/workers/public/favicon.svg" alt="hostc logo" width="80" height="80" />
+  <img src="./apps/web/public/favicon.svg" alt="hostc logo" width="80" height="80" />
   <h1>hostc</h1>
   <p><strong>Localhost to the edge.</strong></p>
   <p>Secure, fast, and frictionless edge tunnels. Powered by Cloudflare Workers.</p>
@@ -13,7 +13,7 @@
 
 - **Zero Config**: Just run one command and get a public HTTPS URL.
 - **WebSocket Support**: Seamlessly proxies WebSocket upgrades (`ws://` -> `wss://`) out of the box.
-- **Edge Powered**: Traffic is routed through Cloudflare's massive global network network.
+- **Edge Powered**: Traffic is routed through Cloudflare's massive global network.
 - **Self-Hostable**: You can easily deploy the worker to your own Cloudflare account.
 
 ## 🚀 Quick Start
@@ -49,7 +49,7 @@ hostc is still early, and the focus right now is making the core tunnel experien
 
 - Reserved or custom subdomains.
 - Basic access control for shared tunnels.
-- A cleaner hosted onboarding flow beyond the current waitlist.
+- Hosted onboarding and account features after the tunnel core is stable.
 
 ## 🏗️ Architecture & Monorepo
 
@@ -58,8 +58,9 @@ This project is a Monorepo managed by `pnpm`.
 | Package / App | Description |
 | --- | --- |
 | [`apps/cli`](./apps/cli) | The Node.js command-line interface tool. |
-| [`apps/workers`](./apps/workers) | The Cloudflare Worker and Durable Object handling the tunnel connections. |
-| [`packages/tunnel-protocol`](./packages/tunnel-protocol) | Shared protocol and WebSocket message types. |
+| [`apps/server`](./apps/server) | The Cloudflare Worker and Durable Object handling tunnel API, control/data sockets, and public proxying. |
+| [`packages/protocol`](./packages/protocol) | Runtime-agnostic protocol package shared by CLI and server. |
+| [`apps/web`](./apps/web) | Web UI package; the tunnel server does not depend on it. |
 
 ## 🛠️ Local Development
 
@@ -77,18 +78,42 @@ This project is a Monorepo managed by `pnpm`.
 
 2. **Run the Cloudflare Worker locally**
    ```bash
-   pnpm dev:workers
+   pnpm dev:server
    ```
 
 3. **Run the CLI locally against your local worker**
    ```bash
-   cd apps/cli
-   pnpm dev
-   
-   # Or using the environment variable with the built CLI:
-   HOSTC_SERVER_URL=http://127.0.0.1:8787 hostc 3000
+   pnpm build:cli
+   HOSTC_SERVER_URL=http://127.0.0.1:8787 node apps/cli/dist/index.js 3000
    ```
+
+### Refactor Acceptance Commands
+
+```sh
+pnpm build
+pnpm test
+pnpm lint
+pnpm -F @hostc/protocol test
+pnpm -F @hostc/protocol bench
+pnpm -F @hostc/server test
+pnpm -F @hostc/server dev
+pnpm -F @hostc/server test:e2e:local
+pnpm -F @hostc/server deploy:staging
+pnpm -F @hostc/server preflight:staging
+pnpm -F @hostc/server test:e2e:staging
+pnpm -F @hostc/server load:staging
+pnpm -F hostc build
+pnpm -F hostc test
+pnpm test:e2e:local
+pnpm test:stress:local
+pnpm preflight:staging
+pnpm run audit:refactor
+```
+
+Staging uses `https://envoq.dev` and wildcard `*.envoq.dev`. For first-time staging setup, deploy the Worker once, set `TOKEN_SECRET` with Wrangler secrets, then run `pnpm preflight:staging`.
+`pnpm preflight:staging` is read-only and checks whether the staging Worker, `TOKEN_SECRET`, and `/health` are ready before running staging E2E/load.
+Preview legacy cleanup with `pnpm run cleanup:legacy -- --dry-run`. After explicit approval for destructive local cleanup, run `pnpm run cleanup:legacy -- --yes` to remove the old Worker/protocol directories, including untracked leftovers, and their temporary Biome exclusions.
 
 ## 📖 License
 
-Apache License 2.0. Made with ❤️ by [akazwz](https://github.com/akazwz).
+Apache License 2.0. Made by [akazwz](https://github.com/akazwz).

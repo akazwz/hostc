@@ -1,0 +1,27 @@
+{
+	"name": "@hostc/server",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"main": "./dist/index.js",
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy",
+		"deploy:staging": "wrangler deploy --env staging",
+		"cf-typegen": "wrangler types",
+		"test": "tsc -p tsconfig.json && node --test test/*.test.mjs",
+		"test:e2e:local": "pnpm -F @hostc/protocol build && pnpm -F @hostc/server build && pnpm -F hostc build && node ../../scripts/e2e-local.mjs",
+		"preflight:staging": "node ./scripts/preflight-staging.mjs",
+		"test:e2e:staging": "pnpm -F @hostc/protocol build && pnpm -F @hostc/server build && pnpm -F hostc build && node ./scripts/e2e-staging.mjs",
+		"load:staging": "pnpm -F @hostc/protocol build && pnpm -F @hostc/server build && pnpm -F hostc build && node ./scripts/load-staging.mjs"
+	},
+	"dependencies": {
+		"@hostc/protocol": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "^6.0.3",
+		"wrangler": "^4.85.0",
+		"ws": "^8.20.0"
+	}
+}

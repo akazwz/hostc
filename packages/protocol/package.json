@@ -1,0 +1,26 @@
+{
+	"name": "@hostc/protocol",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"test": "tsc -p tsconfig.json && node --test test/*.test.mjs",
+		"bench": "pnpm run build && node scripts/bench.mjs",
+		"stress:local": "pnpm run build && node scripts/stress-local.mjs"
+	},
+	"devDependencies": {
+		"typescript": "^6.0.2"
+	}
+}

@@ -2,5 +2,10 @@ node_modules
 .pnpm-store
 pnpm-debug.log*
 .DS_Store
+.dev.vars
+.env.local
+.wrangler
 dist
+dist-test
 coverage
+artifacts

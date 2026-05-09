@@ -24,7 +24,11 @@ npx hostc@latest 3000
 ## Usage
 
 ```sh
-hostc <port> [--local-host <host>] [--qr]
+hostc <port> [--local-host <host>] [--server <url>] [--data-channels <count>] [--qr]
+hostc config get
+hostc config set server-url https://envoq.dev
+hostc config unset server-url
+hostc config path
 ```
 
 ## Examples
@@ -32,20 +36,39 @@ hostc <port> [--local-host <host>] [--qr]
 ```sh
 hostc 3000
 hostc 3000 --local-host 0.0.0.0
+hostc 3000 --server https://envoq.dev
+hostc 3000 --data-channels 2
 hostc 3000 --qr
 ```
 
 ## Options
 
 - `--local-host <host>`: Host of the local service. Defaults to `localhost`.
+- `--server <url>`: Server URL. Defaults to `https://hostc.dev`.
+- `--data-channels <count>`: Number of binary data channel WebSockets. Defaults to `2`.
 - `--qr`: Show a scannable QR code for the public URL when stdout is a TTY.
+
+## Persistent Config
+
+Non-sensitive settings are stored in `~/.hostc/config.json` or in the file pointed to by `HOSTC_CONFIG`.
+
+```json
+{
+  "serverUrl": "https://envoq.dev",
+  "localHost": "localhost",
+  "dataChannels": 2,
+  "qr": false
+}
+```
+
+Configuration priority is CLI arguments, environment variables, config file, then defaults. Tokens are process-only and are not written to disk.
 
 ## Environment Variables
 
 - `HOSTC_SERVER_URL`: Override the Hostc server URL for local development, staging, or self-hosted testing. Defaults to `https://hostc.dev`.
+- `HOSTC_CONFIG`: Override the config file path.
+- `HOSTC_DEBUG`: Set to `1` for protocol and reconnect debug output.
 - `HOSTC_DISABLE_UPDATE_CHECK`: Set to `1` to disable the interactive npm update check.
-- `HOSTC_DISABLE_ERROR_REPORTING`: Set to `1` to disable sanitized fatal error reports.
-- `DO_NOT_TRACK`: Set to `1` to disable sanitized fatal error reports.
 
 Example:
 
@@ -56,6 +79,7 @@ HOSTC_SERVER_URL=http://127.0.0.1:8787 hostc 3000
 ## What It Does
 
 - Opens a tunnel to a public `*.hostc.dev` URL
+- Maintains one JSON control WebSocket and multiple binary data channel WebSockets
 - Proxies HTTP requests to your local service
 - Proxies WebSocket upgrades on the same local port
 - Refreshes the session automatically
