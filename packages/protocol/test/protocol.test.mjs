@@ -439,13 +439,9 @@ test("API response parsers validate shared response shapes", () => {
 	);
 	const legacyLimits = { ...limits };
 	delete legacyLimits.maxWebSocketMessageBytes;
-	assert.deepEqual(
-		parseCreateTunnelResponse({ ...createResponse, limits: legacyLimits })
-			?.limits,
-		{
-			...legacyLimits,
-			maxWebSocketMessageBytes: legacyLimits.maxFrameBytes,
-		},
+	assert.equal(
+		parseCreateTunnelResponse({ ...createResponse, limits: legacyLimits }),
+		null,
 	);
 	const refreshResponse = {
 		connectionId: "c2",
