@@ -642,14 +642,20 @@ export function parseCreateTunnelResponse(
 	raw: string | unknown,
 ): CreateTunnelResponse | null {
 	const value = typeof raw === "string" ? parseJsonRecord(raw) : raw;
-	return isCreateTunnelResponse(value) ? value : null;
+	if (!isCreateTunnelResponse(value)) {
+		return null;
+	}
+	return { ...value, limits: normalizeTunnelLimits(value.limits) };
 }
 
 export function parseRefreshTunnelResponse(
 	raw: string | unknown,
 ): RefreshTunnelResponse | null {
 	const value = typeof raw === "string" ? parseJsonRecord(raw) : raw;
-	return isRefreshTunnelResponse(value) ? value : null;
+	if (!isRefreshTunnelResponse(value)) {
+		return null;
+	}
+	return { ...value, limits: normalizeTunnelLimits(value.limits) };
 }
 
 export function isCreateTunnelResponse(
@@ -702,13 +708,22 @@ export function isTunnelLimits(value: unknown): value is TunnelLimits {
 	return (
 		isRecord(value) &&
 		isPositiveSafeInteger(value.maxFrameBytes) &&
-		isPositiveSafeInteger(value.maxWebSocketMessageBytes) &&
+		(value.maxWebSocketMessageBytes === undefined ||
+			isPositiveSafeInteger(value.maxWebSocketMessageBytes)) &&
 		isPositiveSafeInteger(value.maxControlBytes) &&
 		isPositiveSafeInteger(value.streamCreditBytes) &&
 		isPositiveSafeInteger(value.connectionCreditBytes) &&
 		isPositiveSafeInteger(value.pendingDataBytes) &&
 		isPositiveSafeInteger(value.pendingDataTimeoutMs)
 	);
+}
+
+function normalizeTunnelLimits(limits: TunnelLimits): TunnelLimits {
+	return {
+		...limits,
+		maxWebSocketMessageBytes:
+			limits.maxWebSocketMessageBytes ?? limits.maxFrameBytes,
+	};
 }
 
 export function utf8Encode(value: string): Uint8Array {

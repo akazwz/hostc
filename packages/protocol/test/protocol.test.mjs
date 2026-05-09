@@ -437,6 +437,16 @@ test("API response parsers validate shared response shapes", () => {
 		parseCreateTunnelResponse({ ...createResponse, tunnelId: "foo.bar" }),
 		null,
 	);
+	const legacyLimits = { ...limits };
+	delete legacyLimits.maxWebSocketMessageBytes;
+	assert.deepEqual(
+		parseCreateTunnelResponse({ ...createResponse, limits: legacyLimits })
+			?.limits,
+		{
+			...legacyLimits,
+			maxWebSocketMessageBytes: legacyLimits.maxFrameBytes,
+		},
+	);
 	const refreshResponse = {
 		connectionId: "c2",
 		controlUrl: "wss://hostc.dev/api/tunnels/t-test/control",
