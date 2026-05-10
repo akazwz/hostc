@@ -1,4 +1,3 @@
-import { Link } from "react-router";
 import { GithubIcon } from "~/components/icons";
 import { Button } from "~/components/ui/button";
 import type { Route } from "./+types/home";
@@ -49,9 +48,16 @@ export default function Home() {
 						size="lg"
 						className="w-full sm:w-auto"
 						nativeButton={false}
-						render={<Link to="/waitlist" />}
+						render={(props) => (
+							<a
+								{...props}
+								href="https://www.npmjs.com/package/hostc"
+								target="_blank"
+								rel="noreferrer"
+							/>
+						)}
 					>
-						Join Waitlist
+						Install hostc
 					</Button>
 					<Button
 						variant="outline"
@@ -86,43 +92,41 @@ export default function Home() {
 							<span className="text-orange-400 font-bold">❯</span>
 							<span className="text-foreground">npx hostc 3000</span>
 						</div>
-						<div className="mt-4 text-muted-foreground">
-							✨ Tunnel established successfully!
-						</div>
-						<div className="text-muted-foreground">
-							<span className="text-muted-foreground/50 inline-block w-16">
-								Local:
+						<div className="mt-4">
+							<span className="text-emerald-400">Success</span>
+							<span className="text-foreground font-semibold ml-2">
+								Tunnel ready
 							</span>
-							http://127.0.0.1:3000
 						</div>
 						<div className="text-muted-foreground">
-							<span className="text-muted-foreground/50 inline-block w-16">
-								Public:
+							<span className="text-muted-foreground/50 inline-block w-24">
+								Public URL:
 							</span>
 							<span className="text-blue-400">
 								https://t-a1b2c3d4.hostc.dev
 							</span>
 						</div>
+						<div className="text-muted-foreground">
+							<span className="text-muted-foreground/50 inline-block w-24">
+								Local:
+							</span>
+							http://localhost:3000/
+						</div>
+						<div className="text-muted-foreground">
+							<span className="text-muted-foreground/50 inline-block w-24">
+								Tunnel:
+							</span>
+							t-a1b2c3d4
+						</div>
+						<div className="text-muted-foreground">
+							<span className="text-muted-foreground/50 inline-block w-24">
+								Channels:
+							</span>
+							2
+						</div>
 					</div>
 				</div>
 			</div>
-
-			{/* Waitlist teaser */}
-			<section className="border-t border-border py-24 text-center">
-				<p className="text-xs uppercase tracking-widest text-muted-foreground mb-6">
-					Coming Soon
-				</p>
-				<h2 className="font-heading text-4xl md:text-5xl font-bold mb-6 max-w-lg mx-auto">
-					Custom subdomains &amp; user accounts.
-				</h2>
-				<p className="text-muted-foreground max-w-sm mx-auto mb-10 text-base">
-					Persistent tunnels, custom URLs, and team access — leave your email to
-					be the first to get beta access.
-				</p>
-				<Button size="lg" nativeButton={false} render={<Link to="/waitlist" />}>
-					Join the Waitlist
-				</Button>
-			</section>
 
 			{/* Features */}
 			<section className="border-t border-border pt-16 pb-24">

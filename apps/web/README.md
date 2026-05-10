@@ -1,8 +1,8 @@
 # @hostc/web
 
-This package contains the hostc.dev frontend assets that predate the tunnel-server refactor.
+This package contains the hostc.dev frontend assets.
 
-It is a fully static React Router v7 app built with `ssr: false` and `prerender: true`. The refactored tunnel server in [`apps/server`](../server) intentionally does not serve static assets, waitlist routes, or web UI. Treat [`docs/refactor`](../../docs/refactor) as the current source of truth for tunnel server behavior.
+It is a fully static React Router v7 app built with `ssr: false` and `prerender: true`. The refactored tunnel server in [`apps/server`](../server) intentionally does not serve static assets or web UI. Treat [`docs/refactor`](../../docs/refactor) as the current source of truth for tunnel server behavior.
 
 ## Stack
 
@@ -22,7 +22,6 @@ app/
 |- routes/
 |  |- _layout.tsx          # Shared layout: nav, footer, background grid
 |  |- home.tsx             # /
-|  |- waitlist.tsx         # /waitlist
 |  |- error-404.tsx        # /404
 |- components/
 |  |- ui/                  # shadcn UI components
@@ -38,7 +37,6 @@ build/client/              # Static build output
 | Path | Purpose |
 | --- | --- |
 | `/` | Landing page |
-| `/waitlist` | Legacy waitlist page; not handled by the refactored tunnel server |
 | `/404` | Generic 404 page |
 
 All routes are prerendered to static HTML at build time.
@@ -51,8 +49,6 @@ Run these commands from the repository root:
 pnpm install
 pnpm -F web dev
 ```
-
-The waitlist form targets a legacy endpoint that is not part of the refactored tunnel server.
 
 ## Build And Typecheck
 

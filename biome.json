@@ -6,14 +6,18 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"ignoreUnknown": false,
+		"ignoreUnknown": true,
 		"includes": [
 			"**",
 			"!apps/server/worker-configuration.d.ts",
 			"!!.pnpm-store",
+			"!!**/node_modules",
+			"!!**/build",
 			"!!**/dist",
 			"!!**/dist-test",
 			"!!**/coverage",
+			"!!**/artifacts",
+			"!!**/.react-router",
 			"!!**/.wrangler",
 			"!apps/web/app/components/ui"
 		]

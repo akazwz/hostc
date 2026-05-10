@@ -17,14 +17,6 @@ export default function Layout() {
 					</Link>
 					<div className="flex items-center gap-2">
 						<Button
-							variant="outline"
-							size="sm"
-							nativeButton={false}
-							render={<Link to="/waitlist" />}
-						>
-							Join Waitlist
-						</Button>
-						<Button
 							variant="ghost"
 							size="sm"
 							nativeButton={false}
@@ -50,7 +42,17 @@ export default function Layout() {
 
 			<footer className="relative z-10 border-t border-border">
 				<div className="max-w-5xl mx-auto px-8 h-12 flex items-center justify-between text-xs text-muted-foreground">
-					<span>© {new Date().getFullYear()} hostc</span>
+					<span>
+						© {new Date().getFullYear()} hostc · Built by{" "}
+						<a
+							href="https://akazwz.com"
+							target="_blank"
+							rel="noreferrer"
+							className="hover:text-foreground transition-colors"
+						>
+							akazwz
+						</a>
+					</span>
 					<a
 						href="https://github.com/akazwz/hostc/blob/main/LICENSE"
 						target="_blank"

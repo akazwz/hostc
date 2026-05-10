@@ -27,7 +27,11 @@
 	"upload_source_maps": true,
 	"routes": [
 		{
-			"pattern": "hostc.dev/*",
+			"pattern": "hostc.dev/api/*",
+			"zone_name": "hostc.dev"
+		},
+		{
+			"pattern": "hostc.dev/health",
 			"zone_name": "hostc.dev"
 		},
 		{

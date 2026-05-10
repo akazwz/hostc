@@ -1,0 +1,17 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "hostc-web",
+	"compatibility_date": "2026-05-10",
+	"observability": {
+		"enabled": true
+	},
+	"assets": {
+		"directory": "build/client"
+	},
+	"routes": [
+		{
+			"pattern": "https://hostc.dev/*",
+			"zone_name": "hostc.dev"
+		}
+	]
+}
