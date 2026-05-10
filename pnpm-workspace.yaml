@@ -1,5 +1,3 @@
 packages:
-  - apps/cli
-  - apps/server
-  - apps/web
-  - packages/protocol
+  - apps/*
+  - packages/*

@@ -1,286 +1,394 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "node:test";
+import {
+	chooseNextDataChannel,
+	consumeCredit,
+	DEFAULT_CHANNEL_CREDIT_BYTES,
+	DEFAULT_DATA_CHANNELS,
+	DEFAULT_STREAM_CREDIT_BYTES,
+	defaultTunnelLimits,
+	FRAME_TYPE_CHANNEL_CREDIT,
+	FRAME_TYPE_REQUEST_ABORT,
+	FRAME_TYPE_REQUEST_DATA,
+	FRAME_TYPE_REQUEST_END,
+	FRAME_TYPE_REQUEST_START,
+	FRAME_TYPE_RESPONSE_DATA,
+	FRAME_TYPE_RESPONSE_END,
+	FRAME_TYPE_RESPONSE_START,
+	FRAME_TYPE_STREAM_CREDIT,
+} from "../dist/index.js";
 
-class ProtocolStateModel {
-	constructor(dataChannels = 2) {
+class V4TunnelModel {
+	constructor({
+		dataChannels = DEFAULT_DATA_CHANNELS,
+		limits = defaultTunnelLimits(),
+	} = {}) {
 		this.dataChannels = dataChannels;
-		this.connectionId = null;
-		this.controlConnected = false;
+		this.limits = limits;
+		this.clientConnectionId = null;
 		this.channels = new Set();
-		this.failed = false;
-		this.nextStreamId = 1;
 		this.streams = new Map();
-		this.pendingData = new Map();
-		this.streamCredit = new Map();
-		this.connectionCredit = 0;
-	}
-
-	connectControl(connectionId) {
-		this.connectionId = connectionId;
-		this.controlConnected = true;
-		this.channels.clear();
+		this.closedStreams = new Set();
+		this.nextStreamId = 1n;
+		this.nextChannelIndex = 0;
+		this.channelCredit = limits.channelCreditBytes;
 		this.failed = false;
-		this.streams.clear();
-		this.pendingData.clear();
-		this.connectionCredit = 1024;
 	}
 
-	connectData(connectionId, channelId) {
-		if (connectionId !== this.connectionId) {
-			this.failed = true;
-			return "old-connection";
+	connectClientConnection(clientConnectionId) {
+		this.clientConnectionId = clientConnectionId;
+		this.channels.clear();
+		this.streams.clear();
+		this.closedStreams.clear();
+		this.nextStreamId = 1n;
+		this.nextChannelIndex = 0;
+		this.channelCredit = this.limits.channelCreditBytes;
+		this.failed = false;
+	}
+
+	connectDataChannel(clientConnectionId, channelId) {
+		if (
+			clientConnectionId !== this.clientConnectionId ||
+			channelId < 0 ||
+			channelId >= this.dataChannels
+		) {
+			return false;
 		}
 		this.channels.add(channelId);
+		return true;
+	}
+
+	get ready() {
+		return this.channels.size === this.dataChannels && !this.failed;
+	}
+
+	startPublicRequest(clientConnectionId) {
+		if (clientConnectionId !== this.clientConnectionId || !this.ready) {
+			return null;
+		}
+
+		const selected = chooseNextDataChannel(
+			this.nextChannelIndex,
+			this.dataChannels,
+		);
+		this.nextChannelIndex = selected.nextChannelIndex;
+		const streamId = this.nextStreamId;
+		this.nextStreamId += 1n;
+		this.streams.set(streamId, {
+			channelId: selected.channelId,
+			requestOpen: true,
+			responseOpen: true,
+			requestCredit: this.limits.streamCreditBytes,
+			responseCredit: this.limits.streamCreditBytes,
+		});
+		return { streamId, channelId: selected.channelId };
+	}
+
+	receiveFrame({
+		clientConnectionId,
+		channelId,
+		streamId,
+		frameType,
+		payloadBytes = 0,
+	}) {
+		if (clientConnectionId !== this.clientConnectionId) {
+			return "ignored-old-client-connection";
+		}
+		if (!this.channels.has(channelId) || this.failed) {
+			return "closed";
+		}
+		if (frameType === FRAME_TYPE_CHANNEL_CREDIT) {
+			if (streamId !== 0n) {
+				this.failed = true;
+				return "protocol-error";
+			}
+			return "ok";
+		}
+		if (streamId === 0n) {
+			this.failed = true;
+			return "protocol-error";
+		}
+		if (this.closedStreams.has(streamId)) {
+			return "ignored-closed-stream";
+		}
+
+		const stream = this.streams.get(streamId);
+		if (!stream) {
+			if (frameType !== FRAME_TYPE_REQUEST_START) {
+				this.failed = true;
+				return "protocol-error";
+			}
+			this.streams.set(streamId, {
+				channelId,
+				requestOpen: true,
+				responseOpen: true,
+				requestCredit: this.limits.streamCreditBytes,
+				responseCredit: this.limits.streamCreditBytes,
+			});
+			return "ok";
+		}
+
+		if (stream.channelId !== channelId) {
+			this.failed = true;
+			return "protocol-error";
+		}
+
+		if (frameType === FRAME_TYPE_REQUEST_DATA) {
+			if (
+				!stream.requestOpen ||
+				payloadBytes > stream.requestCredit ||
+				payloadBytes > this.channelCredit
+			) {
+				this.failed = true;
+				return "flow-control-error";
+			}
+			stream.requestCredit = consumeCredit(stream.requestCredit, payloadBytes);
+			this.channelCredit = consumeCredit(this.channelCredit, payloadBytes);
+			return "ok";
+		}
+
+		if (frameType === FRAME_TYPE_RESPONSE_DATA) {
+			if (
+				!stream.responseOpen ||
+				payloadBytes > stream.responseCredit ||
+				payloadBytes > this.channelCredit
+			) {
+				this.failed = true;
+				return "flow-control-error";
+			}
+			stream.responseCredit = consumeCredit(
+				stream.responseCredit,
+				payloadBytes,
+			);
+			this.channelCredit = consumeCredit(this.channelCredit, payloadBytes);
+			return "ok";
+		}
+
+		if (frameType === FRAME_TYPE_STREAM_CREDIT) {
+			return "ok";
+		}
+
+		if (frameType === FRAME_TYPE_REQUEST_END) {
+			stream.requestOpen = false;
+			return "ok";
+		}
+
+		if (frameType === FRAME_TYPE_RESPONSE_END) {
+			stream.responseOpen = false;
+			this.closeStream(streamId);
+			return "ok";
+		}
+
+		if (frameType === FRAME_TYPE_REQUEST_ABORT) {
+			this.closeStream(streamId);
+			return "ok";
+		}
+
+		if (frameType === FRAME_TYPE_RESPONSE_START) {
+			return stream.responseOpen ? "ok" : "protocol-error";
+		}
+
 		return "ok";
 	}
 
-	isReady() {
-		return (
-			!this.failed &&
-			this.controlConnected &&
-			this.channels.size === this.dataChannels &&
-			Array.from({ length: this.dataChannels }, (_, id) =>
-				this.channels.has(id),
-			).every(Boolean)
-		);
+	closeStream(streamId) {
+		this.streams.delete(streamId);
+		this.closedStreams.add(streamId);
 	}
 
-	startPublicRequest() {
-		if (!this.isReady()) {
-			throw new Error("not ready");
-		}
-		const stream = {
-			id: this.nextStreamId++,
-			aborted: false,
-			recvNext: new Map(),
-			lastSeq: new Map(),
-			ended: new Set(),
-		};
-		this.streams.set(stream.id, stream);
-		for (const kind of [
-			"request.body",
-			"response.body",
-			"ws.client",
-			"ws.server",
-		]) {
-			this.streamCredit.set(key(stream.id, kind), 256);
-		}
-		this.flushPending(stream.id);
-		return stream.id;
-	}
-
-	sendData(streamId, kind, bytes) {
-		if ((this.streamCredit.get(key(streamId, kind)) ?? 0) < bytes) {
-			return "blocked";
-		}
-		if (this.connectionCredit < bytes) {
-			return "blocked";
-		}
-		this.streamCredit.set(
-			key(streamId, kind),
-			this.streamCredit.get(key(streamId, kind)) - bytes,
-		);
-		this.connectionCredit -= bytes;
-		return "sent";
-	}
-
-	grantCredit(streamId, kind, bytes) {
-		this.streamCredit.set(
-			key(streamId, kind),
-			(this.streamCredit.get(key(streamId, kind)) ?? 0) + bytes,
-		);
-		this.connectionCredit += bytes;
-	}
-
-	receiveData(connectionId, streamId, kind, seq) {
-		if (connectionId !== this.connectionId) {
-			return "old-connection";
-		}
-		const stream = this.streams.get(streamId);
-		if (!stream) {
-			const pending = this.pendingData.get(streamId) ?? [];
-			pending.push({ kind, seq });
-			this.pendingData.set(streamId, pending);
-			return "pending";
-		}
-		if (stream.aborted) {
-			return "ignored";
-		}
-		const expected = stream.recvNext.get(kind) ?? 0;
-		if (seq !== expected) {
-			return "seq-error";
-		}
-		stream.recvNext.set(kind, expected + 1);
-		this.finishIfComplete(stream, kind);
-		return "received";
-	}
-
-	receiveEnd(streamId, kind, lastSeq) {
-		const stream = this.streams.get(streamId);
-		if (!stream) {
-			const pending = this.pendingData.get(streamId) ?? [];
-			pending.push({ kind, end: true, lastSeq });
-			this.pendingData.set(streamId, pending);
-			return "pending";
-		}
-		stream.lastSeq.set(kind, lastSeq);
-		return this.finishIfComplete(stream, kind);
-	}
-
-	abort(streamId) {
-		const stream = this.streams.get(streamId);
-		if (stream) {
-			stream.aborted = true;
-			this.streams.delete(streamId);
-			for (const kind of [
-				"request.body",
-				"response.body",
-				"ws.client",
-				"ws.server",
-			]) {
-				this.streamCredit.delete(key(streamId, kind));
-			}
-		}
-	}
-
-	closeDataChannel() {
+	closeChannel(channelId) {
+		this.channels.delete(channelId);
 		this.failed = true;
-		this.controlConnected = false;
-		this.channels.clear();
-		this.streams.clear();
-		this.pendingData.clear();
-	}
-
-	closeControl() {
-		this.failed = true;
-		this.controlConnected = false;
-		this.channels.clear();
-		this.streams.clear();
-		this.pendingData.clear();
-	}
-
-	flushPending(streamId) {
-		const pending = this.pendingData.get(streamId) ?? [];
-		for (const item of pending) {
-			if (item.end) {
-				this.receiveEnd(streamId, item.kind, item.lastSeq);
-			} else {
-				this.receiveData(this.connectionId, streamId, item.kind, item.seq);
-			}
-		}
-		this.pendingData.delete(streamId);
-	}
-
-	finishIfComplete(stream, kind) {
-		const lastSeq = stream.lastSeq.get(kind);
-		if (lastSeq === undefined) {
-			return "waiting";
-		}
-		const next = stream.recvNext.get(kind) ?? 0;
-		if (lastSeq === -1 || next > lastSeq) {
-			stream.ended.add(kind);
-			return "ended";
-		}
-		return "waiting";
 	}
 }
 
-test("state model requires control and all data channels before public proxy", () => {
-	const model = new ProtocolStateModel(2);
-	assert.equal(model.isReady(), false);
-	model.connectControl("c1");
-	model.connectData("c1", 0);
-	assert.equal(model.isReady(), false);
-	assert.throws(() => model.startPublicRequest(), /not ready/);
-	model.connectData("c1", 1);
-	assert.equal(model.isReady(), true);
-	assert.equal(model.startPublicRequest(), 1);
+test("a v4 client connection becomes ready when all data channels are attached", () => {
+	const model = new V4TunnelModel({ dataChannels: 2 });
+	model.connectClientConnection("client-a");
+	assert.equal(model.ready, false);
+	assert.equal(model.connectDataChannel("client-a", 0), true);
+	assert.equal(model.ready, false);
+	assert.equal(model.connectDataChannel("client-a", 1), true);
+	assert.equal(model.ready, true);
+
+	assert.equal(model.connectDataChannel("old-client", 0), false);
 });
 
-test("state model handles data before start and end before final data", () => {
-	const model = readyModel();
-	assert.equal(model.receiveData("c1", 1, "response.body", 0), "pending");
-	assert.equal(model.receiveEnd(1, "response.body", 1), "pending");
-	const streamId = model.startPublicRequest();
-	assert.equal(streamId, 1);
-	assert.equal(model.receiveData("c1", 1, "response.body", 1), "received");
-	assert.equal(model.streams.get(1).ended.has("response.body"), true);
-});
+test("streams are assigned to data channels once and stay pinned", () => {
+	const model = new V4TunnelModel({ dataChannels: 2 });
+	model.connectClientConnection("client-a");
+	model.connectDataChannel("client-a", 0);
+	model.connectDataChannel("client-a", 1);
 
-test("state model blocks data without stream and connection credit", () => {
-	const model = readyModel();
-	const streamId = model.startPublicRequest();
-	assert.equal(model.sendData(streamId, "request.body", 128), "sent");
-	assert.equal(model.streamCredit.get(key(streamId, "request.body")), 128);
-	assert.equal(model.sendData(streamId, "request.body", 200), "blocked");
-	model.grantCredit(streamId, "request.body", 200);
-	assert.equal(model.sendData(streamId, "request.body", 200), "sent");
-	model.connectionCredit = 0;
-	assert.equal(model.sendData(streamId, "request.body", 1), "blocked");
-});
+	const first = model.startPublicRequest("client-a");
+	const second = model.startPublicRequest("client-a");
+	assert.deepEqual([first.channelId, second.channelId], [0, 1]);
 
-test("state model rejects old connection data and fails on socket closes", () => {
-	const model = readyModel();
-	const streamId = model.startPublicRequest();
 	assert.equal(
-		model.receiveData("old", streamId, "response.body", 0),
-		"old-connection",
+		model.receiveFrame({
+			clientConnectionId: "client-a",
+			channelId: first.channelId,
+			streamId: first.streamId,
+			frameType: FRAME_TYPE_RESPONSE_START,
+		}),
+		"ok",
 	);
-	model.closeDataChannel();
+	assert.equal(
+		model.receiveFrame({
+			clientConnectionId: "client-a",
+			channelId: second.channelId,
+			streamId: first.streamId,
+			frameType: FRAME_TYPE_RESPONSE_DATA,
+		}),
+		"protocol-error",
+	);
+});
+
+test("unknown data before stream start is a protocol error", () => {
+	const model = new V4TunnelModel();
+	model.connectClientConnection("client-a");
+	model.connectDataChannel("client-a", 0);
+	model.connectDataChannel("client-a", 1);
+
+	assert.equal(
+		model.receiveFrame({
+			clientConnectionId: "client-a",
+			channelId: 0,
+			streamId: 99n,
+			frameType: FRAME_TYPE_RESPONSE_DATA,
+		}),
+		"protocol-error",
+	);
+	assert.equal(model.ready, false);
+});
+
+test("stream abort closes only that stream and ignores late frames", () => {
+	const model = new V4TunnelModel();
+	model.connectClientConnection("client-a");
+	model.connectDataChannel("client-a", 0);
+	model.connectDataChannel("client-a", 1);
+	const stream = model.startPublicRequest("client-a");
+	const next = model.startPublicRequest("client-a");
+
+	assert.equal(
+		model.receiveFrame({
+			clientConnectionId: "client-a",
+			channelId: stream.channelId,
+			streamId: stream.streamId,
+			frameType: FRAME_TYPE_REQUEST_ABORT,
+		}),
+		"ok",
+	);
+	assert.equal(
+		model.receiveFrame({
+			clientConnectionId: "client-a",
+			channelId: stream.channelId,
+			streamId: stream.streamId,
+			frameType: FRAME_TYPE_RESPONSE_DATA,
+		}),
+		"ignored-closed-stream",
+	);
+	assert.equal(
+		model.receiveFrame({
+			clientConnectionId: "client-a",
+			channelId: next.channelId,
+			streamId: next.streamId,
+			frameType: FRAME_TYPE_RESPONSE_START,
+		}),
+		"ok",
+	);
+	assert.equal(model.failed, false);
+});
+
+test("flow control is enforced at stream and channel level", () => {
+	const model = new V4TunnelModel({
+		dataChannels: 1,
+		limits: {
+			...defaultTunnelLimits(),
+			streamCreditBytes: 10,
+			channelCreditBytes: 15,
+		},
+	});
+	model.connectClientConnection("client-a");
+	model.connectDataChannel("client-a", 0);
+	const stream = model.startPublicRequest("client-a");
+
+	assert.equal(
+		model.receiveFrame({
+			clientConnectionId: "client-a",
+			channelId: 0,
+			streamId: stream.streamId,
+			frameType: FRAME_TYPE_RESPONSE_DATA,
+			payloadBytes: 10,
+		}),
+		"ok",
+	);
+	assert.equal(
+		model.receiveFrame({
+			clientConnectionId: "client-a",
+			channelId: 0,
+			streamId: stream.streamId,
+			frameType: FRAME_TYPE_RESPONSE_DATA,
+			payloadBytes: 1,
+		}),
+		"flow-control-error",
+	);
+
+	const channelModel = new V4TunnelModel({
+		dataChannels: 1,
+		limits: {
+			...defaultTunnelLimits(),
+			streamCreditBytes: DEFAULT_STREAM_CREDIT_BYTES,
+			channelCreditBytes: 5,
+		},
+	});
+	channelModel.connectClientConnection("client-a");
+	channelModel.connectDataChannel("client-a", 0);
+	const channelStream = channelModel.startPublicRequest("client-a");
+	assert.equal(
+		channelModel.receiveFrame({
+			clientConnectionId: "client-a",
+			channelId: 0,
+			streamId: channelStream.streamId,
+			frameType: FRAME_TYPE_RESPONSE_DATA,
+			payloadBytes: 6,
+		}),
+		"flow-control-error",
+	);
+});
+
+test("new client connections replace old ones", () => {
+	const model = new V4TunnelModel();
+	model.connectClientConnection("client-a");
+	model.connectDataChannel("client-a", 0);
+	model.connectDataChannel("client-a", 1);
+	const oldStream = model.startPublicRequest("client-a");
+
+	model.connectClientConnection("client-b");
+	model.connectDataChannel("client-b", 0);
+	model.connectDataChannel("client-b", 1);
+	assert.equal(
+		model.receiveFrame({
+			clientConnectionId: "client-a",
+			channelId: oldStream.channelId,
+			streamId: oldStream.streamId,
+			frameType: FRAME_TYPE_RESPONSE_START,
+		}),
+		"ignored-old-client-connection",
+	);
+
+	const newStream = model.startPublicRequest("client-b");
+	assert.equal(newStream.streamId, 1n);
+});
+
+test("channel close invalidates the active client connection", () => {
+	const model = new V4TunnelModel();
+	model.connectClientConnection("client-a");
+	model.connectDataChannel("client-a", 0);
+	model.connectDataChannel("client-a", 1);
+	assert.equal(model.ready, true);
+	model.closeChannel(0);
+	assert.equal(model.ready, false);
 	assert.equal(model.failed, true);
-	assert.equal(model.isReady(), false);
-
-	const second = readyModel();
-	second.startPublicRequest();
-	second.closeControl();
-	assert.equal(second.failed, true);
-	assert.equal(second.streams.size, 0);
+	assert.equal(DEFAULT_CHANNEL_CREDIT_BYTES > 0, true);
 });
-
-test("state model detects seq gaps and lastSeq mismatch", () => {
-	const model = readyModel();
-	const streamId = model.startPublicRequest();
-	assert.equal(
-		model.receiveData("c1", streamId, "response.body", 1),
-		"seq-error",
-	);
-	assert.equal(model.receiveEnd(streamId, "response.body", 2), "waiting");
-	assert.equal(
-		model.receiveData("c1", streamId, "response.body", 0),
-		"received",
-	);
-	assert.equal(
-		model.receiveData("c1", streamId, "response.body", 1),
-		"received",
-	);
-	assert.equal(model.streams.get(streamId).ended.has("response.body"), false);
-	assert.equal(
-		model.receiveData("c1", streamId, "response.body", 2),
-		"received",
-	);
-	assert.equal(model.streams.get(streamId).ended.has("response.body"), true);
-});
-
-test("state model releases stream state on abort and ignores later data", () => {
-	const model = readyModel();
-	const streamId = model.startPublicRequest();
-	model.abort(streamId);
-	assert.equal(model.streams.has(streamId), false);
-	assert.equal(model.streamCredit.has(key(streamId, "request.body")), false);
-	assert.equal(
-		model.receiveData("c1", streamId, "response.body", 0),
-		"pending",
-	);
-});
-
-function readyModel() {
-	const model = new ProtocolStateModel(2);
-	model.connectControl("c1");
-	model.connectData("c1", 0);
-	model.connectData("c1", 1);
-	return model;
-}
-
-function key(streamId, kind) {
-	return `${streamId}:${kind}`;
-}

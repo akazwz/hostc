@@ -1,117 +1,145 @@
+import { performance } from "node:perf_hooks";
 import {
-	consumeCredit,
-	createCreditWindow,
-	DATA_FLAG_WS_BINARY,
-	decodeControlMessage,
-	decodeDataFrameView,
-	encodeControlMessage,
-	encodeDataFrame,
-	filterHttpRequestHeaders,
-	grantCredit,
-	selectDataChannel,
+	decodeFrameView,
+	decodeMetadata,
+	defaultTunnelLimits,
+	encodeFrame,
+	encodeMetadata,
+	FRAME_FLAG_NONE,
+	FRAME_TYPE_CHANNEL_CREDIT,
+	FRAME_TYPE_REQUEST_DATA,
+	FRAME_TYPE_REQUEST_START,
+	FRAME_TYPE_RESPONSE_DATA,
+	FRAME_TYPE_RESPONSE_START,
+	FRAME_TYPE_STREAM_CREDIT,
 } from "../dist/index.js";
 
-const nodeVersion = process.version;
-const date = new Date().toISOString();
-const payload1k = new Uint8Array(1024).fill(1);
-const payload64k = new Uint8Array(64 * 1024).fill(2);
-const frame1k = encodeDataFrame({
-	kind: "ws.client",
-	id: 1,
-	seq: 1,
-	flags: DATA_FLAG_WS_BINARY,
-	payload: payload1k,
-});
-const frame64k = encodeDataFrame({
-	kind: "response.body",
-	id: 1,
-	seq: 1,
-	payload: payload64k,
-});
-const controlRaw = encodeControlMessage({
-	type: "request.start",
-	id: 1,
+const ITERATIONS = Number.parseInt(process.env.ITERATIONS ?? "100000", 10);
+const PAYLOAD_BYTES = Number.parseInt(process.env.PAYLOAD_BYTES ?? "1024", 10);
+const payload = new Uint8Array(PAYLOAD_BYTES);
+payload.fill(42);
+
+const requestStart = {
 	kind: "http",
-	method: "GET",
-	url: "/bench",
-	headers: [["accept", "*/*"]],
-	body: false,
-});
-const creditWindow = createCreditWindow(1024);
-const headers = [
-	["connection", "x-drop"],
-	["x-drop", "1"],
-	["content-type", "text/plain"],
-	["host", "example.com"],
-];
+	method: "POST",
+	target: "/bench",
+	headers: [["content-type", "application/octet-stream"]],
+	hasBody: true,
+};
+const responseStart = {
+	status: 200,
+	headers: [["content-type", "application/octet-stream"]],
+	hasBody: true,
+};
+const streamCredit = {
+	kind: "request.body",
+	bytes: defaultTunnelLimits().streamCreditBytes,
+};
+const channelCredit = { bytes: defaultTunnelLimits().channelCreditBytes };
 
-const cases = [
-	bench("dataFrame encode 1 KiB", 100_000, () => {
-		encodeDataFrame({
-			kind: "response.body",
-			id: 1,
-			seq: 1,
-			payload: payload1k,
-		});
-	}),
-	bench("dataFrame encode 64 KiB", 10_000, () => {
-		encodeDataFrame({
-			kind: "response.body",
-			id: 1,
-			seq: 1,
-			payload: payload64k,
-		});
-	}),
-	bench("dataFrame decode 1 KiB", 100_000, () => {
-		decodeDataFrameView(frame1k);
-	}),
-	bench("dataFrame decode 64 KiB", 10_000, () => {
-		decodeDataFrameView(frame64k);
-	}),
-	bench("decode low-copy allocation check", 100_000, () => {
-		const decoded = decodeDataFrameView(frame1k);
-		if (decoded.payload.buffer !== frame1k.buffer) {
-			throw new Error("payload copied");
-		}
-	}),
-	bench("control JSON parse/validate", 100_000, () => {
-		decodeControlMessage(controlRaw);
-	}),
-	bench("selectDataChannel", 1_000_000, () => {
-		selectDataChannel(1234567, 2);
-	}),
-	bench("credit helper", 1_000_000, () => {
-		const consumed = consumeCredit(creditWindow, 64);
-		if (!consumed.ok) {
-			throw new Error("credit failed");
-		}
-		grantCredit(consumed.window, 64);
-	}),
-	bench("header filter", 100_000, () => {
-		filterHttpRequestHeaders(headers);
-	}),
-];
-
-console.log(JSON.stringify({ nodeVersion, date, cases }, null, 2));
-
-function bench(name, iterations, fn) {
-	const start = performance.now();
-	for (let index = 0; index < iterations; index += 1) {
-		fn();
+function bench(name, fn) {
+	const started = performance.now();
+	let checksum = 0;
+	for (let index = 0; index < ITERATIONS; index += 1) {
+		checksum += fn(index);
 	}
-	const durationMs = performance.now() - start;
-	return {
-		name,
-		iterations,
-		durationMs: Number(durationMs.toFixed(3)),
-		opsPerSec: Math.round((iterations / durationMs) * 1000),
-		payloadSize: name.includes("64 KiB")
-			? "64 KiB"
-			: name.includes("1 KiB")
-				? "1 KiB"
-				: "n/a",
-		memory: name.includes("low-copy")
-			? "payload is a subarray of source frame"
-			: "baseline only",
-	};
+	const elapsedMs = performance.now() - started;
+	const opsPerSecond = Math.round((ITERATIONS / elapsedMs) * 1000);
+	console.log(
+		`${name}: ${opsPerSecond.toLocaleString()} ops/sec (${elapsedMs.toFixed(1)} ms, checksum ${checksum})`,
+	);
 }
+
+const requestStartPayload = encodeMetadata(
+	FRAME_TYPE_REQUEST_START,
+	requestStart,
+);
+const responseStartPayload = encodeMetadata(
+	FRAME_TYPE_RESPONSE_START,
+	responseStart,
+);
+const streamCreditPayload = encodeMetadata(
+	FRAME_TYPE_STREAM_CREDIT,
+	streamCredit,
+);
+const channelCreditPayload = encodeMetadata(
+	FRAME_TYPE_CHANNEL_CREDIT,
+	channelCredit,
+);
+const requestFrame = encodeFrame({
+	frameType: FRAME_TYPE_REQUEST_DATA,
+	streamId: 1n,
+	seq: 0n,
+	flags: FRAME_FLAG_NONE,
+	payload,
+});
+const responseFrame = encodeFrame({
+	frameType: FRAME_TYPE_RESPONSE_DATA,
+	streamId: 1n,
+	seq: 0n,
+	flags: FRAME_FLAG_NONE,
+	payload,
+});
+
+bench(
+	"metadata encode request.start",
+	() => encodeMetadata(FRAME_TYPE_REQUEST_START, requestStart).byteLength,
+);
+bench(
+	"metadata decode request.start",
+	() =>
+		decodeMetadata(FRAME_TYPE_REQUEST_START, requestStartPayload).headers
+			.length,
+);
+bench(
+	"metadata encode response.start",
+	() => encodeMetadata(FRAME_TYPE_RESPONSE_START, responseStart).byteLength,
+);
+bench(
+	"metadata decode response.start",
+	() => decodeMetadata(FRAME_TYPE_RESPONSE_START, responseStartPayload).status,
+);
+bench(
+	"metadata encode stream.credit",
+	() => encodeMetadata(FRAME_TYPE_STREAM_CREDIT, streamCredit).byteLength,
+);
+bench(
+	"metadata decode stream.credit",
+	() => decodeMetadata(FRAME_TYPE_STREAM_CREDIT, streamCreditPayload).bytes,
+);
+bench(
+	"metadata encode channel.credit",
+	() => encodeMetadata(FRAME_TYPE_CHANNEL_CREDIT, channelCredit).byteLength,
+);
+bench(
+	"metadata decode channel.credit",
+	() => decodeMetadata(FRAME_TYPE_CHANNEL_CREDIT, channelCreditPayload).bytes,
+);
+bench(
+	"frame encode request.data",
+	(index) =>
+		encodeFrame({
+			frameType: FRAME_TYPE_REQUEST_DATA,
+			streamId: 1n,
+			seq: BigInt(index),
+			payload,
+		}).byteLength,
+);
+bench(
+	"frame decode request.data",
+	() => decodeFrameView(requestFrame).payload.byteLength,
+);
+bench(
+	"frame encode response.data",
+	(index) =>
+		encodeFrame({
+			frameType: FRAME_TYPE_RESPONSE_DATA,
+			streamId: 1n,
+			seq: BigInt(index),
+			payload,
+		}).byteLength,
+);
+bench(
+	"frame decode response.data",
+	() => decodeFrameView(responseFrame).payload.byteLength,
+);

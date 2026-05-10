@@ -1,10 +1,13 @@
-import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+	HostcClient,
+	localOriginAdapter,
+} from "../../../packages/client/dist/index.js";
 
 const require = createRequire(import.meta.url);
 const { WebSocket, WebSocketServer } = require("ws");
@@ -12,34 +15,22 @@ const { WebSocket, WebSocketServer } = require("ws");
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const serverUrl = process.env.HOSTC_SERVER_URL ?? "https://envoq.dev";
 const local = await startLocalEchoServer();
-const cli = spawn(
-	"node",
-	[
-		"apps/cli/dist/index.js",
-		String(local.port),
-		"--server",
-		serverUrl,
-		"--data-channels",
-		"2",
-	],
-	{
-		cwd: repoRoot,
-		detached: true,
-		env: {
-			...process.env,
-			HOSTC_E2E_RECONNECT_SIGNAL: "1",
-			HOSTC_E2E_RECONNECT_STDIN: "1",
-		},
-		stdio: ["pipe", "pipe", "pipe"],
-	},
-);
-const cliOutput = collectChildOutput(cli);
+const client = new HostcClient({
+	serverUrl,
+	dataChannels: 2,
+	upstream: localOriginAdapter({ origin: `http://127.0.0.1:${local.port}/` }),
+});
+const readyEvents = [];
+client.on("ready", (event) => readyEvents.push(event));
+const running = client.start();
 
 try {
-	const publicUrl = await waitForPublicUrl(cliOutput, 45_000);
+	const ready = await waitForReadyCount(readyEvents, 1, 45_000);
+	const publicUrl = ready.publicUrl;
 	if (!publicUrl.endsWith(".envoq.dev/") && !publicUrl.includes(".envoq.dev")) {
 		throw new Error(`Expected envoq.dev public URL, got ${publicUrl}`);
 	}
+
 	await assertTunnelNotReady(serverUrl);
 	await assertText(publicTunnelUrl(publicUrl, ""), "ok");
 	await assertText(publicTunnelUrl(publicUrl, "stream"), "ab");
@@ -58,15 +49,17 @@ try {
 	await assertPublicWebSocketClose(
 		new URL("socket", publicTunnelUrl(publicUrl, "")),
 	);
-	await assertCliReconnect(cli, cliOutput, publicUrl);
+	const reconnectPublicUrl = await assertSdkReconnect(client, readyEvents);
+
 	const result = {
 		ok: true,
 		date: new Date().toISOString(),
 		serverUrl,
 		publicUrl,
+		reconnectPublicUrl,
 		scenarios: [
-			"POST /api/tunnels",
-			"CLI staging connect",
+			"POST /api/tunnels/ephemeral",
+			"SDK staging connect",
 			"wildcard TLS public URL",
 			"HTTP GET",
 			"HTTP POST body",
@@ -74,7 +67,7 @@ try {
 			"WebSocket text echo",
 			"WebSocket binary echo",
 			"public WebSocket close",
-			"CLI reconnect",
+			"SDK reconnect",
 			"tunnel not ready error",
 		],
 	};
@@ -88,7 +81,8 @@ try {
 	await writeFile(artifactPath, `${JSON.stringify(result, null, 2)}\n`);
 	console.log(JSON.stringify({ ...result, artifactPath }, null, 2));
 } finally {
-	await stopChild(cli);
+	await client.stop();
+	await Promise.race([running.catch(() => undefined), sleep(1000)]);
 	await local.close();
 }
 
@@ -135,7 +129,7 @@ async function startLocalEchoServer() {
 }
 
 async function assertTunnelNotReady(baseUrl) {
-	const response = await fetch(new URL("/api/tunnels", baseUrl), {
+	const response = await fetch(new URL("/api/tunnels/ephemeral", baseUrl), {
 		method: "POST",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify({ dataChannels: 1 }),
@@ -162,35 +156,12 @@ async function assertTunnelNotReady(baseUrl) {
 	}
 }
 
-function collectChildOutput(child) {
-	const output = { text: "" };
-	child.stdout.on("data", (chunk) => {
-		output.text += chunk.toString();
-	});
-	child.stderr.on("data", (chunk) => {
-		output.text += chunk.toString();
-	});
-	return output;
-}
-
-async function waitForPublicUrl(output, timeoutMs) {
-	const deadline = Date.now() + timeoutMs;
-	while (Date.now() < deadline) {
-		const match = output.text.match(/Public URL:\s+(https?:\/\/\S+)/);
-		if (match) {
-			return match[1];
-		}
-		await sleep(100);
-	}
-	throw new Error(`Timed out waiting for CLI public URL:\n${output.text}`);
-}
-
 async function assertText(url, expected, init) {
 	const response = await fetch(url, init);
-	if (!response.ok) {
-		throw new Error(`${url} returned ${response.status}`);
-	}
 	const text = await response.text();
+	if (!response.ok) {
+		throw new Error(`${url} returned ${response.status}: ${text}`);
+	}
 	if (text !== expected) {
 		throw new Error(`${url} returned ${text}, expected ${expected}`);
 	}
@@ -226,39 +197,45 @@ async function assertPublicWebSocketClose(url) {
 	}
 }
 
-async function assertCliReconnect(child, output, publicUrl) {
-	const readyCountBefore = countReadyLines(output.text);
-	child.stdin.write("reconnect\n");
-	await waitForReadyCount(output, readyCountBefore + 1, 30_000);
-	const deadline = Date.now() + 20_000;
+async function assertSdkReconnect(client, readyEvents) {
+	const readyCountBefore = readyEvents.length;
+	client.forceReconnect("staging e2e reconnect");
+	const ready = await waitForReadyCount(
+		readyEvents,
+		readyCountBefore + 1,
+		45_000,
+	);
+	const publicUrl = ready.publicUrl;
+	await sleep(1000);
+	await retryUntil(30_000, () =>
+		assertText(publicTunnelUrl(publicUrl, ""), "ok"),
+	);
+	return publicUrl;
+}
+
+async function waitForReadyCount(readyEvents, expectedCount, timeoutMs) {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		if (readyEvents.length >= expectedCount) {
+			return readyEvents[expectedCount - 1];
+		}
+		await sleep(100);
+	}
+	throw new Error(`Timed out waiting for SDK ready count ${expectedCount}`);
+}
+
+async function retryUntil(timeoutMs, fn) {
+	const deadline = Date.now() + timeoutMs;
 	let lastError;
 	while (Date.now() < deadline) {
 		try {
-			await assertText(publicTunnelUrl(publicUrl, ""), "ok");
-			return;
+			return await fn();
 		} catch (error) {
 			lastError = error;
 		}
 		await sleep(500);
 	}
-	throw new Error(
-		`CLI reconnect failed: ${lastError?.message ?? "timeout"}\n${output.text}`,
-	);
-}
-
-async function waitForReadyCount(output, expectedCount, timeoutMs) {
-	const deadline = Date.now() + timeoutMs;
-	while (Date.now() < deadline) {
-		if (countReadyLines(output.text) >= expectedCount) {
-			return;
-		}
-		await sleep(100);
-	}
-	throw new Error(`Timed out waiting for CLI reconnect:\n${output.text}`);
-}
-
-function countReadyLines(output) {
-	return output.match(/^Tunnel ready /gm)?.length ?? 0;
+	throw lastError;
 }
 
 function publicTunnelUrl(base, pathname) {
@@ -268,25 +245,4 @@ function publicTunnelUrl(base, pathname) {
 
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function stopChild(child) {
-	if (child.exitCode !== null || child.signalCode !== null) {
-		return;
-	}
-	try {
-		process.kill(-child.pid, "SIGTERM");
-	} catch {
-		child.kill("SIGTERM");
-	}
-	const exited = once(child, "exit").then(() => true);
-	const timedOut = sleep(2000).then(() => false);
-	if (!(await Promise.race([exited, timedOut]))) {
-		try {
-			process.kill(-child.pid, "SIGKILL");
-		} catch {
-			child.kill("SIGKILL");
-		}
-		await once(child, "exit").catch(() => undefined);
-	}
 }

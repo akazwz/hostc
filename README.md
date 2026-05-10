@@ -1,119 +1,220 @@
 <div align="center">
   <img src="./apps/web/public/favicon.svg" alt="hostc logo" width="80" height="80" />
   <h1>hostc</h1>
-  <p><strong>Localhost to the edge.</strong></p>
-  <p>Secure, fast, and frictionless edge tunnels. Powered by Cloudflare Workers.</p>
+  <p><strong>Expose localhost from the edge.</strong></p>
+  <p>A lightweight tunnel for local HTTP and WebSocket services, powered by Cloudflare Workers and Durable Objects.</p>
+  <p>
+    <a href="./README.zh-CN.md">简体中文</a>
+  </p>
 </div>
 
 ---
 
-**hostc** is a modern, lightweight, and zero-configuration tool to instantly expose your local HTTP and WebSocket services to the public internet. Built entirely on top of Cloudflare Workers and Durable Objects for global low-latency edge networking.
+> hostc is currently in preview. The core tunnel path is usable, but early versions may require CLI upgrades when the protocol changes.
 
-## ✨ Features
+## What is hostc?
 
-- **Zero Config**: Just run one command and get a public HTTPS URL.
-- **WebSocket Support**: Seamlessly proxies WebSocket upgrades (`ws://` -> `wss://`) out of the box.
-- **Edge Powered**: Traffic is routed through Cloudflare's massive global network.
-- **Self-Hostable**: You can easily deploy the worker to your own Cloudflare account.
+hostc gives your local development server a public URL.
 
-## 🚀 Quick Start
+It is useful for sharing local web apps, testing webhooks, previewing Vite or Next.js projects, and exposing temporary HTTP/WebSocket services without configuring a reverse proxy.
 
-You don't even need to install anything if you have Node.js. Just run:
-
-```bash
+```sh
 npx hostc 3000
 ```
 
-Or, install it globally for frequent use:
+You will get a public URL that forwards traffic to `http://localhost:3000`.
 
-```bash
-npm install -g hostc
+## Features
 
-hostc 3000
+- Zero-config CLI for temporary public tunnels.
+- HTTP and WebSocket proxying, including local dev servers with HMR.
+- Cloudflare Worker + Durable Object server architecture.
+- v4 protocol with streams, data channels, frame metadata, credit-based flow control, and explicit close codes.
+- Embeddable client SDK for CLIs, desktop apps, daemons, and custom Node.js integrations.
+- Local, staging, E2E, stress, and benchmark workflows.
+
+## Quick start
+
+Run without installing:
+
+```sh
+npx hostc 5173
 ```
 
-> **Public URL**: You'll instantly get a URL like `https://t-a1b2c3d4.hostc.dev` that routes traffic directly to your `http://127.0.0.1:3000`.
+Or install globally:
 
-## 🗺️ Roadmap
+```sh
+npm install -g hostc
+hostc 5173
+```
 
-hostc is still early, and the focus right now is making the core tunnel experience solid before adding more surface area.
+Example output:
 
-### Near term
+```text
+Success  Tunnel ready
+  Public URL: https://t-example.hostc.example.com/
+  Local:      http://localhost:5173/
+  Tunnel:     t-example
+  Channels:   4
+```
 
-- Harden tunnel routing, connection lifecycle, and error-page behavior.
-- Polish the CLI UX around reconnects, local server failures, and terminal output.
-- Improve self-hosting and local development docs.
-- Add better operational visibility for the Worker and Durable Object path.
+## CLI usage
 
-### Later
+```sh
+hostc <port>
+```
 
-- Reserved or custom subdomains.
-- Basic access control for shared tunnels.
-- Hosted onboarding and account features after the tunnel core is stable.
+Examples:
 
-## 🏗️ Architecture & Monorepo
+```sh
+hostc 3000
+hostc 5173 --data-channels 4
+hostc 8080 --local-host 127.0.0.1
+hostc 3000 --server https://hostc.example.com
+```
 
-This project is a Monorepo managed by `pnpm`.
+Configuration:
 
-| Package / App | Description |
+```sh
+hostc config get
+hostc config set server-url https://hostc.example.com
+hostc config unset server-url
+hostc config path
+```
+
+Diagnostics:
+
+```sh
+hostc doctor 5173
+```
+
+## Architecture
+
+hostc is split into four main parts:
+
+| Package / App | Responsibility |
 | --- | --- |
-| [`apps/cli`](./apps/cli) | The Node.js command-line interface tool. |
-| [`apps/server`](./apps/server) | The Cloudflare Worker and Durable Object handling tunnel API, control/data sockets, and public proxying. |
-| [`packages/protocol`](./packages/protocol) | Runtime-agnostic protocol package shared by CLI and server. |
-| [`apps/web`](./apps/web) | Web UI package; the tunnel server does not depend on it. |
+| `packages/protocol` | The protocol source of truth. Defines frames, streams, metadata, limits, credits, close codes, validation, and helpers shared by client and server. |
+| `packages/client` | The embeddable client SDK. Creates ephemeral tunnels, opens data channels, multiplexes streams, proxies HTTP/WebSocket traffic, handles flow control, and reconnects when a channel is lost. |
+| `apps/server` | The Cloudflare Worker + Durable Object tunnel server. Creates tunnels, receives public HTTP/WebSocket traffic, assigns streams to data channels, and forwards v4 frames. |
+| `apps/cli` | The user-facing CLI. Handles arguments, config, doctor checks, terminal output, spinners, and calls the client SDK. It does not own protocol logic. |
 
-## 🛠️ Local Development
+The important separation is that protocol logic does not live in the CLI. The CLI is a thin product layer on top of the SDK, and both the SDK and server are driven by the shared protocol package.
 
-### Requirements
+## Protocol model
+
+- `tunnel`: the public tunnel managed by a Durable Object.
+- `client connection`: the current SDK/CLI connection to that tunnel.
+- `data channel`: a WebSocket between the SDK and server.
+- `stream`: one public HTTP request or WebSocket connection.
+- `frame`: the protocol unit carried over a data channel.
+
+Streams are assigned to a data channel once and stay pinned to that channel. Stream-level failures should close only that stream; channel-level failures cause the client to create a new ephemeral tunnel.
+
+## Client SDK
+
+The client SDK is currently an internal preview package in this monorepo. The CLI already uses it internally, and it is intended to become the public integration surface for Electron apps, desktop GUIs, background daemons, and custom Node.js tooling.
+
+The public npm package for the SDK is not stable yet. Treat this example as a repository-level integration preview:
+
+```ts
+import { HostcClient, localOriginAdapter } from "@hostc/client";
+
+const client = new HostcClient({
+  serverUrl: "https://hostc.example.com",
+  upstream: localOriginAdapter({
+    origin: new URL("http://localhost:5173/"),
+  }),
+});
+
+client.on("ready", (event) => {
+  console.log(event.publicUrl);
+});
+
+client.on("reconnecting", (event) => {
+  console.error(`reconnecting: ${event.reason}`);
+});
+
+await client.start();
+```
+
+## Current behavior and limitations
+
+- Anonymous tunnels are temporary.
+- If the client connection is lost, the CLI creates a new ephemeral tunnel.
+- A reconnect may produce a new tunnel id and public URL.
+- There is no account system, reserved domain, dashboard, or long-running daemon yet.
+- Early protocol versions are intentionally not backward compatible. If the protocol changes, update the CLI/SDK.
+
+This keeps the preview product simple while the core tunnel path is hardened.
+
+## Local development
+
+Requirements:
+
 - Node.js 18+
-- `pnpm` v8+
-- A Cloudflare account (if you want to deploy the worker yourself)
+- pnpm
+- A Cloudflare account for deployment
 
-### Setup
+Install dependencies:
 
-1. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
+```sh
+pnpm install
+```
 
-2. **Run the Cloudflare Worker locally**
-   ```bash
-   pnpm dev:server
-   ```
+Build everything:
 
-3. **Run the CLI locally against your local worker**
-   ```bash
-   pnpm build:cli
-   HOSTC_SERVER_URL=http://127.0.0.1:8787 node apps/cli/dist/index.js 3000
-   ```
+```sh
+pnpm build
+```
 
-### Refactor Acceptance Commands
+Run the server locally:
+
+```sh
+pnpm dev:server
+```
+
+Run the CLI against the local server:
+
+```sh
+pnpm build:cli
+HOSTC_SERVER_URL=http://127.0.0.1:8787 node apps/cli/dist/index.js 5173
+```
+
+## Testing and benchmarks
+
+Common checks:
 
 ```sh
 pnpm build
 pnpm test
 pnpm lint
-pnpm -F @hostc/protocol test
-pnpm -F @hostc/protocol bench
-pnpm -F @hostc/server test
-pnpm -F @hostc/server dev
-pnpm -F @hostc/server test:e2e:local
-pnpm -F @hostc/server deploy:staging
-pnpm -F @hostc/server preflight:staging
-pnpm -F @hostc/server test:e2e:staging
-pnpm -F @hostc/server load:staging
-pnpm -F hostc build
-pnpm -F hostc test
+pnpm test:e2e:cli
 pnpm test:e2e:local
-pnpm test:stress:local
-pnpm preflight:staging
-pnpm run audit:refactor
+pnpm bench:local
+pnpm stress:local
 ```
 
-Staging uses `https://envoq.dev` and wildcard `*.envoq.dev`. For first-time staging setup, deploy the Worker once, set `TOKEN_SECRET` with Wrangler secrets, then run `pnpm preflight:staging`.
-`pnpm preflight:staging` is read-only and checks whether the staging Worker, `TOKEN_SECRET`, and `/health` are ready before running staging E2E/load.
-Preview legacy cleanup with `pnpm run cleanup:legacy -- --dry-run`. After explicit approval for destructive local cleanup, run `pnpm run cleanup:legacy -- --yes` to remove the old Worker/protocol directories, including untracked leftovers, and their temporary Biome exclusions.
+Staging checks:
 
-## 📖 License
+```sh
+pnpm deploy:server:staging
+pnpm preflight:staging
+HOSTC_SERVER_URL=https://hostc.example.com pnpm test:e2e:staging
+HOSTC_SERVER_URL=https://hostc.example.com pnpm bench:remote
+HOSTC_SERVER_URL=https://hostc.example.com pnpm stress:remote
+```
+
+Staging uses `https://hostc.example.com` and `*.hostc.example.com`.
+
+## Roadmap
+
+- Harden tunnel lifecycle behavior under real browser, HMR, and WebSocket workloads.
+- Improve Worker and Durable Object observability.
+- Publish and document the client SDK as a first-class integration surface.
+- Add reserved tunnels, stable domains, accounts, and access control.
+- Explore daemon and desktop GUI workflows.
+
+## License
 
 Apache License 2.0. Made by [akazwz](https://github.com/akazwz).

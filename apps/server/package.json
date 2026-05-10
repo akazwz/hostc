@@ -14,7 +14,10 @@
 		"test:e2e:local": "pnpm -F @hostc/protocol build && pnpm -F @hostc/server build && pnpm -F hostc build && node ../../scripts/e2e-local.mjs",
 		"preflight:staging": "node ./scripts/preflight-staging.mjs",
 		"test:e2e:staging": "pnpm -F @hostc/protocol build && pnpm -F @hostc/server build && pnpm -F hostc build && node ./scripts/e2e-staging.mjs",
-		"load:staging": "pnpm -F @hostc/protocol build && pnpm -F @hostc/server build && pnpm -F hostc build && node ./scripts/load-staging.mjs"
+		"load:staging": "pnpm -F @hostc/protocol build && pnpm -F @hostc/server build && pnpm -F hostc build && node ./scripts/load-staging.mjs",
+		"secret:staging": "wrangler secret bulk .env.staging --env staging",
+		"verify:staging": "pnpm run preflight:staging && pnpm run test:e2e:staging",
+		"deploy:staging:secrets": "wrangler deploy --env staging --secrets-file .env.staging"
 	},
 	"dependencies": {
 		"@hostc/protocol": "workspace:*"

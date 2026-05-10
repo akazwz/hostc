@@ -1,5 +1,7 @@
 import {
+	EPHEMERAL_TUNNELS_API_PATH,
 	isValidChannelId,
+	isValidClientConnectionId,
 	isValidTunnelId,
 	MAX_DATA_CHANNELS,
 } from "@hostc/protocol";
@@ -12,18 +14,11 @@ export type HostRoute =
 export type ApiRoute =
 	| { kind: "health" }
 	| { kind: "create" }
-	| { kind: "refresh"; tunnelId: string }
 	| {
-			kind: "control";
-			tunnelId: string;
-			connectionId: string | null;
-			dataChannels: number | null;
-	  }
-	| {
-			kind: "data";
+			kind: "channel";
 			tunnelId: string;
 			channelId: number;
-			connectionId: string | null;
+			clientConnectionId: string | null;
 	  }
 	| { kind: "not-found" }
 	| { kind: "invalid"; status: number; message: string }
@@ -45,6 +40,9 @@ export function classifyHost(hostname: string, baseDomain: string): HostRoute {
 		if (!label || label.includes(".") || rawLabel !== rawLabel.toLowerCase()) {
 			return { kind: "unknown" };
 		}
+		if (label === "api" || label === "www") {
+			return { kind: "unknown" };
+		}
 		if (!isValidTunnelId(label)) {
 			return { kind: "unknown" };
 		}
@@ -61,14 +59,19 @@ export function parseApiRoute(method: string, url: URL): ApiRoute {
 			? { kind: "health" }
 			: { kind: "method-not-allowed", allow: "GET" };
 	}
-	if (pathname === "/api/tunnels") {
+	if (pathname === EPHEMERAL_TUNNELS_API_PATH) {
 		return method === "POST"
 			? { kind: "create" }
 			: { kind: "method-not-allowed", allow: "POST" };
 	}
 
 	const parts = pathname.split("/").filter(Boolean);
-	if (parts.length !== 4 || parts[0] !== "api" || parts[1] !== "tunnels") {
+	if (
+		parts.length !== 5 ||
+		parts[0] !== "api" ||
+		parts[1] !== "tunnels" ||
+		parts[3] !== "channels"
+	) {
 		return { kind: "not-found" };
 	}
 
@@ -77,40 +80,28 @@ export function parseApiRoute(method: string, url: URL): ApiRoute {
 		return { kind: "invalid", status: 400, message: "Invalid tunnel id" };
 	}
 
-	switch (parts[3]) {
-		case "refresh":
-			return method === "POST"
-				? { kind: "refresh", tunnelId }
-				: { kind: "method-not-allowed", allow: "POST" };
-		case "control":
-			if (method !== "GET") {
-				return { kind: "method-not-allowed", allow: "GET" };
-			}
-			return {
-				kind: "control",
-				tunnelId,
-				connectionId: url.searchParams.get("connectionId"),
-				dataChannels: parseDataChannels(url.searchParams.get("dataChannels")),
-			};
-		case "data": {
-			if (method !== "GET") {
-				return { kind: "method-not-allowed", allow: "GET" };
-			}
-			const channelRaw = url.searchParams.get("channel");
-			const channelId = channelRaw === null ? NaN : Number(channelRaw);
-			if (!isValidChannelId(channelId, MAX_DATA_CHANNELS)) {
-				return { kind: "invalid", status: 400, message: "Invalid channel" };
-			}
-			return {
-				kind: "data",
-				tunnelId,
-				channelId,
-				connectionId: url.searchParams.get("connectionId"),
-			};
-		}
-		default:
-			return { kind: "not-found" };
+	if (method !== "GET") {
+		return { kind: "method-not-allowed", allow: "GET" };
 	}
+
+	const channelId = Number(parts[4]);
+	if (!isValidChannelId(channelId, MAX_DATA_CHANNELS)) {
+		return { kind: "invalid", status: 400, message: "Invalid channel" };
+	}
+
+	const clientConnectionId = url.searchParams.get("clientConnectionId");
+	if (
+		clientConnectionId !== null &&
+		!isValidClientConnectionId(clientConnectionId)
+	) {
+		return {
+			kind: "invalid",
+			status: 400,
+			message: "Invalid client connection id",
+		};
+	}
+
+	return { kind: "channel", tunnelId, channelId, clientConnectionId };
 }
 
 export function isWebSocketUpgrade(request: Request): boolean {
@@ -146,14 +137,4 @@ function isLocalAppHost(host: string): boolean {
 		host === "::1" ||
 		host === "[::1]"
 	);
-}
-
-function parseDataChannels(raw: string | null): number | null {
-	if (raw === null || raw === "") {
-		return null;
-	}
-	const value = Number(raw);
-	return Number.isInteger(value) && value >= 1 && value <= MAX_DATA_CHANNELS
-		? value
-		: null;
 }

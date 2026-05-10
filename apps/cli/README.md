@@ -1,8 +1,8 @@
-# hostc
+# hostc CLI
 
-Expose a local web service (HTTP + WebSocket) through a hostc tunnel.
+Expose a local HTTP/WebSocket service through a hostc tunnel.
 
-`hostc` creates a public URL for a local web service, forwards HTTP requests and WebSocket upgrades, keeps the session alive, and reconnects automatically when the control connection drops.
+`hostc` is the thin command-line product layer on top of the hostc client SDK. It handles arguments, config, diagnostics, terminal output, and local service checks. Protocol logic lives in the shared protocol and client packages.
 
 ## Install
 
@@ -16,99 +16,58 @@ Or run it without installing:
 npx hostc@latest 3000
 ```
 
-## Requirements
-
-- Node.js 18 or newer
-- A local HTTP service or WebSocket-capable web service listening on a port
-
 ## Usage
 
 ```sh
 hostc <port> [--local-host <host>] [--server <url>] [--data-channels <count>] [--qr]
 hostc config get
-hostc config set server-url https://envoq.dev
+hostc config set server-url https://hostc.example.com
 hostc config unset server-url
 hostc config path
+hostc doctor [port]
 ```
 
 ## Examples
 
 ```sh
 hostc 3000
-hostc 3000 --local-host 0.0.0.0
-hostc 3000 --server https://envoq.dev
-hostc 3000 --data-channels 2
+hostc 5173 --data-channels 4
+hostc 8080 --local-host 127.0.0.1
+hostc 3000 --server https://hostc.example.com
 hostc 3000 --qr
 ```
 
 ## Options
 
-- `--local-host <host>`: Host of the local service. Defaults to `localhost`.
-- `--server <url>`: Server URL. Defaults to `https://hostc.dev`.
-- `--data-channels <count>`: Number of binary data channel WebSockets. Defaults to `2`.
-- `--qr`: Show a scannable QR code for the public URL when stdout is a TTY.
+- `--local-host <host>`: host of the local service. Defaults to `localhost`.
+- `--server <url>`: hostc server URL. Defaults to `https://hostc.dev`.
+- `--data-channels <count>`: number of binary data channel WebSockets. Defaults to `2`.
+- `--qr`: show a QR code for the public URL when stdout is a TTY.
 
-## Persistent Config
+## Environment variables
 
-Non-sensitive settings are stored in `~/.hostc/config.json` or in the file pointed to by `HOSTC_CONFIG`.
+- `HOSTC_SERVER_URL`: override the hostc server URL for local development, staging, or self-hosted deployments.
+- `HOSTC_CONFIG`: override the config file path.
+- `HOSTC_DEBUG`: set to `1` for protocol and reconnect debug output.
+- `HOSTC_DISABLE_UPDATE_CHECK`: set to `1` to disable the interactive npm update check.
 
-```json
-{
-  "serverUrl": "https://envoq.dev",
-  "localHost": "localhost",
-  "dataChannels": 2,
-  "qr": false
-}
-```
+## What it does
 
-Configuration priority is CLI arguments, environment variables, config file, then defaults. Tokens are process-only and are not written to disk.
+- Creates an ephemeral tunnel.
+- Opens one or more binary data channel WebSockets.
+- Proxies HTTP requests to your local service.
+- Proxies WebSocket upgrades on the same local port.
+- Recreates a new ephemeral tunnel after a data channel disconnect.
+- Prints spinner, success, warning, reconnect reason, and upgrade hints.
+- Provides `hostc doctor` for local diagnostics.
 
-## Environment Variables
+## Current limitations
 
-- `HOSTC_SERVER_URL`: Override the Hostc server URL for local development, staging, or self-hosted testing. Defaults to `https://hostc.dev`.
-- `HOSTC_CONFIG`: Override the config file path.
-- `HOSTC_DEBUG`: Set to `1` for protocol and reconnect debug output.
-- `HOSTC_DISABLE_UPDATE_CHECK`: Set to `1` to disable the interactive npm update check.
-
-Example:
-
-```sh
-HOSTC_SERVER_URL=http://127.0.0.1:8787 hostc 3000
-```
-
-## What It Does
-
-- Opens a tunnel to a public `*.hostc.dev` URL
-- Maintains one JSON control WebSocket and multiple binary data channel WebSockets
-- Proxies HTTP requests to your local service
-- Proxies WebSocket upgrades on the same local port
-- Refreshes the session automatically
-- Reconnects after transient tunnel disconnects
-
-## Example Output
-
-```text
-$ hostc 3000
-Tunnel ready t-a1b2c3d4 -> http://localhost:3000/
-Public URL: https://t-a1b2c3d4.hostc.dev
-```
-
-```text
-$ hostc 3000 --qr
-Tunnel ready t-a1b2c3d4 -> http://localhost:3000/
-Public URL: https://t-a1b2c3d4.hostc.dev
-Scan on your phone:
-<QR code shown in interactive terminals>
-```
-
-## Notes
-
-- Tunnel subdomains are assigned automatically
-- Custom subdomains are not currently exposed by the CLI
-- QR code output is shown only when `--qr` is passed and stdout is a TTY
-- Press `Ctrl+C` to close the tunnel
+- Anonymous tunnels are temporary.
+- Reconnects may create a new tunnel id and public URL.
+- Reserved domains, accounts, dashboard, and daemon mode are not included yet.
+- Early protocol versions may require CLI upgrades.
 
 ## Links
 
-- Website: https://hostc.dev
 - Repository: https://github.com/akazwz/hostc

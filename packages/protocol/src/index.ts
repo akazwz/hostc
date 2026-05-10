@@ -1,194 +1,78 @@
-export const PROTOCOL_VERSION = 3;
-export const DEFAULT_DATA_CHANNELS = 2;
-export const MAX_DATA_CHANNELS = 8;
-export const DEFAULT_MAX_WEBSOCKET_MESSAGE_BYTES = 1024 * 1024;
-export const DEFAULT_MAX_FRAME_BYTES = DEFAULT_MAX_WEBSOCKET_MESSAGE_BYTES;
-export const DEFAULT_MAX_CONTROL_BYTES = 64 * 1024;
-export const DEFAULT_STREAM_CREDIT_BYTES = DEFAULT_MAX_WEBSOCKET_MESSAGE_BYTES;
-export const DEFAULT_CONNECTION_CREDIT_BYTES = 4 * 1024 * 1024;
-export const DEFAULT_PENDING_DATA_BYTES = DEFAULT_CONNECTION_CREDIT_BYTES;
-export const DEFAULT_PENDING_DATA_TIMEOUT_MS = 120_000;
+export const PROTOCOL_VERSION = 4;
 
-export const DATA_FRAME_HEADER_BYTES = 17;
-export const DATA_FRAME_MAGIC_0 = 0x48;
-export const DATA_FRAME_MAGIC_1 = 0x43;
-
-export const DATA_KIND_REQUEST_BODY = 1;
-export const DATA_KIND_RESPONSE_BODY = 2;
-export const DATA_KIND_WS_CLIENT = 3;
-export const DATA_KIND_WS_SERVER = 4;
-
-export const DATA_FLAG_NONE = 0x00;
-export const DATA_FLAG_WS_TEXT = 0x01;
-export const DATA_FLAG_WS_BINARY = 0x02;
-
-export const CLOSE_NORMAL = 1000;
-export const CLOSE_PROTOCOL_ERROR = 1002;
-export const CLOSE_UNSUPPORTED_DATA = 1003;
-export const CLOSE_MESSAGE_TOO_BIG = 1009;
-export const CLOSE_TUNNEL_REPLACED = 1012;
-export const CLOSE_INTERNAL_ERROR = 1011;
+export const TUNNEL_KIND_EPHEMERAL = "ephemeral" as const;
 
 export const TUNNELS_API_PATH = "/api/tunnels";
+export const EPHEMERAL_TUNNELS_API_PATH = "/api/tunnels/ephemeral";
 
-export const MAX_HEADER_ENTRIES = 128;
+export const DEFAULT_DATA_CHANNELS = 2;
+export const MAX_DATA_CHANNELS = 8;
+
+export const DEFAULT_MAX_WEBSOCKET_MESSAGE_BYTES = 1024 * 1024;
+export const DEFAULT_MAX_FRAME_BYTES = DEFAULT_MAX_WEBSOCKET_MESSAGE_BYTES;
+export const DEFAULT_MAX_METADATA_BYTES = 64 * 1024;
+export const DEFAULT_STREAM_CREDIT_BYTES = DEFAULT_MAX_WEBSOCKET_MESSAGE_BYTES;
+export const DEFAULT_CHANNEL_CREDIT_BYTES =
+	4 * DEFAULT_MAX_WEBSOCKET_MESSAGE_BYTES;
+export const DEFAULT_PENDING_DATA_BYTES = DEFAULT_CHANNEL_CREDIT_BYTES;
+export const DEFAULT_PENDING_DATA_TIMEOUT_MS = 120_000;
+export const MAX_CREDIT_BYTES = Number.MAX_SAFE_INTEGER;
+
+export const FRAME_MAGIC_0 = 0x48; // H
+export const FRAME_MAGIC_1 = 0x43; // C
+export const FRAME_HEADER_BYTES = 25;
+
+export const FRAME_CODE_REQUEST_START = 0x10;
+export const FRAME_CODE_REQUEST_DATA = 0x11;
+export const FRAME_CODE_REQUEST_END = 0x12;
+export const FRAME_CODE_REQUEST_ABORT = 0x13;
+export const FRAME_CODE_RESPONSE_START = 0x20;
+export const FRAME_CODE_RESPONSE_DATA = 0x21;
+export const FRAME_CODE_RESPONSE_END = 0x22;
+export const FRAME_CODE_RESPONSE_ABORT = 0x23;
+export const FRAME_CODE_STREAM_CREDIT = 0x30;
+export const FRAME_CODE_CHANNEL_CREDIT = 0x31;
+
+export const FRAME_TYPE_REQUEST_START = "request.start" as const;
+export const FRAME_TYPE_REQUEST_DATA = "request.data" as const;
+export const FRAME_TYPE_REQUEST_END = "request.end" as const;
+export const FRAME_TYPE_REQUEST_ABORT = "request.abort" as const;
+export const FRAME_TYPE_RESPONSE_START = "response.start" as const;
+export const FRAME_TYPE_RESPONSE_DATA = "response.data" as const;
+export const FRAME_TYPE_RESPONSE_END = "response.end" as const;
+export const FRAME_TYPE_RESPONSE_ABORT = "response.abort" as const;
+export const FRAME_TYPE_STREAM_CREDIT = "stream.credit" as const;
+export const FRAME_TYPE_CHANNEL_CREDIT = "channel.credit" as const;
+
+export const FRAME_FLAG_NONE = 0x00;
+export const FRAME_FLAG_WS_TEXT = 0x01;
+export const FRAME_FLAG_WS_BINARY = 0x02;
+
+export const CLOSE_NORMAL = 1000;
+export const CLOSE_GOING_AWAY = 1001;
+export const CLOSE_UNSUPPORTED_DATA = 1003;
+export const CLOSE_PROTOCOL_ERROR = 1002;
+export const CLOSE_MESSAGE_TOO_BIG = 1009;
+export const CLOSE_INTERNAL_ERROR = 1011;
+export const CLOSE_CLIENT_CONNECTION_REPLACED = 4001;
+
+export const MAX_TUNNEL_ID_BYTES = 128;
+export const MAX_CLIENT_CONNECTION_ID_BYTES = 128;
+export const MAX_CONNECT_TOKEN_BYTES = 4096;
+export const MAX_URL_BYTES = 8192;
+export const MAX_HEADER_COUNT = 256;
 export const MAX_HEADER_NAME_BYTES = 128;
-export const MAX_HEADER_VALUE_BYTES = 8 * 1024;
-export const MAX_URL_BYTES = 8 * 1024;
-export const MAX_REASON_BYTES = 512;
+export const MAX_HEADER_VALUE_BYTES = 16 * 1024;
+export const MAX_HEADERS_BYTES = 128 * 1024;
 export const MAX_CLOSE_REASON_BYTES = 123;
 
-export type HeaderEntry = readonly [name: string, value: string];
+const MAX_UINT32 = 0xffff_ffff;
+const MAX_UINT64 = (1n << 64n) - 1n;
+const ID_RE = /^[A-Za-z0-9](?:[A-Za-z0-9_-]{1,126}[A-Za-z0-9])?$/;
+const HTTP_TOKEN_RE = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+const CONNECT_TOKEN_RE = /^[A-Za-z0-9._~-]+$/;
 
-export type TunnelLimits = {
-	maxFrameBytes: number;
-	maxWebSocketMessageBytes: number;
-	maxControlBytes: number;
-	streamCreditBytes: number;
-	connectionCreditBytes: number;
-	pendingDataBytes: number;
-	pendingDataTimeoutMs: number;
-};
-
-export type CreateTunnelResponse = {
-	tunnelId: string;
-	publicUrl: string;
-	connectionId: string;
-	controlUrl: string;
-	dataUrl: string;
-	connectToken: string;
-	refreshToken: string;
-	dataChannels: number;
-	limits: TunnelLimits;
-};
-
-export type RefreshTunnelResponse = {
-	connectionId: string;
-	controlUrl: string;
-	dataUrl: string;
-	connectToken: string;
-	refreshToken: string;
-	dataChannels: number;
-	limits: TunnelLimits;
-};
-
-export type DataKind =
-	| "request.body"
-	| "response.body"
-	| "ws.client"
-	| "ws.server";
-
-export type RequestStartMessage = {
-	type: "request.start";
-	id: number;
-	kind: "http" | "websocket";
-	method: string;
-	url: string;
-	headers: HeaderEntry[];
-	body: boolean;
-	protocols?: string[];
-};
-
-export type RequestEndMessage = {
-	type: "request.end";
-	id: number;
-	kind: "request.body" | "ws.client";
-	lastSeq: number;
-	code?: number;
-	reason?: string;
-};
-
-export type RequestAbortMessage = {
-	type: "request.abort";
-	id: number;
-	reason: string;
-};
-
-export type ResponseStartMessage = {
-	type: "response.start";
-	id: number;
-	status: number;
-	headers: HeaderEntry[];
-	body: boolean;
-	protocol?: string;
-};
-
-export type ResponseEndMessage = {
-	type: "response.end";
-	id: number;
-	kind: "response.body" | "ws.server";
-	lastSeq: number;
-	code?: number;
-	reason?: string;
-};
-
-export type ResponseAbortMessage = {
-	type: "response.abort";
-	id: number;
-	reason: string;
-};
-
-export type CreditMessage = {
-	type: "credit";
-	scope: "stream" | "connection";
-	id?: number;
-	kind?: DataKind;
-	bytes: number;
-};
-
-export type ControlMessage =
-	| RequestStartMessage
-	| RequestEndMessage
-	| RequestAbortMessage
-	| ResponseStartMessage
-	| ResponseEndMessage
-	| ResponseAbortMessage
-	| CreditMessage;
-
-export type DataFrameMeta = {
-	kind: DataKind;
-	id: number;
-	seq: number;
-	flags?: number;
-	payloadLength: number;
-};
-
-export type DataFrame = Omit<DataFrameMeta, "payloadLength"> & {
-	payload: Uint8Array;
-};
-
-export type DecodedDataFrame = Required<DataFrameMeta> & {
-	payload: Uint8Array;
-};
-
-export type CreditWindow = {
-	readonly available: number;
-};
-
-export type CreditConsumeResult =
-	| { ok: true; window: CreditWindow }
-	| { ok: false; window: CreditWindow };
-
-type JsonRecord = Record<string, unknown>;
-
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
-
-const DATA_KIND_TO_CODE: Record<DataKind, number> = {
-	"request.body": DATA_KIND_REQUEST_BODY,
-	"response.body": DATA_KIND_RESPONSE_BODY,
-	"ws.client": DATA_KIND_WS_CLIENT,
-	"ws.server": DATA_KIND_WS_SERVER,
-};
-
-const DATA_CODE_TO_KIND = new Map<number, DataKind>([
-	[DATA_KIND_REQUEST_BODY, "request.body"],
-	[DATA_KIND_RESPONSE_BODY, "response.body"],
-	[DATA_KIND_WS_CLIENT, "ws.client"],
-	[DATA_KIND_WS_SERVER, "ws.server"],
-]);
-
-const HTTP_HOP_BY_HOP_HEADERS = new Set([
+const HOP_BY_HOP_HEADERS = new Set([
 	"connection",
 	"keep-alive",
 	"proxy-authenticate",
@@ -199,268 +83,1097 @@ const HTTP_HOP_BY_HOP_HEADERS = new Set([
 	"upgrade",
 ]);
 
-const REQUEST_HEADER_EXCLUSIONS = new Set([
-	...HTTP_HOP_BY_HOP_HEADERS,
-	"content-length",
-	"host",
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder("utf-8", { fatal: true });
+
+export type HeaderEntry = readonly [name: string, value: string];
+export type StreamId = bigint;
+export type ClientConnectionId = string;
+
+export type FrameType =
+	| typeof FRAME_TYPE_REQUEST_START
+	| typeof FRAME_TYPE_REQUEST_DATA
+	| typeof FRAME_TYPE_REQUEST_END
+	| typeof FRAME_TYPE_REQUEST_ABORT
+	| typeof FRAME_TYPE_RESPONSE_START
+	| typeof FRAME_TYPE_RESPONSE_DATA
+	| typeof FRAME_TYPE_RESPONSE_END
+	| typeof FRAME_TYPE_RESPONSE_ABORT
+	| typeof FRAME_TYPE_STREAM_CREDIT
+	| typeof FRAME_TYPE_CHANNEL_CREDIT;
+
+export type FrameDirection = "server-to-client" | "client-to-server" | "both";
+export type RequestKind = "http" | "websocket";
+export type DataKind =
+	| "request.body"
+	| "response.body"
+	| "ws.client"
+	| "ws.server";
+
+export interface TunnelLimits {
+	readonly maxFrameBytes: number;
+	readonly maxMetadataBytes: number;
+	readonly maxWebSocketMessageBytes: number;
+	readonly streamCreditBytes: number;
+	readonly channelCreditBytes: number;
+	readonly pendingDataBytes: number;
+	readonly pendingDataTimeoutMs: number;
+}
+
+export interface CreateEphemeralTunnelResponse {
+	readonly kind: typeof TUNNEL_KIND_EPHEMERAL;
+	readonly protocolVersion: typeof PROTOCOL_VERSION;
+	readonly tunnelId: string;
+	readonly publicUrl: string;
+	readonly clientConnectionId: ClientConnectionId;
+	readonly dataUrl: string;
+	readonly connectToken: string;
+	readonly dataChannels: number;
+	readonly limits: TunnelLimits;
+}
+
+export interface RequestStartMetadata {
+	readonly kind: RequestKind;
+	readonly method: string;
+	readonly target: string;
+	readonly headers: readonly HeaderEntry[];
+	readonly hasBody: boolean;
+	readonly protocols?: readonly string[];
+}
+
+export interface RequestEndMetadata {
+	readonly kind: "request.body" | "ws.client";
+	readonly lastSeq: number;
+	readonly code?: number;
+	readonly reason?: string;
+}
+
+export interface RequestAbortMetadata {
+	readonly reason: string;
+}
+
+export interface ResponseStartMetadata {
+	readonly status: number;
+	readonly headers: readonly HeaderEntry[];
+	readonly hasBody: boolean;
+	readonly protocol?: string;
+}
+
+export interface ResponseEndMetadata {
+	readonly kind: "response.body" | "ws.server";
+	readonly lastSeq: number;
+	readonly code?: number;
+	readonly reason?: string;
+}
+
+export interface ResponseAbortMetadata {
+	readonly reason: string;
+}
+
+export interface StreamCreditMetadata {
+	readonly kind: DataKind;
+	readonly bytes: number;
+}
+
+export interface ChannelCreditMetadata {
+	readonly bytes: number;
+}
+
+export type Metadata =
+	| RequestStartMetadata
+	| RequestEndMetadata
+	| RequestAbortMetadata
+	| ResponseStartMetadata
+	| ResponseEndMetadata
+	| ResponseAbortMetadata
+	| StreamCreditMetadata
+	| ChannelCreditMetadata;
+
+export interface Frame {
+	readonly frameType: FrameType;
+	readonly streamId: StreamId;
+	readonly seq: bigint;
+	readonly flags?: number;
+	readonly payload?: Uint8Array;
+}
+
+export interface DecodedFrame {
+	readonly frameType: FrameType;
+	readonly streamId: StreamId;
+	readonly seq: bigint;
+	readonly flags: number;
+	readonly payload: Uint8Array;
+}
+
+export interface FrameHeader {
+	readonly frameType: FrameType;
+	readonly streamId: StreamId;
+	readonly seq: bigint;
+	readonly flags: number;
+	readonly payloadLength: number;
+}
+
+export interface FrameCodecOptions {
+	readonly maxFrameBytes?: number;
+}
+
+export interface MetadataCodecOptions {
+	readonly maxMetadataBytes?: number;
+}
+
+export interface ChooseDataChannelResult {
+	readonly channelId: number;
+	readonly nextChannelIndex: number;
+}
+
+const FRAME_TYPE_TO_CODE: ReadonlyMap<FrameType, number> = new Map([
+	[FRAME_TYPE_REQUEST_START, FRAME_CODE_REQUEST_START],
+	[FRAME_TYPE_REQUEST_DATA, FRAME_CODE_REQUEST_DATA],
+	[FRAME_TYPE_REQUEST_END, FRAME_CODE_REQUEST_END],
+	[FRAME_TYPE_REQUEST_ABORT, FRAME_CODE_REQUEST_ABORT],
+	[FRAME_TYPE_RESPONSE_START, FRAME_CODE_RESPONSE_START],
+	[FRAME_TYPE_RESPONSE_DATA, FRAME_CODE_RESPONSE_DATA],
+	[FRAME_TYPE_RESPONSE_END, FRAME_CODE_RESPONSE_END],
+	[FRAME_TYPE_RESPONSE_ABORT, FRAME_CODE_RESPONSE_ABORT],
+	[FRAME_TYPE_STREAM_CREDIT, FRAME_CODE_STREAM_CREDIT],
+	[FRAME_TYPE_CHANNEL_CREDIT, FRAME_CODE_CHANNEL_CREDIT],
 ]);
 
-const WEBSOCKET_REQUEST_HEADER_EXCLUSIONS = new Set([
-	...REQUEST_HEADER_EXCLUSIONS,
-	"sec-websocket-accept",
-	"sec-websocket-extensions",
-	"sec-websocket-key",
-	"sec-websocket-protocol",
-	"sec-websocket-version",
-]);
-
-const RESPONSE_HEADER_EXCLUSIONS = new Set([
-	...HTTP_HOP_BY_HOP_HEADERS,
-	"content-encoding",
-	"content-length",
-]);
-
-const CONTROL_KEYS: Record<ControlMessage["type"], readonly string[]> = {
-	"request.start": [
-		"type",
-		"id",
-		"kind",
-		"method",
-		"url",
-		"headers",
-		"body",
-		"protocols",
-	],
-	"request.end": ["type", "id", "kind", "lastSeq", "code", "reason"],
-	"request.abort": ["type", "id", "reason"],
-	"response.start": ["type", "id", "status", "headers", "body", "protocol"],
-	"response.end": ["type", "id", "kind", "lastSeq", "code", "reason"],
-	"response.abort": ["type", "id", "reason"],
-	credit: ["type", "scope", "id", "kind", "bytes"],
-};
+const FRAME_CODE_TO_TYPE: ReadonlyMap<number, FrameType> = new Map(
+	[...FRAME_TYPE_TO_CODE.entries()].map(([frameType, code]) => [
+		code,
+		frameType,
+	]),
+);
 
 export function defaultTunnelLimits(): TunnelLimits {
 	return {
 		maxFrameBytes: DEFAULT_MAX_FRAME_BYTES,
+		maxMetadataBytes: DEFAULT_MAX_METADATA_BYTES,
 		maxWebSocketMessageBytes: DEFAULT_MAX_WEBSOCKET_MESSAGE_BYTES,
-		maxControlBytes: DEFAULT_MAX_CONTROL_BYTES,
 		streamCreditBytes: DEFAULT_STREAM_CREDIT_BYTES,
-		connectionCreditBytes: DEFAULT_CONNECTION_CREDIT_BYTES,
+		channelCreditBytes: DEFAULT_CHANNEL_CREDIT_BYTES,
 		pendingDataBytes: DEFAULT_PENDING_DATA_BYTES,
 		pendingDataTimeoutMs: DEFAULT_PENDING_DATA_TIMEOUT_MS,
 	};
 }
 
-export function encodeControlMessage(message: ControlMessage): string {
-	if (!isControlMessage(message)) {
-		throw new TypeError("Invalid control message");
-	}
-
-	return JSON.stringify(message);
-}
-
-export function decodeControlMessage(
-	raw: string,
-	options: { maxControlBytes?: number } = {},
-): ControlMessage | null {
-	if (
-		byteLength(raw) > (options.maxControlBytes ?? DEFAULT_MAX_CONTROL_BYTES)
-	) {
-		return null;
-	}
-
-	const parsed = parseJsonRecord(raw);
-	return parsed && isControlMessage(parsed) ? parsed : null;
-}
-
-export function isControlMessage(value: unknown): value is ControlMessage {
-	if (!isRecord(value) || typeof value.type !== "string") {
-		return false;
-	}
-
-	if (
-		!hasOnlyKnownKeys(value, CONTROL_KEYS[value.type as ControlMessage["type"]])
-	) {
-		return false;
-	}
-
-	switch (value.type) {
-		case "request.start":
-			return (
-				isValidStreamId(value.id) &&
-				(value.kind === "http" || value.kind === "websocket") &&
-				isNonEmptyToken(value.method, 32) &&
-				isValidUrlPath(value.url) &&
-				isHeaderEntries(value.headers) &&
-				typeof value.body === "boolean" &&
-				(value.protocols === undefined ||
-					isStringArray(value.protocols, 128, 128))
-			);
-		case "request.end":
-			return (
-				isValidStreamId(value.id) &&
-				(value.kind === "request.body" || value.kind === "ws.client") &&
-				isValidLastSeq(value.lastSeq) &&
-				isOptionalCloseCode(value.code) &&
-				isOptionalReason(value.reason)
-			);
-		case "request.abort":
-			return isValidStreamId(value.id) && isReason(value.reason);
-		case "response.start":
-			return (
-				isValidStreamId(value.id) &&
-				isHttpStatus(value.status) &&
-				isHeaderEntries(value.headers) &&
-				typeof value.body === "boolean" &&
-				(value.protocol === undefined || isNonEmptyToken(value.protocol, 128))
-			);
-		case "response.end":
-			return (
-				isValidStreamId(value.id) &&
-				(value.kind === "response.body" || value.kind === "ws.server") &&
-				isValidLastSeq(value.lastSeq) &&
-				isOptionalCloseCode(value.code) &&
-				isOptionalReason(value.reason)
-			);
-		case "response.abort":
-			return isValidStreamId(value.id) && isReason(value.reason);
-		case "credit":
-			if (!isPositiveSafeInteger(value.bytes)) {
-				return false;
-			}
-			if (value.scope === "stream") {
-				return isValidStreamId(value.id) && isDataKind(value.kind);
-			}
-			if (value.scope === "connection") {
-				return value.id === undefined && value.kind === undefined;
-			}
-			return false;
-		default:
-			return false;
-	}
-}
-
-export function encodeDataFrame(
-	frame: DataFrame,
-	options: { maxFrameBytes?: number } = {},
-): Uint8Array {
-	const payload = frame.payload;
-	const header = encodeDataFrameHeader(
-		{
-			kind: frame.kind,
-			id: frame.id,
-			seq: frame.seq,
-			flags: frame.flags ?? DATA_FLAG_NONE,
-			payloadLength: payload.byteLength,
-		},
-		options,
+export function isFrameType(value: unknown): value is FrameType {
+	return (
+		typeof value === "string" && FRAME_TYPE_TO_CODE.has(value as FrameType)
 	);
-	const encoded = new Uint8Array(DATA_FRAME_HEADER_BYTES + payload.byteLength);
-	encoded.set(header);
-	encoded.set(payload, DATA_FRAME_HEADER_BYTES);
-	return encoded;
 }
 
-export function encodeDataFrameHeader(
-	meta: DataFrameMeta,
-	options: { maxFrameBytes?: number } = {},
+export function getFrameTypeCode(frameType: FrameType): number {
+	const code = FRAME_TYPE_TO_CODE.get(frameType);
+	if (code === undefined) {
+		throw new Error(`unknown frame type: ${String(frameType)}`);
+	}
+	return code;
+}
+
+export function getFrameTypeFromCode(code: number): FrameType {
+	const frameType = FRAME_CODE_TO_TYPE.get(code);
+	if (frameType === undefined) {
+		throw new Error(`unknown frame type code: ${code}`);
+	}
+	return frameType;
+}
+
+export function isRequestFrameType(frameType: FrameType): boolean {
+	return frameType.startsWith("request.");
+}
+
+export function isResponseFrameType(frameType: FrameType): boolean {
+	return frameType.startsWith("response.");
+}
+
+export function isDataFrameType(frameType: FrameType): boolean {
+	return (
+		frameType === FRAME_TYPE_REQUEST_DATA ||
+		frameType === FRAME_TYPE_RESPONSE_DATA
+	);
+}
+
+export function isMetadataFrameType(frameType: FrameType): boolean {
+	return !isDataFrameType(frameType);
+}
+
+export function isChannelFrameType(frameType: FrameType): boolean {
+	return frameType === FRAME_TYPE_CHANNEL_CREDIT;
+}
+
+export function isStreamFrameType(frameType: FrameType): boolean {
+	return !isChannelFrameType(frameType);
+}
+
+export function getFrameTypeDirection(frameType: FrameType): FrameDirection {
+	if (isRequestFrameType(frameType)) {
+		return "server-to-client";
+	}
+	if (isResponseFrameType(frameType)) {
+		return "client-to-server";
+	}
+	return "both";
+}
+
+export function isValidFrameForDirection(
+	frameType: FrameType,
+	direction: FrameDirection,
+): boolean {
+	const frameDirection = getFrameTypeDirection(frameType);
+	return (
+		direction === "both" ||
+		frameDirection === "both" ||
+		frameDirection === direction
+	);
+}
+
+export function encodeFrame(
+	frame: Frame,
+	options: FrameCodecOptions = {},
 ): Uint8Array {
-	const flags = meta.flags ?? DATA_FLAG_NONE;
+	const payload = frame.payload ?? new Uint8Array(0);
+	if (!(payload instanceof Uint8Array)) {
+		throw new Error("frame payload must be a Uint8Array");
+	}
+
+	assertValidFrameHeader({
+		frameType: frame.frameType,
+		streamId: frame.streamId,
+		seq: frame.seq,
+		flags: frame.flags ?? FRAME_FLAG_NONE,
+		payloadLength: payload.byteLength,
+	});
+
 	const maxFrameBytes = options.maxFrameBytes ?? DEFAULT_MAX_FRAME_BYTES;
-	if (!isDataKind(meta.kind)) {
-		throw new TypeError("Invalid data kind");
+	if (!isPositiveSafeInteger(maxFrameBytes)) {
+		throw new Error("maxFrameBytes must be a positive safe integer");
 	}
-	if (!isValidFlagsForKind(meta.kind, flags)) {
-		throw new TypeError("Invalid data frame flags");
-	}
-	if (!isValidStreamId(meta.id)) {
-		throw new TypeError("Invalid stream id");
-	}
-	if (!isValidSeq(meta.seq)) {
-		throw new TypeError("Invalid seq");
-	}
-	if (!isUint32(meta.payloadLength) || meta.payloadLength > maxFrameBytes) {
-		throw new TypeError("Invalid payload length");
+	if (payload.byteLength > maxFrameBytes) {
+		throw new Error("frame exceeds maxFrameBytes");
 	}
 
-	const header = new Uint8Array(DATA_FRAME_HEADER_BYTES);
-	const view = new DataView(header.buffer);
-	header[0] = DATA_FRAME_MAGIC_0;
-	header[1] = DATA_FRAME_MAGIC_1;
-	header[2] = PROTOCOL_VERSION;
-	header[3] = DATA_KIND_TO_CODE[meta.kind];
-	header[4] = flags;
-	view.setUint32(5, meta.id, false);
-	view.setUint32(9, meta.seq, false);
-	view.setUint32(13, meta.payloadLength, false);
-	return header;
+	const bytes = new Uint8Array(FRAME_HEADER_BYTES + payload.byteLength);
+	bytes.set(
+		encodeFrameHeader({
+			frameType: frame.frameType,
+			streamId: frame.streamId,
+			seq: frame.seq,
+			flags: frame.flags ?? FRAME_FLAG_NONE,
+			payloadLength: payload.byteLength,
+		}),
+	);
+	bytes.set(payload, FRAME_HEADER_BYTES);
+	return bytes;
 }
 
-export function decodeDataFrame(
-	bytes: Uint8Array,
-	options: { maxFrameBytes?: number } = {},
-): DecodedDataFrame | null {
-	return decodeDataFrameView(bytes, options);
+export function encodeFrameHeader(
+	header: FrameHeader,
+	options: FrameCodecOptions = {},
+): Uint8Array {
+	assertValidFrameHeader(header);
+	const maxFrameBytes = options.maxFrameBytes ?? DEFAULT_MAX_FRAME_BYTES;
+	if (!isPositiveSafeInteger(maxFrameBytes)) {
+		throw new Error("maxFrameBytes must be a positive safe integer");
+	}
+	if (header.payloadLength > maxFrameBytes) {
+		throw new Error("frame exceeds maxFrameBytes");
+	}
+
+	const bytes = new Uint8Array(FRAME_HEADER_BYTES);
+	const view = new DataView(bytes.buffer);
+	view.setUint8(0, FRAME_MAGIC_0);
+	view.setUint8(1, FRAME_MAGIC_1);
+	view.setUint8(2, PROTOCOL_VERSION);
+	view.setUint8(3, getFrameTypeCode(header.frameType));
+	view.setUint8(4, header.flags);
+	view.setBigUint64(5, header.streamId, false);
+	view.setBigUint64(13, header.seq, false);
+	view.setUint32(21, header.payloadLength, false);
+	return bytes;
 }
 
-export function decodeDataFrameView(
-	bytes: Uint8Array,
-	options: { maxFrameBytes?: number } = {},
-): DecodedDataFrame | null {
-	if (bytes.byteLength < DATA_FRAME_HEADER_BYTES) {
-		return null;
-	}
-	if (bytes[0] !== DATA_FRAME_MAGIC_0 || bytes[1] !== DATA_FRAME_MAGIC_1) {
-		return null;
-	}
-	if (bytes[2] !== PROTOCOL_VERSION) {
-		return null;
-	}
-
-	const kind = DATA_CODE_TO_KIND.get(bytes[3]);
-	if (!kind) {
-		return null;
-	}
-
-	const flags = bytes[4];
-	if (!isValidFlagsForKind(kind, flags)) {
-		return null;
+export function decodeFrameHeader(
+	input: Uint8Array | ArrayBuffer,
+	options: FrameCodecOptions = {},
+): FrameHeader {
+	const bytes = asUint8Array(input);
+	if (bytes.byteLength < FRAME_HEADER_BYTES) {
+		throw new Error("frame is shorter than header");
 	}
 
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-	const id = view.getUint32(5, false);
-	const seq = view.getUint32(9, false);
-	const payloadLength = view.getUint32(13, false);
-	const maxFrameBytes = options.maxFrameBytes ?? DEFAULT_MAX_FRAME_BYTES;
-
 	if (
-		!isValidStreamId(id) ||
-		!isValidSeq(seq) ||
-		payloadLength > maxFrameBytes ||
-		bytes.byteLength !== DATA_FRAME_HEADER_BYTES + payloadLength
+		view.getUint8(0) !== FRAME_MAGIC_0 ||
+		view.getUint8(1) !== FRAME_MAGIC_1
 	) {
-		return null;
+		throw new Error("invalid frame magic");
+	}
+	const version = view.getUint8(2);
+	if (version !== PROTOCOL_VERSION) {
+		throw new Error(`unsupported protocol version: ${version}`);
+	}
+
+	const frameType = getFrameTypeFromCode(view.getUint8(3));
+	const header: FrameHeader = {
+		frameType,
+		flags: view.getUint8(4),
+		streamId: view.getBigUint64(5, false),
+		seq: view.getBigUint64(13, false),
+		payloadLength: view.getUint32(21, false),
+	};
+
+	assertValidFrameHeader(header);
+	const maxFrameBytes = options.maxFrameBytes ?? DEFAULT_MAX_FRAME_BYTES;
+	if (!isPositiveSafeInteger(maxFrameBytes)) {
+		throw new Error("maxFrameBytes must be a positive safe integer");
+	}
+	if (header.payloadLength > maxFrameBytes) {
+		throw new Error("frame exceeds maxFrameBytes");
+	}
+	return header;
+}
+
+export function decodeFrameView(
+	input: Uint8Array | ArrayBuffer,
+	options: FrameCodecOptions = {},
+): DecodedFrame {
+	const bytes = asUint8Array(input);
+	const header = decodeFrameHeader(bytes, options);
+	const expectedLength = FRAME_HEADER_BYTES + header.payloadLength;
+	if (bytes.byteLength !== expectedLength) {
+		throw new Error("frame payload length mismatch");
 	}
 
 	return {
-		kind,
-		id,
-		seq,
-		flags,
-		payloadLength,
-		payload: bytes.subarray(DATA_FRAME_HEADER_BYTES),
+		frameType: header.frameType,
+		streamId: header.streamId,
+		seq: header.seq,
+		flags: header.flags,
+		payload: bytes.subarray(FRAME_HEADER_BYTES),
 	};
 }
 
-export function getDataKindCode(kind: DataKind): number {
-	return DATA_KIND_TO_CODE[kind];
+export function decodeFrame(
+	input: Uint8Array | ArrayBuffer,
+	options: FrameCodecOptions = {},
+): DecodedFrame {
+	const frame = decodeFrameView(input, options);
+	return { ...frame, payload: frame.payload.slice() };
 }
 
-export function getDataKindFromCode(code: number): DataKind | null {
-	return DATA_CODE_TO_KIND.get(code) ?? null;
+export function assertValidFrameHeader(header: FrameHeader): void {
+	if (!isFrameType(header.frameType)) {
+		throw new Error("invalid frame type");
+	}
+	if (!isValidUint8(header.flags)) {
+		throw new Error("invalid frame flags");
+	}
+	if (!isValidStreamId(header.streamId)) {
+		throw new Error("invalid stream id");
+	}
+	if (!isValidSeq(header.seq)) {
+		throw new Error("invalid sequence number");
+	}
+	if (!isValidUint32(header.payloadLength)) {
+		throw new Error("invalid payload length");
+	}
+
+	if (isChannelFrameType(header.frameType)) {
+		if (header.streamId !== 0n) {
+			throw new Error("channel-level frame must use stream id 0");
+		}
+		if (header.seq !== 0n) {
+			throw new Error("channel-level frame must use sequence number 0");
+		}
+	} else if (header.streamId === 0n) {
+		throw new Error("stream-level frame must use a non-zero stream id");
+	}
+
+	if (isMetadataFrameType(header.frameType)) {
+		if (header.flags !== FRAME_FLAG_NONE) {
+			throw new Error("metadata frame flags must be 0");
+		}
+		if (header.seq !== 0n) {
+			throw new Error("metadata frame sequence number must be 0");
+		}
+	} else if (!isValidDataFrameFlags(header.flags)) {
+		throw new Error("invalid data frame flags");
+	}
 }
 
-export function isDataKind(value: unknown): value is DataKind {
+export function encodeMetadata(
+	frameType: FrameType,
+	metadata: Metadata,
+	options: MetadataCodecOptions = {},
+): Uint8Array {
+	if (!isMetadataFrameType(frameType)) {
+		throw new Error(`${frameType} does not carry JSON metadata`);
+	}
+	if (!isMetadataForFrameType(metadata, frameType)) {
+		throw new Error(`invalid metadata for ${frameType}`);
+	}
+
+	const bytes = utf8Encode(JSON.stringify(metadata));
+	const maxMetadataBytes =
+		options.maxMetadataBytes ?? DEFAULT_MAX_METADATA_BYTES;
+	if (!isPositiveSafeInteger(maxMetadataBytes)) {
+		throw new Error("maxMetadataBytes must be a positive safe integer");
+	}
+	if (bytes.byteLength > maxMetadataBytes) {
+		throw new Error("metadata exceeds maxMetadataBytes");
+	}
+	return bytes;
+}
+
+export function decodeMetadata(
+	frameType: FrameType,
+	payload: Uint8Array | ArrayBuffer,
+	options: MetadataCodecOptions = {},
+): Metadata {
+	if (!isMetadataFrameType(frameType)) {
+		throw new Error(`${frameType} does not carry JSON metadata`);
+	}
+
+	const bytes = asUint8Array(payload);
+	const maxMetadataBytes =
+		options.maxMetadataBytes ?? DEFAULT_MAX_METADATA_BYTES;
+	if (!isPositiveSafeInteger(maxMetadataBytes)) {
+		throw new Error("maxMetadataBytes must be a positive safe integer");
+	}
+	if (bytes.byteLength > maxMetadataBytes) {
+		throw new Error("metadata exceeds maxMetadataBytes");
+	}
+
+	let decoded: unknown;
+	try {
+		decoded = JSON.parse(utf8Decode(bytes));
+	} catch (error) {
+		throw new Error(
+			`invalid metadata JSON: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
+
+	if (!isMetadataForFrameType(decoded, frameType)) {
+		throw new Error(`invalid metadata for ${frameType}`);
+	}
+	return decoded;
+}
+
+export function isMetadataForFrameType(
+	value: unknown,
+	frameType: FrameType,
+): value is Metadata {
+	switch (frameType) {
+		case FRAME_TYPE_REQUEST_START:
+			return isRequestStartMetadata(value);
+		case FRAME_TYPE_REQUEST_END:
+			return isRequestEndMetadata(value);
+		case FRAME_TYPE_REQUEST_ABORT:
+			return isRequestAbortMetadata(value);
+		case FRAME_TYPE_RESPONSE_START:
+			return isResponseStartMetadata(value);
+		case FRAME_TYPE_RESPONSE_END:
+			return isResponseEndMetadata(value);
+		case FRAME_TYPE_RESPONSE_ABORT:
+			return isResponseAbortMetadata(value);
+		case FRAME_TYPE_STREAM_CREDIT:
+			return isStreamCreditMetadata(value);
+		case FRAME_TYPE_CHANNEL_CREDIT:
+			return isChannelCreditMetadata(value);
+		case FRAME_TYPE_REQUEST_DATA:
+		case FRAME_TYPE_RESPONSE_DATA:
+			return false;
+	}
+}
+
+export function isRequestStartMetadata(
+	value: unknown,
+): value is RequestStartMetadata {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const allowedKeys = [
+		"kind",
+		"method",
+		"target",
+		"headers",
+		"hasBody",
+		"protocols",
+	];
+	if (!hasOnlyKeys(value, allowedKeys)) {
+		return false;
+	}
+	if (value.kind !== "http" && value.kind !== "websocket") {
+		return false;
+	}
+	if (
+		!isValidHttpMethod(value.method) ||
+		!isValidTarget(value.target) ||
+		!isValidHeaders(value.headers)
+	) {
+		return false;
+	}
+	if (typeof value.hasBody !== "boolean") {
+		return false;
+	}
+	if (value.kind === "websocket" && value.hasBody) {
+		return false;
+	}
+	if (value.protocols !== undefined && !isValidProtocolList(value.protocols)) {
+		return false;
+	}
+	if (value.kind === "http" && value.protocols !== undefined) {
+		return false;
+	}
+	return true;
+}
+
+export function isRequestEndMetadata(
+	value: unknown,
+): value is RequestEndMetadata {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const allowedKeys = ["kind", "lastSeq", "code", "reason"];
+	if (!hasOnlyKeys(value, allowedKeys)) {
+		return false;
+	}
+	if (value.kind !== "request.body" && value.kind !== "ws.client") {
+		return false;
+	}
+	if (!isValidLastSeq(value.lastSeq)) {
+		return false;
+	}
+	if (
+		value.kind === "request.body" &&
+		(value.code !== undefined || value.reason !== undefined)
+	) {
+		return false;
+	}
+	if (value.kind === "ws.client") {
+		return isValidOptionalClose(value.code, value.reason);
+	}
+	return true;
+}
+
+export function isRequestAbortMetadata(
+	value: unknown,
+): value is RequestAbortMetadata {
+	return isAbortMetadata(value);
+}
+
+export function isResponseStartMetadata(
+	value: unknown,
+): value is ResponseStartMetadata {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const allowedKeys = ["status", "headers", "hasBody", "protocol"];
+	if (!hasOnlyKeys(value, allowedKeys)) {
+		return false;
+	}
+	if (!isValidStatus(value.status) || !isValidHeaders(value.headers)) {
+		return false;
+	}
+	if (typeof value.hasBody !== "boolean") {
+		return false;
+	}
+	if (value.protocol !== undefined && !isValidProtocol(value.protocol)) {
+		return false;
+	}
+	return true;
+}
+
+export function isResponseEndMetadata(
+	value: unknown,
+): value is ResponseEndMetadata {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const allowedKeys = ["kind", "lastSeq", "code", "reason"];
+	if (!hasOnlyKeys(value, allowedKeys)) {
+		return false;
+	}
+	if (value.kind !== "response.body" && value.kind !== "ws.server") {
+		return false;
+	}
+	if (!isValidLastSeq(value.lastSeq)) {
+		return false;
+	}
+	if (
+		value.kind === "response.body" &&
+		(value.code !== undefined || value.reason !== undefined)
+	) {
+		return false;
+	}
+	if (value.kind === "ws.server") {
+		return isValidOptionalClose(value.code, value.reason);
+	}
+	return true;
+}
+
+export function isResponseAbortMetadata(
+	value: unknown,
+): value is ResponseAbortMetadata {
+	return isAbortMetadata(value);
+}
+
+export function isStreamCreditMetadata(
+	value: unknown,
+): value is StreamCreditMetadata {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const allowedKeys = ["kind", "bytes"];
+	if (!hasOnlyKeys(value, allowedKeys)) {
+		return false;
+	}
+	return isDataKind(value.kind) && isValidCreditBytes(value.bytes);
+}
+
+export function isChannelCreditMetadata(
+	value: unknown,
+): value is ChannelCreditMetadata {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const allowedKeys = ["bytes"];
+	if (!hasOnlyKeys(value, allowedKeys)) {
+		return false;
+	}
+	return isValidCreditBytes(value.bytes);
+}
+
+export function isCreateEphemeralTunnelResponse(
+	value: unknown,
+): value is CreateEphemeralTunnelResponse {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const allowedKeys = [
+		"kind",
+		"protocolVersion",
+		"tunnelId",
+		"publicUrl",
+		"clientConnectionId",
+		"dataUrl",
+		"connectToken",
+		"dataChannels",
+		"limits",
+	];
+	if (!hasOnlyKeys(value, allowedKeys)) {
+		return false;
+	}
+	return (
+		value.kind === TUNNEL_KIND_EPHEMERAL &&
+		value.protocolVersion === PROTOCOL_VERSION &&
+		isValidTunnelId(value.tunnelId) &&
+		isValidHttpUrl(value.publicUrl) &&
+		isValidClientConnectionId(value.clientConnectionId) &&
+		isValidWebSocketUrl(value.dataUrl) &&
+		isValidConnectToken(value.connectToken) &&
+		isValidDataChannelCount(value.dataChannels) &&
+		isTunnelLimits(value.limits)
+	);
+}
+
+export function parseCreateEphemeralTunnelResponse(
+	value: unknown,
+): CreateEphemeralTunnelResponse {
+	if (!isCreateEphemeralTunnelResponse(value)) {
+		throw new Error("create tunnel returned an invalid v4 response");
+	}
+	return value;
+}
+
+export function isTunnelLimits(value: unknown): value is TunnelLimits {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const allowedKeys = [
+		"maxFrameBytes",
+		"maxMetadataBytes",
+		"maxWebSocketMessageBytes",
+		"streamCreditBytes",
+		"channelCreditBytes",
+		"pendingDataBytes",
+		"pendingDataTimeoutMs",
+	];
+	if (!hasOnlyKeys(value, allowedKeys)) {
+		return false;
+	}
+	return (
+		isPositiveSafeInteger(value.maxFrameBytes) &&
+		isPositiveSafeInteger(value.maxMetadataBytes) &&
+		isPositiveSafeInteger(value.maxWebSocketMessageBytes) &&
+		isPositiveSafeInteger(value.streamCreditBytes) &&
+		isPositiveSafeInteger(value.channelCreditBytes) &&
+		isPositiveSafeInteger(value.pendingDataBytes) &&
+		isPositiveSafeInteger(value.pendingDataTimeoutMs) &&
+		value.maxMetadataBytes <= value.maxFrameBytes &&
+		value.maxWebSocketMessageBytes <= value.maxFrameBytes &&
+		value.streamCreditBytes <= MAX_CREDIT_BYTES &&
+		value.channelCreditBytes <= MAX_CREDIT_BYTES &&
+		value.pendingDataBytes <= MAX_CREDIT_BYTES
+	);
+}
+
+export function isValidTunnelId(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		byteLength(value) <= MAX_TUNNEL_ID_BYTES &&
+		ID_RE.test(value)
+	);
+}
+
+export function isValidClientConnectionId(
+	value: unknown,
+): value is ClientConnectionId {
+	return (
+		typeof value === "string" &&
+		byteLength(value) <= MAX_CLIENT_CONNECTION_ID_BYTES &&
+		ID_RE.test(value)
+	);
+}
+
+export function isValidConnectToken(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		byteLength(value) <= MAX_CONNECT_TOKEN_BYTES &&
+		CONNECT_TOKEN_RE.test(value)
+	);
+}
+
+export function isValidDataChannelCount(value: unknown): value is number {
+	return (
+		typeof value === "number" &&
+		Number.isSafeInteger(value) &&
+		value >= 1 &&
+		value <= MAX_DATA_CHANNELS
+	);
+}
+
+export function isValidChannelId(
+	channelId: unknown,
+	dataChannels: number,
+): channelId is number {
+	return (
+		isValidDataChannelCount(dataChannels) &&
+		typeof channelId === "number" &&
+		Number.isSafeInteger(channelId) &&
+		channelId >= 0 &&
+		channelId < dataChannels
+	);
+}
+
+export function chooseNextDataChannel(
+	nextChannelIndex: number,
+	dataChannels: number,
+): ChooseDataChannelResult {
+	if (!Number.isSafeInteger(nextChannelIndex) || nextChannelIndex < 0) {
+		throw new Error("nextChannelIndex must be a non-negative safe integer");
+	}
+	if (!isValidDataChannelCount(dataChannels)) {
+		throw new Error("invalid data channel count");
+	}
+	const channelId = nextChannelIndex % dataChannels;
+	return { channelId, nextChannelIndex: nextChannelIndex + 1 };
+}
+
+export function buildTunnelChannelPath(
+	tunnelId: string,
+	channelId: number,
+): string {
+	if (!isValidTunnelId(tunnelId)) {
+		throw new Error("invalid tunnel id");
+	}
+	if (
+		!Number.isSafeInteger(channelId) ||
+		channelId < 0 ||
+		channelId > MAX_DATA_CHANNELS - 1
+	) {
+		throw new Error("invalid channel id");
+	}
+	return `${TUNNELS_API_PATH}/${tunnelId}/channels/${channelId}`;
+}
+
+export function buildDataChannelUrl(
+	dataUrl: string,
+	channelId: number,
+): string {
+	if (!isValidWebSocketUrl(dataUrl)) {
+		throw new Error("invalid dataUrl");
+	}
+	if (
+		!Number.isSafeInteger(channelId) ||
+		channelId < 0 ||
+		channelId > MAX_DATA_CHANNELS - 1
+	) {
+		throw new Error("invalid channel id");
+	}
+	const url = new URL(dataUrl);
+	url.pathname = joinUrlPath(url.pathname, String(channelId));
+	return url.toString();
+}
+
+export function buildPublicUrl(baseDomain: string, tunnelId: string): string {
+	if (!isValidTunnelId(tunnelId)) {
+		throw new Error("invalid tunnel id");
+	}
+	const normalizedBase =
+		baseDomain.startsWith("http://") || baseDomain.startsWith("https://")
+			? baseDomain
+			: `https://${baseDomain}`;
+	const url = new URL(normalizedBase);
+	const host = url.hostname.startsWith(`${tunnelId}.`)
+		? url.hostname
+		: `${tunnelId}.${url.hostname}`;
+	url.hostname = host;
+	url.pathname = "/";
+	url.search = "";
+	url.hash = "";
+	return url.toString().replace(/\/$/, "");
+}
+
+export function isValidTarget(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.startsWith("/") &&
+		!value.startsWith("//") &&
+		!value.includes("\\") &&
+		!containsControlExceptTab(value) &&
+		byteLength(value) <= MAX_URL_BYTES
+	);
+}
+
+export function isValidHeaders(
+	value: unknown,
+): value is readonly HeaderEntry[] {
+	if (!Array.isArray(value) || value.length > MAX_HEADER_COUNT) {
+		return false;
+	}
+	let totalBytes = 0;
+	for (const entry of value) {
+		if (!Array.isArray(entry) || entry.length !== 2) {
+			return false;
+		}
+		const [name, headerValue] = entry;
+		if (!isValidHeaderName(name) || !isValidHeaderValue(headerValue)) {
+			return false;
+		}
+		totalBytes += byteLength(name) + byteLength(headerValue);
+		if (totalBytes > MAX_HEADERS_BYTES) {
+			return false;
+		}
+	}
+	return true;
+}
+
+export function filterHopByHopHeaders(
+	headers: readonly HeaderEntry[],
+): HeaderEntry[] {
+	if (!isValidHeaders(headers)) {
+		throw new Error("invalid headers");
+	}
+
+	const connectionTokens = new Set<string>();
+	for (const [name, value] of headers) {
+		if (name.toLowerCase() === "connection") {
+			for (const token of value.split(",")) {
+				const normalized = token.trim().toLowerCase();
+				if (normalized) {
+					connectionTokens.add(normalized);
+				}
+			}
+		}
+	}
+
+	return headers.filter(([name]) => {
+		const normalized = name.toLowerCase();
+		return (
+			!HOP_BY_HOP_HEADERS.has(normalized) && !connectionTokens.has(normalized)
+		);
+	});
+}
+
+export function headersToEntries(headers: Headers): HeaderEntry[] {
+	const entries: HeaderEntry[] = [];
+	let sawSetCookie = false;
+	for (const [name, value] of headers) {
+		if (name.toLowerCase() === "set-cookie") {
+			sawSetCookie = true;
+			continue;
+		}
+		entries.push([name, value]);
+	}
+	const setCookies = headers.getSetCookie?.() ?? [];
+	for (const value of setCookies) {
+		entries.push(["set-cookie", value]);
+	}
+	if (!sawSetCookie || setCookies.length > 0) {
+		return entries;
+	}
+	const combined = headers.get("set-cookie");
+	if (combined !== null) {
+		entries.push(["set-cookie", combined]);
+	}
+	return entries;
+}
+
+export function filterHttpRequestHeaders(
+	headers: readonly HeaderEntry[],
+): HeaderEntry[] {
+	return filterHopByHopHeaders(headers).filter(([name]) => {
+		const normalized = name.toLowerCase();
+		return normalized !== "host" && normalized !== "content-length";
+	});
+}
+
+export function filterWebSocketRequestHeaders(
+	headers: readonly HeaderEntry[],
+): HeaderEntry[] {
+	const websocketHeaders = new Set([
+		"sec-websocket-accept",
+		"sec-websocket-extensions",
+		"sec-websocket-key",
+		"sec-websocket-protocol",
+		"sec-websocket-version",
+	]);
+	return filterHttpRequestHeaders(headers).filter(
+		([name]) => !websocketHeaders.has(name.toLowerCase()),
+	);
+}
+
+export function filterResponseHeaders(
+	headers: readonly HeaderEntry[],
+): HeaderEntry[] {
+	return filterHopByHopHeaders(headers).filter(([name]) => {
+		const normalized = name.toLowerCase();
+		return normalized !== "content-encoding" && normalized !== "content-length";
+	});
+}
+
+export function isValidCreditBytes(value: unknown): value is number {
+	return isPositiveSafeInteger(value) && value <= MAX_CREDIT_BYTES;
+}
+
+export function addCredit(current: number, bytes: number): number {
+	if (!isNonNegativeSafeInteger(current) || !isValidCreditBytes(bytes)) {
+		throw new Error("invalid credit value");
+	}
+	return Math.min(MAX_CREDIT_BYTES, current + bytes);
+}
+
+export function consumeCredit(current: number, bytes: number): number {
+	if (!isNonNegativeSafeInteger(current) || !isNonNegativeSafeInteger(bytes)) {
+		throw new Error("invalid credit value");
+	}
+	if (bytes > current) {
+		throw new Error("insufficient credit");
+	}
+	return current - bytes;
+}
+
+export function hasCredit(current: number, bytes: number): boolean {
+	return (
+		isNonNegativeSafeInteger(current) &&
+		isNonNegativeSafeInteger(bytes) &&
+		current >= bytes
+	);
+}
+
+export function isValidStreamId(value: unknown): value is StreamId {
+	return typeof value === "bigint" && value >= 0n && value <= MAX_UINT64;
+}
+
+export function isValidSeq(value: unknown): value is bigint {
+	return typeof value === "bigint" && value >= 0n && value <= MAX_UINT64;
+}
+
+export function isValidLastSeq(value: unknown): value is number {
+	return value === -1 || isNonNegativeSafeInteger(value);
+}
+
+export function isValidDataFrameFlags(value: unknown): value is number {
+	return (
+		value === FRAME_FLAG_NONE ||
+		value === FRAME_FLAG_WS_TEXT ||
+		value === FRAME_FLAG_WS_BINARY
+	);
+}
+
+export function utf8Encode(value: string): Uint8Array {
+	return textEncoder.encode(value);
+}
+
+export function utf8Decode(value: Uint8Array | ArrayBuffer): string {
+	return textDecoder.decode(asUint8Array(value));
+}
+
+export function byteLength(value: string): number {
+	return utf8Encode(value).byteLength;
+}
+
+export function normalizeCloseReason(reason: unknown): string {
+	if (reason === undefined || reason === null) {
+		return "";
+	}
+	const value = String(reason).replace(/[\r\n]/g, " ");
+	if (byteLength(value) <= MAX_CLOSE_REASON_BYTES) {
+		return value;
+	}
+
+	let output = "";
+	for (const char of value) {
+		const next = output + char;
+		if (byteLength(next) > MAX_CLOSE_REASON_BYTES) {
+			break;
+		}
+		output = next;
+	}
+	return output;
+}
+
+export function normalizeCloseCode(
+	code: unknown,
+	fallback = CLOSE_NORMAL,
+): number {
+	if (
+		typeof code === "number" &&
+		Number.isInteger(code) &&
+		code >= 1000 &&
+		code <= 4999 &&
+		code !== 1004 &&
+		code !== 1005 &&
+		code !== 1006
+	) {
+		return code;
+	}
+	return fallback;
+}
+
+export const normalizeWebSocketCloseCode = normalizeCloseCode;
+export const normalizeWebSocketCloseReason = normalizeCloseReason;
+
+function isAbortMetadata(
+	value: unknown,
+): value is RequestAbortMetadata | ResponseAbortMetadata {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const allowedKeys = ["reason"];
+	return (
+		hasOnlyKeys(value, allowedKeys) &&
+		typeof value.reason === "string" &&
+		byteLength(value.reason) <= MAX_CLOSE_REASON_BYTES
+	);
+}
+
+function isDataKind(value: unknown): value is DataKind {
 	return (
 		value === "request.body" ||
 		value === "response.body" ||
@@ -469,428 +1182,146 @@ export function isDataKind(value: unknown): value is DataKind {
 	);
 }
 
-export function selectDataChannel(
-	streamId: number,
-	dataChannels: number,
-): number {
-	if (
-		!isValidStreamId(streamId) ||
-		!Number.isInteger(dataChannels) ||
-		dataChannels < 1 ||
-		dataChannels > MAX_DATA_CHANNELS
-	) {
-		throw new RangeError("Invalid stream id or data channel count");
-	}
-
-	return streamId % dataChannels;
-}
-
-export function isValidStreamId(id: unknown): id is number {
-	return isUint32(id) && id >= 1;
-}
-
-export function isValidChannelId(
-	id: unknown,
-	dataChannels: number,
-): id is number {
-	return (
-		Number.isInteger(dataChannels) &&
-		dataChannels >= 1 &&
-		dataChannels <= MAX_DATA_CHANNELS &&
-		Number.isInteger(id) &&
-		(id as number) >= 0 &&
-		(id as number) < dataChannels
-	);
-}
-
-export function isValidSeq(seq: unknown): seq is number {
-	return isUint32(seq);
-}
-
-export function isValidLastSeq(seq: unknown): seq is number {
-	return seq === -1 || isValidSeq(seq);
-}
-
-export function createCreditWindow(bytes: number): CreditWindow {
-	if (!isNonNegativeSafeInteger(bytes)) {
-		throw new RangeError("Invalid credit");
-	}
-	return { available: bytes };
-}
-
-export function grantCredit(window: CreditWindow, bytes: number): CreditWindow {
-	if (!isPositiveSafeInteger(bytes)) {
-		throw new RangeError("Invalid credit grant");
-	}
-	return { available: window.available + bytes };
-}
-
-export function canConsumeCredit(window: CreditWindow, bytes: number): boolean {
-	return isNonNegativeSafeInteger(bytes) && window.available >= bytes;
-}
-
-export function consumeCredit(
-	window: CreditWindow,
-	bytes: number,
-): CreditConsumeResult {
-	if (!isNonNegativeSafeInteger(bytes)) {
-		return { ok: false, window };
-	}
-	if (window.available < bytes) {
-		return { ok: false, window };
-	}
-	return { ok: true, window: { available: window.available - bytes } };
-}
-
-export function normalizeWebSocketCloseCode(code: unknown): number {
-	if (!Number.isInteger(code)) {
-		return CLOSE_NORMAL;
-	}
-
-	const value = code as number;
-	if (value < 1000 || value > 4999) {
-		return CLOSE_NORMAL;
-	}
-	if (value === 1004 || value === 1005 || value === 1006 || value === 1015) {
-		return CLOSE_NORMAL;
-	}
-	return value;
-}
-
-export function normalizeWebSocketCloseReason(reason: unknown): string {
-	if (typeof reason !== "string") {
-		return "";
-	}
-
-	let result = "";
-	for (const char of reason) {
-		if (byteLength(result + char) > MAX_CLOSE_REASON_BYTES) {
-			break;
-		}
-		result += char;
-	}
-	return result;
-}
-
-export function filterHttpRequestHeaders(
-	headers: readonly HeaderEntry[],
-): HeaderEntry[] {
-	return filterHeaders(headers, REQUEST_HEADER_EXCLUSIONS);
-}
-
-export function filterWebSocketRequestHeaders(
-	headers: readonly HeaderEntry[],
-): HeaderEntry[] {
-	return filterHeaders(headers, WEBSOCKET_REQUEST_HEADER_EXCLUSIONS);
-}
-
-export function filterResponseHeaders(
-	headers: readonly HeaderEntry[],
-): HeaderEntry[] {
-	return filterHeaders(headers, RESPONSE_HEADER_EXCLUSIONS);
-}
-
-export function headersToEntries(headers: {
-	forEach(callback: (value: string, key: string) => void): void;
-	getSetCookie?(): string[];
-}): HeaderEntry[] {
-	const entries: HeaderEntry[] = [];
-	const setCookies = headers.getSetCookie?.() ?? [];
-	headers.forEach((value, key) => {
-		const lowerKey = key.toLowerCase();
-		if (lowerKey === "set-cookie" && setCookies.length > 0) {
-			return;
-		}
-		entries.push([lowerKey, value]);
-	});
-	for (const value of setCookies) {
-		entries.push(["set-cookie", value]);
-	}
-	return entries;
-}
-
-export function buildPublicUrl(baseDomain: string, tunnelId: string): string {
-	return `https://${tunnelId}.${baseDomain}`;
-}
-
-export function buildTunnelControlPath(tunnelId: string): string {
-	return `${TUNNELS_API_PATH}/${encodeURIComponent(tunnelId)}/control`;
-}
-
-export function buildTunnelDataPath(tunnelId: string): string {
-	return `${TUNNELS_API_PATH}/${encodeURIComponent(tunnelId)}/data`;
-}
-
-export function buildTunnelRefreshPath(tunnelId: string): string {
-	return `${TUNNELS_API_PATH}/${encodeURIComponent(tunnelId)}/refresh`;
-}
-
-export function isValidTunnelId(value: unknown): value is string {
-	if (typeof value !== "string") {
-		return false;
-	}
-	if (value.length < 1 || value.length > 63 || value !== value.toLowerCase()) {
-		return false;
-	}
-	if (value === "api" || value === "www") {
-		return false;
-	}
-	return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value);
-}
-
-export function parseCreateTunnelResponse(
-	raw: string | unknown,
-): CreateTunnelResponse | null {
-	const value = typeof raw === "string" ? parseJsonRecord(raw) : raw;
-	return isCreateTunnelResponse(value) ? value : null;
-}
-
-export function parseRefreshTunnelResponse(
-	raw: string | unknown,
-): RefreshTunnelResponse | null {
-	const value = typeof raw === "string" ? parseJsonRecord(raw) : raw;
-	return isRefreshTunnelResponse(value) ? value : null;
-}
-
-export function isCreateTunnelResponse(
-	value: unknown,
-): value is CreateTunnelResponse {
-	if (!isRecord(value)) {
-		return false;
-	}
-
-	const dataChannels = value.dataChannels;
-	return (
-		isValidTunnelId(value.tunnelId) &&
-		isNonEmptyString(value.publicUrl, 2048) &&
-		isNonEmptyString(value.connectionId, 256) &&
-		isNonEmptyString(value.controlUrl, 2048) &&
-		isNonEmptyString(value.dataUrl, 2048) &&
-		isNonEmptyString(value.connectToken, 16_384) &&
-		isNonEmptyString(value.refreshToken, 16_384) &&
-		typeof dataChannels === "number" &&
-		Number.isInteger(dataChannels) &&
-		dataChannels >= 1 &&
-		dataChannels <= MAX_DATA_CHANNELS &&
-		isTunnelLimits(value.limits)
-	);
-}
-
-export function isRefreshTunnelResponse(
-	value: unknown,
-): value is RefreshTunnelResponse {
-	if (!isRecord(value)) {
-		return false;
-	}
-
-	const dataChannels = value.dataChannels;
-	return (
-		isNonEmptyString(value.connectionId, 256) &&
-		isNonEmptyString(value.controlUrl, 2048) &&
-		isNonEmptyString(value.dataUrl, 2048) &&
-		isNonEmptyString(value.connectToken, 16_384) &&
-		isNonEmptyString(value.refreshToken, 16_384) &&
-		typeof dataChannels === "number" &&
-		Number.isInteger(dataChannels) &&
-		dataChannels >= 1 &&
-		dataChannels <= MAX_DATA_CHANNELS &&
-		isTunnelLimits(value.limits)
-	);
-}
-
-export function isTunnelLimits(value: unknown): value is TunnelLimits {
-	return (
-		isRecord(value) &&
-		isPositiveSafeInteger(value.maxFrameBytes) &&
-		isPositiveSafeInteger(value.maxWebSocketMessageBytes) &&
-		isPositiveSafeInteger(value.maxControlBytes) &&
-		isPositiveSafeInteger(value.streamCreditBytes) &&
-		isPositiveSafeInteger(value.connectionCreditBytes) &&
-		isPositiveSafeInteger(value.pendingDataBytes) &&
-		isPositiveSafeInteger(value.pendingDataTimeoutMs)
-	);
-}
-
-export function utf8Encode(value: string): Uint8Array {
-	return textEncoder.encode(value);
-}
-
-export function utf8Decode(value: Uint8Array): string {
-	return textDecoder.decode(value);
-}
-
-export function byteLength(value: string): number {
-	return textEncoder.encode(value).byteLength;
-}
-
-function filterHeaders(
-	headers: readonly HeaderEntry[],
-	staticExclusions: ReadonlySet<string>,
-): HeaderEntry[] {
-	const dynamicExclusions = new Set<string>();
-	for (const [name, value] of headers) {
-		if (name.toLowerCase() === "connection") {
-			for (const token of value.split(",")) {
-				const normalized = token.trim().toLowerCase();
-				if (normalized) {
-					dynamicExclusions.add(normalized);
-				}
-			}
-		}
-	}
-
-	const filtered: HeaderEntry[] = [];
-	for (const [name, value] of headers) {
-		const lowerName = name.toLowerCase();
-		if (
-			!isHeaderName(lowerName) ||
-			staticExclusions.has(lowerName) ||
-			dynamicExclusions.has(lowerName)
-		) {
-			continue;
-		}
-		filtered.push([lowerName, value]);
-	}
-	return filtered;
-}
-
-function isValidFlagsForKind(kind: DataKind, flags: number): boolean {
-	if (!Number.isInteger(flags)) {
-		return false;
-	}
-	if (kind === "ws.client" || kind === "ws.server") {
-		return flags === DATA_FLAG_WS_TEXT || flags === DATA_FLAG_WS_BINARY;
-	}
-	return flags === DATA_FLAG_NONE;
-}
-
-function hasOnlyKnownKeys(
-	value: JsonRecord,
-	allowedKeys: readonly string[] | undefined,
-): boolean {
-	if (!allowedKeys) {
-		return false;
-	}
-
-	const allowed = new Set(allowedKeys);
-	return Object.keys(value).every((key) => allowed.has(key));
-}
-
-function isHeaderEntries(value: unknown): value is HeaderEntry[] {
-	if (!Array.isArray(value) || value.length > MAX_HEADER_ENTRIES) {
-		return false;
-	}
-	return value.every(
-		(entry) =>
-			Array.isArray(entry) &&
-			entry.length === 2 &&
-			typeof entry[0] === "string" &&
-			typeof entry[1] === "string" &&
-			isHeaderName(entry[0]) &&
-			byteLength(entry[0]) <= MAX_HEADER_NAME_BYTES &&
-			byteLength(entry[1]) <= MAX_HEADER_VALUE_BYTES,
-	);
-}
-
-function isHeaderName(value: string): boolean {
-	return /^[!#$%&'*+\-.^_`|~0-9a-zA-Z]+$/.test(value);
-}
-
-function isValidUrlPath(value: unknown): value is string {
+function isValidHttpMethod(value: unknown): value is string {
 	return (
 		typeof value === "string" &&
-		value.startsWith("/") &&
-		byteLength(value) <= MAX_URL_BYTES
+		value.length > 0 &&
+		value.length <= 64 &&
+		HTTP_TOKEN_RE.test(value)
 	);
 }
 
-function isReason(value: unknown): value is string {
-	return typeof value === "string" && byteLength(value) <= MAX_REASON_BYTES;
-}
-
-function isOptionalReason(value: unknown): value is string | undefined {
-	return value === undefined || isReason(value);
-}
-
-function isOptionalCloseCode(value: unknown): value is number | undefined {
-	return value === undefined || normalizeWebSocketCloseCode(value) === value;
-}
-
-function isHttpStatus(value: unknown): value is number {
+function isValidStatus(value: unknown): value is number {
 	return (
+		typeof value === "number" &&
 		Number.isInteger(value) &&
-		(value as number) >= 100 &&
-		(value as number) <= 599
+		value >= 100 &&
+		value <= 599
 	);
 }
 
-function isStringArray(
-	value: unknown,
-	maxEntries: number,
-	maxEntryBytes: number,
-): value is string[] {
-	return (
-		Array.isArray(value) &&
-		value.length <= maxEntries &&
-		value.every(
-			(entry) =>
-				typeof entry === "string" &&
-				entry.length > 0 &&
-				byteLength(entry) <= maxEntryBytes,
-		)
-	);
-}
-
-function isNonEmptyToken(value: unknown, maxBytes: number): value is string {
+function isValidHeaderName(value: unknown): value is string {
 	return (
 		typeof value === "string" &&
 		value.length > 0 &&
-		!/\s/.test(value) &&
-		byteLength(value) <= maxBytes
+		byteLength(value) <= MAX_HEADER_NAME_BYTES &&
+		HTTP_TOKEN_RE.test(value)
 	);
 }
 
-function isNonEmptyString(value: unknown, maxBytes: number): value is string {
+function isValidHeaderValue(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		byteLength(value) <= MAX_HEADER_VALUE_BYTES &&
+		!containsControlExceptTab(value) &&
+		!value.includes("\r") &&
+		!value.includes("\n")
+	);
+}
+
+function isValidProtocolList(value: unknown): value is readonly string[] {
+	return (
+		Array.isArray(value) && value.length <= 32 && value.every(isValidProtocol)
+	);
+}
+
+function isValidProtocol(value: unknown): value is string {
 	return (
 		typeof value === "string" &&
 		value.length > 0 &&
-		byteLength(value) <= maxBytes
+		value.length <= 128 &&
+		HTTP_TOKEN_RE.test(value)
 	);
+}
+
+function isValidOptionalClose(code: unknown, reason: unknown): boolean {
+	if (code !== undefined && normalizeCloseCode(code, Number.NaN) !== code) {
+		return false;
+	}
+	return (
+		reason === undefined ||
+		(typeof reason === "string" && byteLength(reason) <= MAX_CLOSE_REASON_BYTES)
+	);
+}
+
+function isValidHttpUrl(value: unknown): value is string {
+	if (typeof value !== "string" || byteLength(value) > MAX_URL_BYTES) {
+		return false;
+	}
+	try {
+		const url = new URL(value);
+		return url.protocol === "https:" || url.protocol === "http:";
+	} catch {
+		return false;
+	}
+}
+
+function isValidWebSocketUrl(value: unknown): value is string {
+	if (typeof value !== "string" || byteLength(value) > MAX_URL_BYTES) {
+		return false;
+	}
+	try {
+		const url = new URL(value);
+		return url.protocol === "wss:" || url.protocol === "ws:";
+	} catch {
+		return false;
+	}
+}
+
+function joinUrlPath(basePath: string, part: string): string {
+	const normalizedBase = basePath.endsWith("/")
+		? basePath.slice(0, -1)
+		: basePath;
+	return `${normalizedBase}/${encodeURIComponent(part)}`;
+}
+
+function asUint8Array(input: Uint8Array | ArrayBuffer): Uint8Array {
+	return input instanceof Uint8Array ? input : new Uint8Array(input);
+}
+
+function hasOnlyKeys(
+	value: Record<string, unknown>,
+	allowedKeys: readonly string[],
+): boolean {
+	return Object.keys(value).every((key) => allowedKeys.includes(key));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isPositiveSafeInteger(value: unknown): value is number {
-	return (
-		Number.isSafeInteger(value) &&
-		(value as number) > 0 &&
-		(value as number) <= 0xffffffff
-	);
+	return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
 function isNonNegativeSafeInteger(value: unknown): value is number {
-	return (
-		Number.isSafeInteger(value) &&
-		(value as number) >= 0 &&
-		(value as number) <= Number.MAX_SAFE_INTEGER
-	);
+	return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
-function isUint32(value: unknown): value is number {
+function isValidUint8(value: unknown): value is number {
 	return (
+		typeof value === "number" &&
 		Number.isInteger(value) &&
-		(value as number) >= 0 &&
-		(value as number) <= 0xffffffff
+		value >= 0 &&
+		value <= 0xff
 	);
 }
 
-function parseJsonRecord(raw: string): JsonRecord | null {
-	try {
-		const parsed = JSON.parse(raw);
-		return isRecord(parsed) ? parsed : null;
-	} catch {
-		return null;
-	}
+function isValidUint32(value: unknown): value is number {
+	return (
+		typeof value === "number" &&
+		Number.isInteger(value) &&
+		value >= 0 &&
+		value <= MAX_UINT32
+	);
 }
 
-function isRecord(value: unknown): value is JsonRecord {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
+function containsControlExceptTab(value: string): boolean {
+	for (let index = 0; index < value.length; index += 1) {
+		const code = value.charCodeAt(index);
+		if ((code >= 0 && code < 0x20 && code !== 0x09) || code === 0x7f) {
+			return true;
+		}
+	}
+	return false;
 }

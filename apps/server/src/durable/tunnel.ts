@@ -1,27 +1,48 @@
 import { DurableObject } from "cloudflare:workers";
 import {
+	type ChannelCreditMetadata,
+	CLOSE_CLIENT_CONNECTION_REPLACED,
 	CLOSE_INTERNAL_ERROR,
 	CLOSE_MESSAGE_TOO_BIG,
 	CLOSE_PROTOCOL_ERROR,
-	CLOSE_TUNNEL_REPLACED,
 	CLOSE_UNSUPPORTED_DATA,
-	type ControlMessage,
-	DATA_FLAG_WS_BINARY,
-	DATA_FLAG_WS_TEXT,
+	chooseNextDataChannel,
 	type DataKind,
-	decodeControlMessage,
-	decodeDataFrameView,
+	type DecodedFrame,
+	decodeFrameView,
+	decodeMetadata,
 	defaultTunnelLimits,
-	encodeControlMessage,
-	encodeDataFrame,
+	encodeFrame,
+	encodeMetadata,
+	FRAME_FLAG_NONE,
+	FRAME_FLAG_WS_BINARY,
+	FRAME_FLAG_WS_TEXT,
+	FRAME_TYPE_CHANNEL_CREDIT,
+	FRAME_TYPE_REQUEST_ABORT,
+	FRAME_TYPE_REQUEST_DATA,
+	FRAME_TYPE_REQUEST_END,
+	FRAME_TYPE_REQUEST_START,
+	FRAME_TYPE_RESPONSE_ABORT,
+	FRAME_TYPE_RESPONSE_DATA,
+	FRAME_TYPE_RESPONSE_END,
+	FRAME_TYPE_RESPONSE_START,
+	FRAME_TYPE_STREAM_CREDIT,
+	type FrameType,
 	filterHttpRequestHeaders,
 	filterResponseHeaders,
 	filterWebSocketRequestHeaders,
 	headersToEntries,
-	isValidChannelId,
+	isValidDataChannelCount,
+	isValidFrameForDirection,
 	normalizeWebSocketCloseCode,
 	normalizeWebSocketCloseReason,
-	selectDataChannel,
+	type RequestAbortMetadata,
+	type RequestEndMetadata,
+	type RequestStartMetadata,
+	type ResponseAbortMetadata,
+	type ResponseEndMetadata,
+	type ResponseStartMetadata,
+	type StreamCreditMetadata,
 	utf8Decode,
 	utf8Encode,
 } from "@hostc/protocol";
@@ -29,37 +50,33 @@ import { type JsonLog, log } from "../log";
 import { isWebSocketUpgrade } from "../router";
 import { TunnelCreditController } from "./credit";
 
-const STORAGE_CONNECTION_ID = "currentConnectionId";
+const STORAGE_CLIENT_CONNECTION_ID = "activeClientConnectionId";
 const STORAGE_DATA_CHANNELS = "expectedDataChannels";
+const STORAGE_NEXT_STREAM_ID = "nextStreamId";
 const SOCKET_BACKPRESSURE_HIGH_WATERMARK = 512 * 1024;
 const SOCKET_BACKPRESSURE_LOW_WATERMARK = 128 * 1024;
 const SOCKET_BACKPRESSURE_POLL_MS = 4;
 const STREAM_RESPONSE_START_TIMEOUT_MS = 30_000;
-const CONTROL_CREDIT_FLUSH_DELAY_MS = 50;
-const INTERNAL_CONTROL_PATH = "/_hostc/control";
-const INTERNAL_DATA_PATH = "/_hostc/data";
-
-type ControlAttachment = {
-	kind: "control";
-	connectionId: string;
-	dataChannels: number;
-	createdAt: number;
-};
+const EPHEMERAL_CONNECT_TIMEOUT_MS = 2 * 60 * 1000;
+const INTERNAL_INIT_PATH = "/_hostc/init";
+const INTERNAL_CHANNEL_PREFIX = "/_hostc/channels/";
+const MAX_REMEMBERED_CLOSED_STREAMS = 4096;
 
 type DataAttachment = {
 	kind: "data";
-	connectionId: string;
+	clientConnectionId: string;
 	channelId: number;
+	socketGeneration: number;
 	createdAt: number;
 };
 
 type PublicAttachment = {
 	kind: "public";
-	streamId: number;
+	streamId: string;
 	createdAt: number;
 };
 
-type SocketAttachment = ControlAttachment | DataAttachment | PublicAttachment;
+type SocketAttachment = DataAttachment | PublicAttachment;
 
 type Deferred<T> = {
 	promise: Promise<T>;
@@ -68,41 +85,45 @@ type Deferred<T> = {
 };
 
 type PendingFrame = {
-	kind: DataKind;
-	seq: number;
+	kind: "response.body" | "ws.server";
+	seq: bigint;
 	flags: number;
 	payload: Uint8Array;
 };
 
 type StreamState = {
-	id: number;
+	id: bigint;
 	kind: "http" | "websocket";
 	channelId: number;
 	createdAt: number;
-	requestUrl: string;
-	responseStart: Deferred<ControlMessage>;
+	requestTarget: string;
+	requestedProtocols: readonly string[];
+	responseStart: Deferred<ResponseStartMetadata>;
 	responseController: ReadableStreamDefaultController<Uint8Array> | null;
 	publicSocket: WebSocket | null;
 	pendingFrames: PendingFrame[];
 	pendingBytes: number;
 	pendingGeneration: number;
-	receiveNextSeq: Map<DataKind, number>;
+	receiveNextSeq: Map<DataKind, bigint>;
 	receiveEndSeq: Map<DataKind, number>;
-	sendNextSeq: Map<DataKind, number>;
+	sendNextSeq: Map<DataKind, bigint>;
 	sendChains: Map<DataKind, Promise<void>>;
 	aborted: boolean;
 };
 
 export class HostcTunnel extends DurableObject<Env> {
-	private currentConnectionId: string | null = null;
+	private activeClientConnectionId: string | null = null;
 	private expectedDataChannels = 0;
-	private nextStreamId = 1;
-	private readonly streams = new Map<number, StreamState>();
+	private nextStreamId = 1n;
+	private nextChannelIndex = 0;
+	private socketGeneration = 0;
 	private pendingDataBytes = 0;
+	private readonly streams = new Map<bigint, StreamState>();
+	private readonly closedStreamIds = new Set<string>();
 	private readonly credit = new TunnelCreditController(
 		defaultTunnelLimits,
-		CONTROL_CREDIT_FLUSH_DELAY_MS,
-		(message) => this.sendControl(message),
+		(channelId, frameType, streamId, metadata) =>
+			this.sendMetadataFrameToChannel(channelId, frameType, streamId, metadata),
 		(promise) => this.ctx.waitUntil(promise),
 		(error) =>
 			this.log({ event: "credit.grant.failed", error: errorMessage(error) }),
@@ -112,11 +133,11 @@ export class HostcTunnel extends DurableObject<Env> {
 		await this.loadConnectionState();
 		const url = new URL(request.url);
 
-		if (url.pathname === INTERNAL_CONTROL_PATH) {
-			return this.handleControlConnect(request, url);
+		if (url.pathname === INTERNAL_INIT_PATH) {
+			return this.handleInit(request);
 		}
-		if (url.pathname === INTERNAL_DATA_PATH) {
-			return this.handleDataConnect(request, url);
+		if (url.pathname.startsWith(INTERNAL_CHANNEL_PREFIX)) {
+			return this.handleChannelConnect(request, url);
 		}
 
 		return isWebSocketUpgrade(request)
@@ -135,15 +156,11 @@ export class HostcTunnel extends DurableObject<Env> {
 			return;
 		}
 
-		if (attachment.kind === "control") {
-			await this.handleControlMessage(ws, attachment, message);
-			return;
-		}
 		if (attachment.kind === "data") {
-			await this.handleDataMessage(ws, attachment, message);
+			await this.handleDataChannelMessage(ws, attachment, message);
 			return;
 		}
-		await this.handlePublicSocketMessage(attachment.streamId, message);
+		await this.handlePublicSocketMessage(BigInt(attachment.streamId), message);
 	}
 
 	async webSocketClose(
@@ -156,23 +173,16 @@ export class HostcTunnel extends DurableObject<Env> {
 		if (!attachment) {
 			return;
 		}
-
-		if (
-			attachment.kind === "control" &&
-			attachment.connectionId === this.currentConnectionId
-		) {
-			await this.failConnection("control.close", code, reason);
-			return;
-		}
-		if (
-			attachment.kind === "data" &&
-			attachment.connectionId === this.currentConnectionId
-		) {
-			await this.failConnection("data.close", code, reason);
+		if (attachment.kind === "data" && this.isCurrentSocket(ws)) {
+			await this.failClientConnection("data.close", code, reason);
 			return;
 		}
 		if (attachment.kind === "public") {
-			await this.handlePublicSocketClose(attachment.streamId, code, reason);
+			await this.handlePublicSocketClose(
+				BigInt(attachment.streamId),
+				code,
+				reason,
+			);
 		}
 	}
 
@@ -181,15 +191,14 @@ export class HostcTunnel extends DurableObject<Env> {
 		const attachment = getAttachment(ws);
 		this.log({
 			event: "socket.error",
-			connectionId:
-				attachment?.kind === "control" || attachment?.kind === "data"
-					? attachment.connectionId
-					: undefined,
+			clientConnectionId:
+				attachment?.kind === "data" ? attachment.clientConnectionId : undefined,
+			channelId: attachment?.kind === "data" ? attachment.channelId : undefined,
 			streamId: attachment?.kind === "public" ? attachment.streamId : undefined,
-			error: error instanceof Error ? error.message : String(error),
+			error: errorMessage(error),
 		});
-		if (attachment?.kind === "control" || attachment?.kind === "data") {
-			await this.failConnection(
+		if (attachment?.kind === "data" && this.isCurrentSocket(ws)) {
+			await this.failClientConnection(
 				"socket.error",
 				CLOSE_INTERNAL_ERROR,
 				"socket error",
@@ -197,51 +206,62 @@ export class HostcTunnel extends DurableObject<Env> {
 		}
 	}
 
-	private async handleControlConnect(
-		request: Request,
-		url: URL,
-	): Promise<Response> {
-		if (!isWebSocketUpgrade(request)) {
-			return jsonError("Expected WebSocket upgrade", 426);
+	async alarm(): Promise<void> {
+		await this.loadConnectionState();
+		if (!this.activeClientConnectionId) {
+			await this.ctx.storage.deleteAlarm();
+			return;
 		}
-
-		const connectionId = url.searchParams.get("connectionId") ?? "";
-		const dataChannels = Number(url.searchParams.get("dataChannels") ?? "0");
-		if (!connectionId || !isValidDataChannelCount(dataChannels)) {
-			return jsonError("Invalid connection parameters", 400);
+		if (this.isReady()) {
+			await this.ctx.storage.deleteAlarm();
+			return;
 		}
-
-		await this.replaceConnection(connectionId, dataChannels);
-
-		const pair = new WebSocketPair();
-		const client = pair[0];
-		const server = pair[1];
-		this.ctx.acceptWebSocket(server, ["control", `conn:${connectionId}`]);
-		server.serializeAttachment({
-			kind: "control",
-			connectionId,
-			dataChannels,
-			createdAt: Date.now(),
-		} satisfies ControlAttachment);
-
-		this.log({ event: "connection.control.connected", connectionId });
-		return new Response(null, { status: 101, webSocket: client });
+		await this.failClientConnection(
+			"connect.timeout",
+			CLOSE_INTERNAL_ERROR,
+			"Tunnel connection timeout",
+		);
 	}
 
-	private async handleDataConnect(
+	private async handleInit(request: Request): Promise<Response> {
+		if (request.method !== "POST") {
+			return jsonError("Method not allowed", 405);
+		}
+		const body = (await request.json().catch(() => null)) as {
+			clientConnectionId?: unknown;
+			dataChannels?: unknown;
+		} | null;
+		if (
+			!body ||
+			typeof body.clientConnectionId !== "string" ||
+			!isValidDataChannelCount(body.dataChannels)
+		) {
+			return jsonError("Invalid client connection", 400);
+		}
+		await this.replaceClientConnection(
+			body.clientConnectionId,
+			body.dataChannels,
+		);
+		return Response.json({ ok: true });
+	}
+
+	private async handleChannelConnect(
 		request: Request,
 		url: URL,
 	): Promise<Response> {
 		if (!isWebSocketUpgrade(request)) {
 			return jsonError("Expected WebSocket upgrade", 426);
 		}
-
-		const connectionId = url.searchParams.get("connectionId") ?? "";
-		const channelId = Number(url.searchParams.get("channel") ?? "-1");
+		const channelId = Number(
+			url.pathname.slice(INTERNAL_CHANNEL_PREFIX.length),
+		);
+		const clientConnectionId = url.searchParams.get("clientConnectionId") ?? "";
 		if (
-			!this.currentConnectionId ||
-			connectionId !== this.currentConnectionId ||
-			!isValidChannelId(channelId, this.expectedDataChannels)
+			!this.activeClientConnectionId ||
+			clientConnectionId !== this.activeClientConnectionId ||
+			!Number.isInteger(channelId) ||
+			channelId < 0 ||
+			channelId >= this.expectedDataChannels
 		) {
 			return jsonError("Invalid data channel", 400);
 		}
@@ -250,9 +270,9 @@ export class HostcTunnel extends DurableObject<Env> {
 			const attachment = getAttachment(socket);
 			if (
 				attachment?.kind === "data" &&
-				attachment.connectionId === connectionId
+				attachment.clientConnectionId === clientConnectionId
 			) {
-				socket.close(CLOSE_TUNNEL_REPLACED, "Data channel replaced");
+				socket.close(CLOSE_CLIENT_CONNECTION_REPLACED, "Data channel replaced");
 			}
 		}
 
@@ -261,22 +281,26 @@ export class HostcTunnel extends DurableObject<Env> {
 		const server = pair[1];
 		this.ctx.acceptWebSocket(server, [
 			"data",
-			`conn:${connectionId}`,
+			`conn:${clientConnectionId}`,
 			`ch:${channelId}`,
 		]);
 		server.serializeAttachment({
 			kind: "data",
-			connectionId,
+			clientConnectionId,
 			channelId,
+			socketGeneration: this.nextSocketGeneration(),
 			createdAt: Date.now(),
 		} satisfies DataAttachment);
 
 		this.log({
-			event: "connection.data.connected",
-			connectionId,
+			event: "channel.connected",
+			clientConnectionId,
 			channelId,
 			ready: this.isReady(),
 		});
+		if (this.isReady()) {
+			await this.ctx.storage.deleteAlarm();
+		}
 		return new Response(null, { status: 101, webSocket: client });
 	}
 
@@ -285,19 +309,23 @@ export class HostcTunnel extends DurableObject<Env> {
 			return tunnelNotReadyResponse(request);
 		}
 
-		const stream = this.createStream("http", request);
-		await this.sendControl({
-			type: "request.start",
-			id: stream.id,
-			kind: "http",
-			method: request.method,
-			url: buildRequestTarget(request),
-			headers: filterHttpRequestHeaders(headersToEntries(request.headers)),
-			body: request.body !== null,
-		});
+		const stream = await this.createStream("http", request);
+		try {
+			await this.sendMetadataFrame(stream, FRAME_TYPE_REQUEST_START, {
+				kind: "http",
+				method: request.method,
+				target: buildRequestTarget(request),
+				headers: filterHttpRequestHeaders(headersToEntries(request.headers)),
+				hasBody: request.body !== null,
+			} satisfies RequestStartMetadata);
+		} catch (error) {
+			this.abortStream(stream, errorMessage(error));
+			return jsonError("Tunnel not ready", 502);
+		}
+
 		this.ctx.waitUntil(this.pumpPublicRequestBody(stream, request));
 
-		let responseStart: ControlMessage;
+		let responseStart: ResponseStartMetadata;
 		try {
 			responseStart = await withTimeout(
 				stream.responseStart.promise,
@@ -310,10 +338,9 @@ export class HostcTunnel extends DurableObject<Env> {
 		}
 
 		if (
-			responseStart.type !== "response.start" ||
 			responseStart.status < 200 ||
 			responseStart.status === 101 ||
-			(responseStart.body && !allowsHttpResponseBody(responseStart.status))
+			(responseStart.hasBody && !allowsHttpResponseBody(responseStart.status))
 		) {
 			this.abortStream(stream, "Invalid HTTP response start");
 			return jsonError("Invalid tunnel response", 502);
@@ -323,7 +350,7 @@ export class HostcTunnel extends DurableObject<Env> {
 		for (const [name, value] of filterResponseHeaders(responseStart.headers)) {
 			headers.append(name, value);
 		}
-		if (!responseStart.body) {
+		if (!responseStart.hasBody) {
 			this.cleanupStream(stream.id);
 			return new Response(null, { status: responseStart.status, headers });
 		}
@@ -331,6 +358,9 @@ export class HostcTunnel extends DurableObject<Env> {
 		const body = new ReadableStream<Uint8Array>({
 			start: (controller) => {
 				stream.responseController = controller;
+				this.ctx.waitUntil(this.flushPendingFrames(stream));
+			},
+			pull: () => {
 				this.ctx.waitUntil(this.flushPendingFrames(stream));
 			},
 			cancel: () => this.abortPublicStream(stream, "public response cancelled"),
@@ -344,20 +374,26 @@ export class HostcTunnel extends DurableObject<Env> {
 			return jsonError("Tunnel not ready", 502);
 		}
 
-		const stream = this.createStream("websocket", request);
+		const stream = await this.createStream("websocket", request);
 		const requestedProtocols = parseWebSocketProtocols(request);
-		await this.sendControl({
-			type: "request.start",
-			id: stream.id,
-			kind: "websocket",
-			method: request.method,
-			url: buildRequestTarget(request),
-			headers: filterWebSocketRequestHeaders(headersToEntries(request.headers)),
-			body: false,
-			protocols: requestedProtocols,
-		});
+		stream.requestedProtocols = requestedProtocols;
+		try {
+			await this.sendMetadataFrame(stream, FRAME_TYPE_REQUEST_START, {
+				kind: "websocket",
+				method: request.method,
+				target: buildRequestTarget(request),
+				headers: filterWebSocketRequestHeaders(
+					headersToEntries(request.headers),
+				),
+				hasBody: false,
+				protocols: requestedProtocols,
+			} satisfies RequestStartMetadata);
+		} catch (error) {
+			this.abortStream(stream, errorMessage(error));
+			return jsonError("Tunnel not ready", 502);
+		}
 
-		let responseStart: ControlMessage;
+		let responseStart: ResponseStartMetadata;
 		try {
 			responseStart = await withTimeout(
 				stream.responseStart.promise,
@@ -370,7 +406,6 @@ export class HostcTunnel extends DurableObject<Env> {
 		}
 
 		if (
-			responseStart.type !== "response.start" ||
 			responseStart.status !== 101 ||
 			!isSelectedProtocolValid(responseStart.protocol, requestedProtocols)
 		) {
@@ -381,10 +416,13 @@ export class HostcTunnel extends DurableObject<Env> {
 		const pair = new WebSocketPair();
 		const client = pair[0];
 		const server = pair[1];
-		this.ctx.acceptWebSocket(server, ["public", `stream:${stream.id}`]);
+		this.ctx.acceptWebSocket(server, [
+			"public",
+			`stream:${stream.id.toString()}`,
+		]);
 		server.serializeAttachment({
 			kind: "public",
-			streamId: stream.id,
+			streamId: stream.id.toString(),
 			createdAt: Date.now(),
 		} satisfies PublicAttachment);
 		stream.publicSocket = server;
@@ -397,98 +435,20 @@ export class HostcTunnel extends DurableObject<Env> {
 		return new Response(null, { status: 101, headers, webSocket: client });
 	}
 
-	private async handleControlMessage(
-		ws: WebSocket,
-		attachment: ControlAttachment,
-		message: string | ArrayBuffer,
-	): Promise<void> {
-		if (
-			attachment.connectionId !== this.currentConnectionId ||
-			!this.isCurrentSocket(ws)
-		) {
-			ws.close(CLOSE_TUNNEL_REPLACED, "Old connection");
-			return;
-		}
-		if (typeof message !== "string") {
-			await this.failConnection(
-				"protocol.error",
-				CLOSE_PROTOCOL_ERROR,
-				"Binary control message",
-			);
-			return;
-		}
-
-		const decoded = decodeControlMessage(message);
-		if (!decoded) {
-			await this.failConnection(
-				"protocol.error",
-				CLOSE_PROTOCOL_ERROR,
-				"Invalid control message",
-			);
-			return;
-		}
-
-		await this.dispatchControlMessage(decoded);
-	}
-
-	private async dispatchControlMessage(message: ControlMessage): Promise<void> {
-		switch (message.type) {
-			case "response.start": {
-				const stream = this.streams.get(message.id);
-				if (!stream || stream.aborted) {
-					return;
-				}
-				stream.responseStart.resolve(message);
-				await this.flushPendingFrames(stream);
-				return;
-			}
-			case "response.end": {
-				const stream = this.streams.get(message.id);
-				if (!stream || stream.aborted) {
-					return;
-				}
-				stream.receiveEndSeq.set(message.kind, message.lastSeq);
-				this.finishStreamDirection(
-					stream,
-					message.kind,
-					message.code,
-					message.reason,
-				);
-				return;
-			}
-			case "response.abort": {
-				const stream = this.streams.get(message.id);
-				if (stream) {
-					this.abortStream(stream, message.reason);
-				}
-				return;
-			}
-			case "credit":
-				this.credit.apply(message);
-				return;
-			default:
-				await this.failConnection(
-					"protocol.error",
-					CLOSE_PROTOCOL_ERROR,
-					"Unexpected control message",
-				);
-		}
-	}
-
-	private async handleDataMessage(
+	private async handleDataChannelMessage(
 		ws: WebSocket,
 		attachment: DataAttachment,
 		message: string | ArrayBuffer,
 	): Promise<void> {
 		if (
-			attachment.connectionId !== this.currentConnectionId ||
+			attachment.clientConnectionId !== this.activeClientConnectionId ||
 			!this.isCurrentSocket(ws)
 		) {
-			ws.close(CLOSE_TUNNEL_REPLACED, "Old connection");
+			ws.close(CLOSE_CLIENT_CONNECTION_REPLACED, "Old client connection");
 			return;
 		}
 		if (typeof message === "string") {
-			await this.failConnection(
+			await this.failClientConnection(
 				"protocol.error",
 				CLOSE_UNSUPPORTED_DATA,
 				"Text data channel message",
@@ -496,78 +456,230 @@ export class HostcTunnel extends DurableObject<Env> {
 			return;
 		}
 
-		const frame = decodeDataFrameView(new Uint8Array(message));
-		if (!frame) {
-			await this.failConnection(
+		let frame: DecodedFrame;
+		try {
+			frame = decodeFrameView(new Uint8Array(message), {
+				maxFrameBytes: defaultTunnelLimits().maxFrameBytes,
+			});
+		} catch {
+			await this.failClientConnection(
 				"protocol.error",
 				CLOSE_PROTOCOL_ERROR,
 				"Invalid data frame",
 			);
 			return;
 		}
-		if (
-			selectDataChannel(frame.id, this.expectedDataChannels) !==
-			attachment.channelId
-		) {
-			await this.failConnection(
+		if (!isValidFrameForDirection(frame.frameType, "client-to-server")) {
+			await this.failClientConnection(
 				"protocol.error",
 				CLOSE_PROTOCOL_ERROR,
-				"Data frame on wrong channel",
-			);
-			return;
-		}
-		if (frame.kind !== "response.body" && frame.kind !== "ws.server") {
-			await this.failConnection(
-				"protocol.error",
-				CLOSE_PROTOCOL_ERROR,
-				"Unexpected data kind",
+				"Wrong frame direction",
 			);
 			return;
 		}
 
-		const stream = this.streams.get(frame.id);
-		if (!stream || stream.aborted) {
+		if (frame.frameType === FRAME_TYPE_CHANNEL_CREDIT) {
+			const metadata = await this.decodeMetadataOrFail<ChannelCreditMetadata>(
+				FRAME_TYPE_CHANNEL_CREDIT,
+				frame.payload,
+			);
+			if (!metadata) {
+				return;
+			}
+			this.credit.applyChannelCredit(attachment.channelId, metadata);
 			return;
 		}
-		if (
-			!this.credit.consumeInbound(stream.id, frame.kind, frame.payloadLength)
-		) {
-			await this.failConnection(
-				"credit.violation",
+		if (frame.frameType === FRAME_TYPE_STREAM_CREDIT) {
+			const metadata = await this.decodeMetadataOrFail<StreamCreditMetadata>(
+				FRAME_TYPE_STREAM_CREDIT,
+				frame.payload,
+			);
+			if (!metadata) {
+				return;
+			}
+			this.credit.applyStreamCredit(frame.streamId, metadata);
+			return;
+		}
+
+		const stream = this.streams.get(frame.streamId);
+		if (!stream) {
+			if (
+				this.closedStreamIds.has(frame.streamId.toString()) ||
+				frame.streamId < this.nextStreamId
+			) {
+				this.log({
+					event: "stream.stale_frame",
+					streamId: frame.streamId.toString(),
+					frameType: frame.frameType,
+					channelId: attachment.channelId,
+				});
+				return;
+			}
+			await this.failClientConnection(
+				"protocol.error",
 				CLOSE_PROTOCOL_ERROR,
-				"Credit violation",
+				"Unknown stream",
 			);
 			return;
 		}
-		if (!this.checkReceiveSeq(stream, frame.kind, frame.seq)) {
-			await this.failConnection(
+		if (stream.channelId !== attachment.channelId) {
+			await this.failClientConnection(
 				"protocol.error",
 				CLOSE_PROTOCOL_ERROR,
-				"Seq discontinuity",
+				"Stream frame on wrong channel",
 			);
 			return;
 		}
 
-		const pendingFrame: PendingFrame = {
-			kind: frame.kind,
-			seq: frame.seq,
-			flags: frame.flags,
-			payload: frame.payload,
-		};
-		if (!(await this.deliverFrame(stream, pendingFrame))) {
-			this.enqueuePendingFrame(stream, pendingFrame);
+		await this.dispatchStreamFrame(stream, attachment.channelId, frame);
+	}
+
+	private async dispatchStreamFrame(
+		stream: StreamState,
+		channelId: number,
+		frame: DecodedFrame,
+	): Promise<void> {
+		switch (frame.frameType) {
+			case FRAME_TYPE_RESPONSE_START: {
+				const metadata = await this.decodeMetadataOrFail<ResponseStartMetadata>(
+					FRAME_TYPE_RESPONSE_START,
+					frame.payload,
+				);
+				if (!metadata) {
+					return;
+				}
+				stream.responseStart.resolve(metadata);
+				await this.flushPendingFrames(stream);
+				return;
+			}
+			case FRAME_TYPE_RESPONSE_DATA: {
+				const kind = stream.kind === "http" ? "response.body" : "ws.server";
+				if (stream.kind === "http" && frame.flags !== FRAME_FLAG_NONE) {
+					await this.failClientConnection(
+						"protocol.error",
+						CLOSE_PROTOCOL_ERROR,
+						"HTTP response data must not have WebSocket flags",
+					);
+					return;
+				}
+				if (
+					stream.kind === "websocket" &&
+					frame.flags !== FRAME_FLAG_WS_TEXT &&
+					frame.flags !== FRAME_FLAG_WS_BINARY
+				) {
+					await this.failClientConnection(
+						"protocol.error",
+						CLOSE_PROTOCOL_ERROR,
+						"WebSocket response data missing type flag",
+					);
+					return;
+				}
+				if (!this.checkReceiveEndBoundary(stream, kind, frame.seq)) {
+					await this.failClientConnection(
+						"protocol.error",
+						CLOSE_PROTOCOL_ERROR,
+						"Data after declared end",
+					);
+					return;
+				}
+				if (
+					!this.credit.consumeInbound(
+						stream.id,
+						channelId,
+						kind,
+						frame.payload.byteLength,
+					)
+				) {
+					await this.failClientConnection(
+						"credit.violation",
+						CLOSE_PROTOCOL_ERROR,
+						"Credit violation",
+					);
+					return;
+				}
+				if (!this.checkReceiveSeq(stream, kind, frame.seq)) {
+					await this.failClientConnection(
+						"protocol.error",
+						CLOSE_PROTOCOL_ERROR,
+						"Seq discontinuity",
+					);
+					return;
+				}
+				const pendingFrame: PendingFrame = {
+					kind,
+					seq: frame.seq,
+					flags: frame.flags,
+					payload: frame.payload,
+				};
+				if (!(await this.deliverFrame(stream, pendingFrame))) {
+					this.enqueuePendingFrame(stream, pendingFrame);
+				}
+				return;
+			}
+			case FRAME_TYPE_RESPONSE_END: {
+				const metadata = await this.decodeMetadataOrFail<ResponseEndMetadata>(
+					FRAME_TYPE_RESPONSE_END,
+					frame.payload,
+				);
+				if (!metadata) {
+					return;
+				}
+				const expectedKind =
+					stream.kind === "http" ? "response.body" : "ws.server";
+				if (metadata.kind !== expectedKind) {
+					await this.failClientConnection(
+						"protocol.error",
+						CLOSE_PROTOCOL_ERROR,
+						"response end kind mismatch",
+					);
+					return;
+				}
+				if (!this.checkReceiveEndSeq(stream, metadata.kind, metadata.lastSeq)) {
+					await this.failClientConnection(
+						"protocol.error",
+						CLOSE_PROTOCOL_ERROR,
+						"lastSeq mismatch",
+					);
+					return;
+				}
+				stream.receiveEndSeq.set(metadata.kind, metadata.lastSeq);
+				this.finishStreamDirection(
+					stream,
+					metadata.kind,
+					metadata.code,
+					metadata.reason,
+				);
+				this.armReceiveEndTimeout(stream, metadata.kind, metadata.lastSeq);
+				return;
+			}
+			case FRAME_TYPE_RESPONSE_ABORT: {
+				const metadata = await this.decodeMetadataOrFail<ResponseAbortMetadata>(
+					FRAME_TYPE_RESPONSE_ABORT,
+					frame.payload,
+				);
+				if (!metadata) {
+					return;
+				}
+				this.abortStream(stream, metadata.reason);
+				return;
+			}
+			default:
+				await this.failClientConnection(
+					"protocol.error",
+					CLOSE_PROTOCOL_ERROR,
+					"Unexpected stream frame",
+				);
 		}
 	}
 
 	private async handlePublicSocketMessage(
-		streamId: number,
+		streamId: bigint,
 		message: string | ArrayBuffer,
 	): Promise<void> {
 		const stream = this.streams.get(streamId);
 		if (!stream || stream.kind !== "websocket" || stream.aborted) {
 			return;
 		}
-
 		const isText = typeof message === "string";
 		const payload = isText ? utf8Encode(message) : new Uint8Array(message);
 		const limits = defaultTunnelLimits();
@@ -576,15 +688,12 @@ export class HostcTunnel extends DurableObject<Env> {
 				CLOSE_MESSAGE_TOO_BIG,
 				"WebSocket message too big",
 			);
-			const lastSeq = this.lastSentSeq(stream, "ws.client");
-			await this.sendControl({
-				type: "request.end",
-				id: stream.id,
+			await this.sendMetadataFrame(stream, FRAME_TYPE_REQUEST_END, {
 				kind: "ws.client",
-				lastSeq,
+				lastSeq: this.lastSentSeq(stream, "ws.client"),
 				code: CLOSE_MESSAGE_TOO_BIG,
 				reason: "WebSocket message too big",
-			});
+			} satisfies RequestEndMetadata);
 			this.cleanupStream(stream.id);
 			return;
 		}
@@ -594,12 +703,12 @@ export class HostcTunnel extends DurableObject<Env> {
 					stream,
 					"ws.client",
 					payload,
-					isText ? DATA_FLAG_WS_TEXT : DATA_FLAG_WS_BINARY,
+					isText ? FRAME_FLAG_WS_TEXT : FRAME_FLAG_WS_BINARY,
 				),
 			);
 		} catch (error) {
 			if (this.canSendForStream(stream)) {
-				await this.failConnection(
+				await this.failClientConnection(
 					"public.websocket.send.failed",
 					CLOSE_INTERNAL_ERROR,
 					errorMessage(error),
@@ -609,7 +718,7 @@ export class HostcTunnel extends DurableObject<Env> {
 	}
 
 	private async handlePublicSocketClose(
-		streamId: number,
+		streamId: bigint,
 		code: number,
 		reason: string,
 	): Promise<void> {
@@ -619,34 +728,41 @@ export class HostcTunnel extends DurableObject<Env> {
 		}
 		const closeCode = normalizeWebSocketCloseCode(code);
 		const closeReason = normalizeWebSocketCloseReason(reason);
-		const lastSeq = this.lastSentSeq(stream, "ws.client");
-		await this.sendControl({
-			type: "request.end",
-			id: stream.id,
+		await this.sendMetadataFrame(stream, FRAME_TYPE_REQUEST_END, {
 			kind: "ws.client",
-			lastSeq,
+			lastSeq: this.lastSentSeq(stream, "ws.client"),
 			code: closeCode,
 			reason: closeReason,
-		});
+		} satisfies RequestEndMetadata);
 		stream.publicSocket?.close(closeCode, closeReason);
 		this.cleanupStream(stream.id);
 	}
 
-	private createStream(
+	private async createStream(
 		kind: "http" | "websocket",
 		request: Request,
-	): StreamState {
+	): Promise<StreamState> {
+		const selected = chooseNextDataChannel(
+			this.nextChannelIndex,
+			this.expectedDataChannels,
+		);
+		this.nextChannelIndex = selected.nextChannelIndex;
 		const streamId = this.nextStreamId;
-		this.nextStreamId =
-			this.nextStreamId === 0xffffffff ? 1 : this.nextStreamId + 1;
-		const channelId = selectDataChannel(streamId, this.expectedDataChannels);
+		this.nextStreamId += 1n;
+		this.ctx.waitUntil(
+			this.ctx.storage.put(
+				STORAGE_NEXT_STREAM_ID,
+				this.nextStreamId.toString(),
+			),
+		);
 		const stream: StreamState = {
 			id: streamId,
 			kind,
-			channelId,
+			channelId: selected.channelId,
 			createdAt: Date.now(),
-			requestUrl: buildRequestTarget(request),
-			responseStart: deferred<ControlMessage>(),
+			requestTarget: buildRequestTarget(request),
+			requestedProtocols: [],
+			responseStart: deferred<ResponseStartMetadata>(),
 			responseController: null,
 			publicSocket: null,
 			pendingFrames: [],
@@ -659,11 +775,12 @@ export class HostcTunnel extends DurableObject<Env> {
 			aborted: false,
 		};
 		this.streams.set(streamId, stream);
+		this.closedStreamIds.delete(streamId.toString());
 		this.credit.seedStream(streamId);
 		this.log({
 			event: "stream.request.start",
-			streamId,
-			channelId,
+			streamId: streamId.toString(),
+			channelId: stream.channelId,
 			kind,
 		});
 		return stream;
@@ -675,15 +792,12 @@ export class HostcTunnel extends DurableObject<Env> {
 	): Promise<void> {
 		try {
 			if (!request.body) {
-				await this.sendControl({
-					type: "request.end",
-					id: stream.id,
+				await this.sendMetadataFrame(stream, FRAME_TYPE_REQUEST_END, {
 					kind: "request.body",
 					lastSeq: -1,
-				});
+				} satisfies RequestEndMetadata);
 				return;
 			}
-
 			const reader = request.body.getReader();
 			for (;;) {
 				const { done, value } = await reader.read();
@@ -692,22 +806,22 @@ export class HostcTunnel extends DurableObject<Env> {
 				}
 				await this.sendDataPayload(stream, "request.body", value);
 			}
-			await this.sendControl({
-				type: "request.end",
-				id: stream.id,
+			await this.sendMetadataFrame(stream, FRAME_TYPE_REQUEST_END, {
 				kind: "request.body",
 				lastSeq: this.lastSentSeq(stream, "request.body"),
-			});
+			} satisfies RequestEndMetadata);
 		} catch (error) {
 			const reason = errorMessage(error);
-			if (this.canSendForStream(stream)) {
-				await this.sendControl({
-					type: "request.abort",
-					id: stream.id,
-					reason,
-				}).catch(() => undefined);
-			}
+			const shouldNotifyLocal = this.canSendForStream(stream);
 			this.abortStream(stream, reason);
+			if (shouldNotifyLocal) {
+				await this.sendMetadataFrameByChannel(
+					stream.channelId,
+					FRAME_TYPE_REQUEST_ABORT,
+					stream.id,
+					{ reason } satisfies RequestAbortMetadata,
+				).catch(() => undefined);
+			}
 		}
 	}
 
@@ -715,25 +829,27 @@ export class HostcTunnel extends DurableObject<Env> {
 		stream: StreamState,
 		reason: string,
 	): Promise<void> {
-		if (this.canSendForStream(stream)) {
-			await this.sendControl({
-				type: "request.abort",
-				id: stream.id,
-				reason,
-			}).catch(() => undefined);
-		}
+		const shouldNotifyLocal = this.canSendForStream(stream);
 		this.abortStream(stream, reason);
+		if (shouldNotifyLocal) {
+			await this.sendMetadataFrameByChannel(
+				stream.channelId,
+				FRAME_TYPE_REQUEST_ABORT,
+				stream.id,
+				{ reason } satisfies RequestAbortMetadata,
+			).catch(() => undefined);
+		}
 	}
 
 	private async sendDataPayload(
 		stream: StreamState,
-		kind: DataKind,
+		kind: "request.body" | "ws.client",
 		payload: Uint8Array,
-		flags = 0,
+		flags = FRAME_FLAG_NONE,
 	): Promise<void> {
 		const limits = defaultTunnelLimits();
 		if (
-			isWebSocketKind(kind) &&
+			kind === "ws.client" &&
 			payload.byteLength > limits.maxWebSocketMessageBytes
 		) {
 			throw new Error("WebSocket message exceeds max message size");
@@ -746,41 +862,112 @@ export class HostcTunnel extends DurableObject<Env> {
 				payload.byteLength === 0
 					? payload
 					: payload.subarray(offset, offset + limits.maxFrameBytes);
-			await this.credit.waitForOutbound(stream.id, kind, chunk.byteLength, () =>
-				Boolean(this.streams.has(stream.id) && this.getControlSocket()),
+			await this.credit.waitForOutbound(
+				stream.id,
+				stream.channelId,
+				kind,
+				chunk.byteLength,
+				() => this.canSendForStream(stream),
 			);
-			if (!this.canSendForStream(stream)) {
-				throw new Error("Stream unavailable");
-			}
 			const socket = this.getDataSocket(stream.channelId);
 			if (!socket || socket.readyState !== WebSocket.OPEN) {
 				throw new Error("Data channel unavailable");
 			}
 			await waitForSocketCapacity(socket);
-			if (socket.readyState !== WebSocket.OPEN) {
-				throw new Error("Data channel unavailable");
-			}
-
-			const seq = stream.sendNextSeq.get(kind) ?? 0;
+			const seq = stream.sendNextSeq.get(kind) ?? 0n;
 			socket.send(
 				toArrayBuffer(
-					encodeDataFrame({
-						kind,
-						id: stream.id,
-						seq,
-						flags,
-						payload: chunk,
-					}),
+					encodeFrame(
+						{
+							frameType: FRAME_TYPE_REQUEST_DATA,
+							streamId: stream.id,
+							seq,
+							flags,
+							payload: chunk,
+						},
+						{ maxFrameBytes: limits.maxFrameBytes },
+					),
 				),
 			);
-			stream.sendNextSeq.set(kind, seq + 1);
-			this.credit.decrementOutbound(stream.id, kind, chunk.byteLength);
-
+			stream.sendNextSeq.set(kind, seq + 1n);
+			this.credit.decrementOutbound(
+				stream.id,
+				stream.channelId,
+				kind,
+				chunk.byteLength,
+			);
 			if (payload.byteLength === 0) {
 				break;
 			}
 			offset += chunk.byteLength;
 		}
+	}
+
+	private async sendMetadataFrame(
+		stream: StreamState,
+		frameType:
+			| typeof FRAME_TYPE_REQUEST_START
+			| typeof FRAME_TYPE_REQUEST_END
+			| typeof FRAME_TYPE_REQUEST_ABORT,
+		metadata: RequestStartMetadata | RequestEndMetadata | RequestAbortMetadata,
+	): Promise<void> {
+		return this.sendMetadataFrameByChannel(
+			stream.channelId,
+			frameType,
+			stream.id,
+			metadata,
+		);
+	}
+
+	private async sendMetadataFrameToChannel(
+		channelId: number,
+		frameType:
+			| typeof FRAME_TYPE_STREAM_CREDIT
+			| typeof FRAME_TYPE_CHANNEL_CREDIT,
+		streamId: bigint,
+		metadata: StreamCreditMetadata | ChannelCreditMetadata,
+	): Promise<void> {
+		return this.sendMetadataFrameByChannel(
+			channelId,
+			frameType,
+			streamId,
+			metadata,
+		);
+	}
+
+	private async sendMetadataFrameByChannel(
+		channelId: number,
+		frameType: FrameType,
+		streamId: bigint,
+		metadata:
+			| RequestStartMetadata
+			| RequestEndMetadata
+			| RequestAbortMetadata
+			| StreamCreditMetadata
+			| ChannelCreditMetadata,
+	): Promise<void> {
+		const socket = this.getDataSocket(channelId);
+		if (!socket || socket.readyState !== WebSocket.OPEN) {
+			throw new Error("Data channel unavailable");
+		}
+		const limits = defaultTunnelLimits();
+		const payload = encodeMetadata(frameType, metadata, {
+			maxMetadataBytes: limits.maxMetadataBytes,
+		});
+		await waitForSocketCapacity(socket);
+		socket.send(
+			toArrayBuffer(
+				encodeFrame(
+					{
+						frameType,
+						streamId,
+						seq: 0n,
+						payload,
+					},
+					{ maxFrameBytes: limits.maxFrameBytes },
+				),
+			),
+		);
 	}
 
 	private enqueueStreamSend(
@@ -799,14 +986,6 @@ export class HostcTunnel extends DurableObject<Env> {
 		return next;
 	}
 
-	private async sendControl(message: ControlMessage): Promise<void> {
-		const control = this.getControlSocket();
-		if (!control || control.readyState !== WebSocket.OPEN) {
-			throw new Error("Control socket unavailable");
-		}
-		control.send(encodeControlMessage(message));
-	}
-
 	private async deliverFrame(
 		stream: StreamState,
 		frame: PendingFrame,
@@ -815,8 +994,19 @@ export class HostcTunnel extends DurableObject<Env> {
 			if (!stream.responseController) {
 				return false;
 			}
+			if (
+				stream.responseController.desiredSize !== null &&
+				stream.responseController.desiredSize <= 0
+			) {
+				return false;
+			}
 			stream.responseController.enqueue(frame.payload);
-			this.credit.grantInbound(stream.id, frame.kind, frame.payload.byteLength);
+			this.credit.grantInbound(
+				stream.id,
+				stream.channelId,
+				frame.kind,
+				frame.payload.byteLength,
+			);
 			this.finishStreamDirection(stream, frame.kind);
 			return true;
 		}
@@ -828,20 +1018,21 @@ export class HostcTunnel extends DurableObject<Env> {
 			) {
 				return false;
 			}
-			if (frame.flags === DATA_FLAG_WS_TEXT) {
+			if (frame.flags === FRAME_FLAG_WS_TEXT) {
 				stream.publicSocket.send(utf8Decode(frame.payload));
 			} else {
 				stream.publicSocket.send(toArrayBuffer(frame.payload));
 			}
 			await waitForSocketCapacity(stream.publicSocket);
-			if (stream.publicSocket.readyState !== WebSocket.OPEN) {
-				return false;
-			}
-			this.credit.grantInbound(stream.id, frame.kind, frame.payload.byteLength);
+			this.credit.grantInbound(
+				stream.id,
+				stream.channelId,
+				frame.kind,
+				frame.payload.byteLength,
+			);
 			this.finishStreamDirection(stream, frame.kind);
 			return true;
 		}
-
 		return true;
 	}
 
@@ -899,7 +1090,7 @@ export class HostcTunnel extends DurableObject<Env> {
 
 	private finishStreamDirection(
 		stream: StreamState,
-		kind: DataKind,
+		kind: "response.body" | "ws.server",
 		code?: number,
 		reason?: string,
 	): void {
@@ -907,21 +1098,20 @@ export class HostcTunnel extends DurableObject<Env> {
 		if (endSeq === undefined) {
 			return;
 		}
-		const nextSeq = stream.receiveNextSeq.get(kind) ?? 0;
-		if (endSeq !== -1 && nextSeq <= endSeq) {
+		const nextSeq = stream.receiveNextSeq.get(kind) ?? 0n;
+		if (endSeq !== -1 && nextSeq <= BigInt(endSeq)) {
 			return;
 		}
 		if (kind === "response.body") {
 			stream.responseController?.close();
 			this.cleanupStream(stream.id);
+			return;
 		}
-		if (kind === "ws.server") {
-			stream.publicSocket?.close(
-				normalizeWebSocketCloseCode(code),
-				normalizeWebSocketCloseReason(reason),
-			);
-			this.cleanupStream(stream.id);
-		}
+		stream.publicSocket?.close(
+			normalizeWebSocketCloseCode(code),
+			normalizeWebSocketCloseReason(reason),
+		);
+		this.cleanupStream(stream.id);
 	}
 
 	private abortStream(stream: StreamState, reason: string): void {
@@ -937,10 +1127,10 @@ export class HostcTunnel extends DurableObject<Env> {
 		}
 		stream.publicSocket?.close(CLOSE_INTERNAL_ERROR, "Stream aborted");
 		this.cleanupStream(stream.id);
-		this.log({ event: "stream.abort", streamId: stream.id, reason });
+		this.log({ event: "stream.abort", streamId: stream.id.toString(), reason });
 	}
 
-	private cleanupStream(streamId: number): void {
+	private cleanupStream(streamId: bigint): void {
 		const stream = this.streams.get(streamId);
 		if (!stream) {
 			return;
@@ -953,57 +1143,78 @@ export class HostcTunnel extends DurableObject<Env> {
 		stream.pendingFrames = [];
 		stream.pendingBytes = 0;
 		this.credit.deleteStream(streamId);
-		this.log({ event: "stream.end", streamId });
+		this.rememberClosedStream(streamId);
+		this.log({ event: "stream.end", streamId: streamId.toString() });
 	}
 
-	private async replaceConnection(
-		connectionId: string,
+	private async replaceClientConnection(
+		clientConnectionId: string,
 		dataChannels: number,
 	): Promise<void> {
-		if (this.currentConnectionId) {
-			this.closeConnectionSockets(
-				this.currentConnectionId,
-				CLOSE_TUNNEL_REPLACED,
-				"Tunnel connection replaced",
+		if (this.activeClientConnectionId) {
+			this.closeClientConnectionSockets(
+				this.activeClientConnectionId,
+				CLOSE_CLIENT_CONNECTION_REPLACED,
+				"Client connection replaced",
 			);
 		}
-		this.abortAllStreams("Tunnel connection replaced");
-		this.currentConnectionId = connectionId;
+		this.abortAllStreams("Client connection replaced");
+		this.activeClientConnectionId = clientConnectionId;
 		this.expectedDataChannels = dataChannels;
+		this.nextStreamId = 1n;
+		this.nextChannelIndex = 0;
+		this.closedStreamIds.clear();
 		await Promise.all([
-			this.ctx.storage.put(STORAGE_CONNECTION_ID, connectionId),
+			this.ctx.storage.put(STORAGE_CLIENT_CONNECTION_ID, clientConnectionId),
 			this.ctx.storage.put(STORAGE_DATA_CHANNELS, dataChannels),
+			this.ctx.storage.put(
+				STORAGE_NEXT_STREAM_ID,
+				this.nextStreamId.toString(),
+			),
+			this.ctx.storage.setAlarm(Date.now() + EPHEMERAL_CONNECT_TIMEOUT_MS),
 		]);
-		this.resetConnectionCredits();
+		this.credit.reset(dataChannels);
+		this.log({
+			event: "clientConnection.created",
+			clientConnectionId,
+			dataChannels,
+		});
 	}
 
-	private async failConnection(
+	private async failClientConnection(
 		event: string,
 		code: number,
 		reason: string,
 	): Promise<void> {
-		if (!this.currentConnectionId) {
+		if (!this.activeClientConnectionId) {
 			return;
 		}
-		const connectionId = this.currentConnectionId;
-		this.closeConnectionSockets(connectionId, code, reason);
+		const clientConnectionId = this.activeClientConnectionId;
+		this.closeClientConnectionSockets(clientConnectionId, code, reason);
 		this.abortAllStreams(reason);
-		this.currentConnectionId = null;
+		this.activeClientConnectionId = null;
 		this.expectedDataChannels = 0;
 		await Promise.all([
-			this.ctx.storage.delete(STORAGE_CONNECTION_ID),
+			this.ctx.storage.delete(STORAGE_CLIENT_CONNECTION_ID),
 			this.ctx.storage.delete(STORAGE_DATA_CHANNELS),
+			this.ctx.storage.delete(STORAGE_NEXT_STREAM_ID),
+			this.ctx.storage.deleteAlarm(),
 		]);
-		this.resetConnectionCredits();
-		this.log({ event: "connection.closed", connectionId, reason: event, code });
+		this.credit.reset(0);
+		this.log({
+			event: "clientConnection.closed",
+			clientConnectionId,
+			reason: event,
+			code,
+		});
 	}
 
-	private closeConnectionSockets(
-		connectionId: string,
+	private closeClientConnectionSockets(
+		clientConnectionId: string,
 		code: number,
 		reason: string,
 	): void {
-		for (const socket of this.ctx.getWebSockets(`conn:${connectionId}`)) {
+		for (const socket of this.ctx.getWebSockets(`conn:${clientConnectionId}`)) {
 			socket.close(code, reason);
 		}
 	}
@@ -1015,20 +1226,17 @@ export class HostcTunnel extends DurableObject<Env> {
 	}
 
 	private isReady(): boolean {
-		if (!this.currentConnectionId || this.expectedDataChannels < 1) {
-			return false;
-		}
-		if (!this.getControlSocket()) {
+		if (!this.activeClientConnectionId || this.expectedDataChannels < 1) {
 			return false;
 		}
 		const seen = new Set<number>();
 		for (const socket of this.ctx.getWebSockets(
-			`conn:${this.currentConnectionId}`,
+			`conn:${this.activeClientConnectionId}`,
 		)) {
 			const attachment = getAttachment(socket);
 			if (
 				attachment?.kind === "data" &&
-				attachment.connectionId === this.currentConnectionId &&
+				attachment.clientConnectionId === this.activeClientConnectionId &&
 				socket.readyState === WebSocket.OPEN
 			) {
 				seen.add(attachment.channelId);
@@ -1049,32 +1257,15 @@ export class HostcTunnel extends DurableObject<Env> {
 		return true;
 	}
 
-	private getControlSocket(): WebSocket | null {
-		if (!this.currentConnectionId) {
-			return null;
-		}
-		for (const socket of this.ctx.getWebSockets("control")) {
-			const attachment = getAttachment(socket);
-			if (
-				attachment?.kind === "control" &&
-				attachment.connectionId === this.currentConnectionId &&
-				socket.readyState === WebSocket.OPEN
-			) {
-				return socket;
-			}
-		}
-		return null;
-	}
-
 	private getDataSocket(channelId: number): WebSocket | null {
-		if (!this.currentConnectionId) {
+		if (!this.activeClientConnectionId) {
 			return null;
 		}
 		for (const socket of this.ctx.getWebSockets(`ch:${channelId}`)) {
 			const attachment = getAttachment(socket);
 			if (
 				attachment?.kind === "data" &&
-				attachment.connectionId === this.currentConnectionId &&
+				attachment.clientConnectionId === this.activeClientConnectionId &&
 				attachment.channelId === channelId &&
 				socket.readyState === WebSocket.OPEN
 			) {
@@ -1086,56 +1277,181 @@ export class HostcTunnel extends DurableObject<Env> {
 
 	private isCurrentSocket(ws: WebSocket): boolean {
 		const attachment = getAttachment(ws);
-		if (!attachment || !this.currentConnectionId) {
+		return Boolean(
+			attachment?.kind === "data" &&
+				this.activeClientConnectionId &&
+				attachment.clientConnectionId === this.activeClientConnectionId &&
+				this.isLatestSocket(ws, `ch:${attachment.channelId}`),
+		);
+	}
+
+	private isLatestSocket(ws: WebSocket, tag: string): boolean {
+		const attachment = getAttachment(ws);
+		if (!attachment || attachment.kind !== "data") {
 			return false;
 		}
-		return (
-			(attachment.kind === "control" || attachment.kind === "data") &&
-			attachment.connectionId === this.currentConnectionId
-		);
+		let latest: { socket: WebSocket; generation: number } | null = null;
+		for (const candidate of this.ctx.getWebSockets(tag)) {
+			const candidateAttachment = getAttachment(candidate);
+			if (
+				candidateAttachment?.kind !== "data" ||
+				candidateAttachment.clientConnectionId !==
+					attachment.clientConnectionId ||
+				candidateAttachment.channelId !== attachment.channelId
+			) {
+				continue;
+			}
+			if (
+				!latest ||
+				candidateAttachment.socketGeneration >= latest.generation
+			) {
+				latest = {
+					socket: candidate,
+					generation: candidateAttachment.socketGeneration,
+				};
+			}
+		}
+		return latest?.socket === ws;
+	}
+
+	private nextSocketGeneration(): number {
+		const generation = Date.now() * 1000 + (this.socketGeneration % 1000);
+		this.socketGeneration += 1;
+		return generation;
 	}
 
 	private canSendForStream(stream: StreamState): boolean {
 		return (
 			!stream.aborted &&
 			this.streams.get(stream.id) === stream &&
-			this.getControlSocket() !== null
+			this.getDataSocket(stream.channelId) !== null
 		);
 	}
 
-	private async loadConnectionState(): Promise<void> {
-		if (this.currentConnectionId !== null || this.expectedDataChannels > 0) {
-			return;
+	private async decodeMetadataOrFail<T>(
+		frameType: FrameType,
+		payload: Uint8Array,
+	): Promise<T | null> {
+		try {
+			return decodeMetadata(frameType, payload) as T;
+		} catch {
+			await this.failClientConnection(
+				"protocol.error",
+				CLOSE_PROTOCOL_ERROR,
+				"Invalid frame metadata",
+			);
+			return null;
 		}
-		const [connectionId, dataChannels] = await Promise.all([
-			this.ctx.storage.get<string>(STORAGE_CONNECTION_ID),
-			this.ctx.storage.get<number>(STORAGE_DATA_CHANNELS),
-		]);
-		this.currentConnectionId = connectionId ?? null;
-		this.expectedDataChannels =
-			typeof dataChannels === "number" ? dataChannels : 0;
-		this.resetConnectionCredits();
 	}
 
-	private resetConnectionCredits(): void {
-		this.credit.reset();
+	private async loadConnectionState(): Promise<void> {
+		if (
+			this.activeClientConnectionId !== null ||
+			this.expectedDataChannels > 0
+		) {
+			return;
+		}
+		const [clientConnectionId, dataChannels, nextStreamId] = await Promise.all([
+			this.ctx.storage.get<string>(STORAGE_CLIENT_CONNECTION_ID),
+			this.ctx.storage.get<number>(STORAGE_DATA_CHANNELS),
+			this.ctx.storage.get<string>(STORAGE_NEXT_STREAM_ID),
+		]);
+		this.activeClientConnectionId = clientConnectionId ?? null;
+		this.expectedDataChannels =
+			typeof dataChannels === "number" ? dataChannels : 0;
+		this.nextStreamId = nextStreamId ? BigInt(nextStreamId) : 1n;
+		this.credit.reset(this.expectedDataChannels);
+		this.closeUnrecoverablePublicSockets();
+	}
+
+	private closeUnrecoverablePublicSockets(): void {
+		if (this.streams.size > 0) {
+			return;
+		}
+		for (const socket of this.ctx.getWebSockets("public")) {
+			socket.close(CLOSE_INTERNAL_ERROR, "Public stream state expired");
+		}
 	}
 
 	private checkReceiveSeq(
 		stream: StreamState,
 		kind: DataKind,
-		seq: number,
+		seq: bigint,
 	): boolean {
-		const expected = stream.receiveNextSeq.get(kind) ?? 0;
+		const expected = stream.receiveNextSeq.get(kind) ?? 0n;
 		if (seq !== expected) {
 			return false;
 		}
-		stream.receiveNextSeq.set(kind, expected + 1);
+		stream.receiveNextSeq.set(kind, expected + 1n);
 		return true;
 	}
 
+	private checkReceiveEndSeq(
+		stream: StreamState,
+		kind: "response.body" | "ws.server",
+		lastSeq: number,
+	): boolean {
+		const nextSeq = stream.receiveNextSeq.get(kind) ?? 0n;
+		return BigInt(lastSeq) === nextSeq - 1n;
+	}
+
+	private checkReceiveEndBoundary(
+		stream: StreamState,
+		kind: DataKind,
+		seq: bigint,
+	): boolean {
+		if (kind !== "response.body" && kind !== "ws.server") {
+			return true;
+		}
+		const endSeq = stream.receiveEndSeq.get(kind);
+		return endSeq === undefined || seq <= BigInt(endSeq);
+	}
+
+	private armReceiveEndTimeout(
+		stream: StreamState,
+		kind: "response.body" | "ws.server",
+		lastSeq: number,
+	): void {
+		if (
+			lastSeq === -1 ||
+			(stream.receiveNextSeq.get(kind) ?? 0n) > BigInt(lastSeq)
+		) {
+			return;
+		}
+		const limits = defaultTunnelLimits();
+		this.ctx.waitUntil(
+			sleep(limits.pendingDataTimeoutMs).then(() => {
+				const current = this.streams.get(stream.id);
+				if (
+					current === stream &&
+					stream.receiveEndSeq.get(kind) === lastSeq &&
+					(stream.receiveNextSeq.get(kind) ?? 0n) <= BigInt(lastSeq)
+				) {
+					void this.failClientConnection(
+						"protocol.error",
+						CLOSE_PROTOCOL_ERROR,
+						"Missing data before declared end",
+					);
+				}
+			}),
+		);
+	}
+
 	private lastSentSeq(stream: StreamState, kind: DataKind): number {
-		return (stream.sendNextSeq.get(kind) ?? 0) - 1;
+		return Number((stream.sendNextSeq.get(kind) ?? 0n) - 1n);
+	}
+
+	private rememberClosedStream(streamId: bigint): void {
+		const key = streamId.toString();
+		this.closedStreamIds.delete(key);
+		this.closedStreamIds.add(key);
+		if (this.closedStreamIds.size <= MAX_REMEMBERED_CLOSED_STREAMS) {
+			return;
+		}
+		const oldest = this.closedStreamIds.values().next().value;
+		if (oldest !== undefined) {
+			this.closedStreamIds.delete(oldest);
+		}
 	}
 
 	private log(fields: JsonLog): void {
@@ -1187,31 +1503,21 @@ function isAttachment(value: unknown): value is SocketAttachment {
 		return false;
 	}
 	const record = value as Record<string, unknown>;
-	if (record.kind === "control") {
-		return (
-			typeof record.connectionId === "string" &&
-			typeof record.dataChannels === "number" &&
-			typeof record.createdAt === "number"
-		);
-	}
 	if (record.kind === "data") {
 		return (
-			typeof record.connectionId === "string" &&
+			typeof record.clientConnectionId === "string" &&
 			typeof record.channelId === "number" &&
+			typeof record.socketGeneration === "number" &&
 			typeof record.createdAt === "number"
 		);
 	}
 	if (record.kind === "public") {
 		return (
-			typeof record.streamId === "number" &&
+			typeof record.streamId === "string" &&
 			typeof record.createdAt === "number"
 		);
 	}
 	return false;
-}
-
-function isValidDataChannelCount(value: number): boolean {
-	return Number.isInteger(value) && value >= 1 && value <= 8;
 }
 
 function buildRequestTarget(request: Request): string {
@@ -1253,10 +1559,6 @@ function jsonError(message: string, status: number): Response {
 
 function allowsHttpResponseBody(status: number): boolean {
 	return status !== 204 && status !== 205 && status !== 304;
-}
-
-function isWebSocketKind(kind: DataKind): boolean {
-	return kind === "ws.client" || kind === "ws.server";
 }
 
 function sleep(ms: number): Promise<void> {

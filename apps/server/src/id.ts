@@ -1,4 +1,4 @@
-import { isValidTunnelId } from "@hostc/protocol";
+import { isValidClientConnectionId, isValidTunnelId } from "@hostc/protocol";
 
 const TUNNEL_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -18,6 +18,10 @@ export function createTunnelId(): string {
 	throw new Error("Failed to generate tunnel id");
 }
 
-export function createConnectionId(): string {
-	return `c-${crypto.randomUUID()}`;
+export function createClientConnectionId(): string {
+	const clientConnectionId = `c-${crypto.randomUUID()}`;
+	if (!isValidClientConnectionId(clientConnectionId)) {
+		throw new Error("Failed to generate client connection id");
+	}
+	return clientConnectionId;
 }

@@ -1,7 +1,7 @@
 {
 	"name": "hostc",
 	"description": "Expose a local web service (HTTP + WebSocket) through a hostc tunnel",
-	"version": "1.2.6",
+	"version": "1.3.0",
 	"main": "./dist/index.js",
 	"homepage": "https://hostc.dev",
 	"repository": {
@@ -32,16 +32,18 @@
 	},
 	"scripts": {
 		"build": "tsc -p tsconfig.json --noEmit && tsup --config tsup.config.ts",
-		"test": "pnpm -F @hostc/protocol build && tsc -p tsconfig.json --outDir dist-test && node --test test/*.test.mjs"
+		"test": "pnpm -F @hostc/protocol build && tsc -p tsconfig.json --outDir dist-test && node --test test/*.test.mjs",
+		"test:e2e": "pnpm -w test:e2e:cli"
 	},
 	"dependencies": {
-		"@hostc/protocol": "workspace:*",
 		"chalk": "^5.3.0",
 		"commander": "^11.0.0",
 		"uqr": "^0.1.3",
 		"ws": "^8.20.0"
 	},
 	"devDependencies": {
+		"@hostc/client": "workspace:*",
+		"@hostc/protocol": "workspace:*",
 		"@types/node": "^25.6.0",
 		"@types/ws": "^8.18.1",
 		"tsup": "^8.5.0",

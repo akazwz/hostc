@@ -1,6 +1,23 @@
-import type { ControlMessage, DataKind, TunnelLimits } from "@hostc/protocol";
+import {
+	addCredit,
+	type ChannelCreditMetadata,
+	consumeCredit,
+	type DataKind,
+	FRAME_TYPE_CHANNEL_CREDIT,
+	FRAME_TYPE_STREAM_CREDIT,
+	MAX_CREDIT_BYTES,
+	type StreamCreditMetadata,
+	type TunnelLimits,
+} from "@hostc/protocol";
 
-type CreditKey = `${number}:${DataKind}`;
+type CreditKey = `${string}:${DataKind}`;
+
+type SendCredit = (
+	channelId: number,
+	frameType: typeof FRAME_TYPE_STREAM_CREDIT | typeof FRAME_TYPE_CHANNEL_CREDIT,
+	streamId: bigint,
+	metadata: StreamCreditMetadata | ChannelCreditMetadata,
+) => Promise<void>;
 
 const CREDIT_KINDS = [
 	"request.body",
@@ -10,72 +27,84 @@ const CREDIT_KINDS = [
 ] satisfies DataKind[];
 
 export class TunnelCreditController {
-	private outboundConnectionCredit = 0;
-	private inboundConnectionCredit = 0;
 	private readonly outboundStreamCredit = new Map<CreditKey, number>();
 	private readonly inboundStreamCredit = new Map<CreditKey, number>();
+	private readonly outboundChannelCredit = new Map<number, number>();
+	private readonly inboundChannelCredit = new Map<number, number>();
 	private readonly waiters = new Set<() => void>();
-	private pendingConnectionCredit = 0;
-	private readonly pendingStreamCredit = new Map<CreditKey, number>();
-	private flushScheduled = false;
 
 	constructor(
 		private readonly limits: () => TunnelLimits,
-		private readonly flushDelayMs: number,
-		private readonly sendControl: (message: ControlMessage) => Promise<void>,
+		private readonly sendCredit: SendCredit,
 		private readonly waitUntil: (promise: Promise<unknown>) => void,
-		private readonly onFlushError: (error: unknown) => void,
+		private readonly onCreditError: (error: unknown) => void,
 	) {}
 
-	reset(): void {
-		const limits = this.limits();
-		this.outboundConnectionCredit = limits.connectionCreditBytes;
-		this.inboundConnectionCredit = limits.connectionCreditBytes;
+	reset(dataChannels: number): void {
 		this.outboundStreamCredit.clear();
 		this.inboundStreamCredit.clear();
-		this.pendingConnectionCredit = 0;
-		this.pendingStreamCredit.clear();
-		this.flushScheduled = false;
+		this.outboundChannelCredit.clear();
+		this.inboundChannelCredit.clear();
+		for (let channelId = 0; channelId < dataChannels; channelId += 1) {
+			this.outboundChannelCredit.set(
+				channelId,
+				this.limits().channelCreditBytes,
+			);
+			this.inboundChannelCredit.set(
+				channelId,
+				this.limits().channelCreditBytes,
+			);
+		}
 		this.wakeWaiters();
 	}
 
-	seedStream(streamId: number): void {
-		const limits = this.limits();
+	seedStream(streamId: bigint): void {
 		for (const kind of CREDIT_KINDS) {
 			this.outboundStreamCredit.set(
 				creditKey(streamId, kind),
-				limits.streamCreditBytes,
+				this.limits().streamCreditBytes,
 			);
 			this.inboundStreamCredit.set(
 				creditKey(streamId, kind),
-				limits.streamCreditBytes,
+				this.limits().streamCreditBytes,
 			);
 		}
 	}
 
-	deleteStream(streamId: number): void {
+	deleteStream(streamId: bigint): void {
 		for (const kind of CREDIT_KINDS) {
 			this.outboundStreamCredit.delete(creditKey(streamId, kind));
 			this.inboundStreamCredit.delete(creditKey(streamId, kind));
 		}
+		this.wakeWaiters();
 	}
 
-	apply(message: Extract<ControlMessage, { type: "credit" }>): void {
-		if (message.scope === "connection") {
-			this.outboundConnectionCredit += message.bytes;
-		} else if (message.id && message.kind) {
-			this.addStreamCredit(
-				this.outboundStreamCredit,
-				message.id,
-				message.kind,
-				message.bytes,
-			);
-		}
+	applyStreamCredit(streamId: bigint, metadata: StreamCreditMetadata): void {
+		const key = creditKey(streamId, metadata.kind);
+		this.outboundStreamCredit.set(
+			key,
+			Math.min(
+				MAX_CREDIT_BYTES,
+				(this.outboundStreamCredit.get(key) ?? 0) + metadata.bytes,
+			),
+		);
+		this.wakeWaiters();
+	}
+
+	applyChannelCredit(channelId: number, metadata: ChannelCreditMetadata): void {
+		this.outboundChannelCredit.set(
+			channelId,
+			Math.min(
+				MAX_CREDIT_BYTES,
+				(this.outboundChannelCredit.get(channelId) ?? 0) + metadata.bytes,
+			),
+		);
 		this.wakeWaiters();
 	}
 
 	async waitForOutbound(
-		streamId: number,
+		streamId: bigint,
+		channelId: number,
 		kind: DataKind,
 		bytes: number,
 		canWait: () => boolean,
@@ -83,45 +112,76 @@ export class TunnelCreditController {
 		if (!canWait()) {
 			throw new Error("Stream unavailable");
 		}
-		while (!this.hasOutbound(streamId, kind, bytes)) {
-			await new Promise<void>((resolve) => {
-				this.waiters.add(resolve);
-			});
+		while (!this.hasOutbound(streamId, channelId, kind, bytes)) {
+			await new Promise<void>((resolve) => this.waiters.add(resolve));
 			if (!canWait()) {
 				throw new Error("Stream unavailable");
 			}
 		}
 	}
 
-	decrementOutbound(streamId: number, kind: DataKind, bytes: number): void {
-		this.outboundConnectionCredit -= bytes;
-		const key = creditKey(streamId, kind);
+	decrementOutbound(
+		streamId: bigint,
+		channelId: number,
+		kind: DataKind,
+		bytes: number,
+	): void {
+		const streamKey = creditKey(streamId, kind);
 		this.outboundStreamCredit.set(
-			key,
-			(this.outboundStreamCredit.get(key) ?? 0) - bytes,
+			streamKey,
+			consumeCredit(this.outboundStreamCredit.get(streamKey) ?? 0, bytes),
+		);
+		this.outboundChannelCredit.set(
+			channelId,
+			consumeCredit(this.outboundChannelCredit.get(channelId) ?? 0, bytes),
 		);
 	}
 
-	consumeInbound(streamId: number, kind: DataKind, bytes: number): boolean {
-		const key = creditKey(streamId, kind);
-		const streamCredit = this.inboundStreamCredit.get(key) ?? 0;
-		if (this.inboundConnectionCredit < bytes || streamCredit < bytes) {
+	consumeInbound(
+		streamId: bigint,
+		channelId: number,
+		kind: DataKind,
+		bytes: number,
+	): boolean {
+		const streamKey = creditKey(streamId, kind);
+		const streamCredit = this.inboundStreamCredit.get(streamKey) ?? 0;
+		const channelCredit = this.inboundChannelCredit.get(channelId) ?? 0;
+		if (streamCredit < bytes || channelCredit < bytes) {
 			return false;
 		}
-		this.inboundConnectionCredit -= bytes;
-		this.inboundStreamCredit.set(key, streamCredit - bytes);
+		this.inboundStreamCredit.set(streamKey, streamCredit - bytes);
+		this.inboundChannelCredit.set(channelId, channelCredit - bytes);
 		return true;
 	}
 
-	grantInbound(streamId: number, kind: DataKind, bytes: number): void {
+	grantInbound(
+		streamId: bigint,
+		channelId: number,
+		kind: DataKind,
+		bytes: number,
+	): void {
 		if (bytes <= 0) {
 			return;
 		}
-		this.inboundConnectionCredit += bytes;
-		this.addStreamCredit(this.inboundStreamCredit, streamId, kind, bytes);
-		this.pendingConnectionCredit += bytes;
-		this.addStreamCredit(this.pendingStreamCredit, streamId, kind, bytes);
-		this.scheduleFlush();
+		const streamKey = creditKey(streamId, kind);
+		this.inboundStreamCredit.set(
+			streamKey,
+			addCredit(this.inboundStreamCredit.get(streamKey) ?? 0, bytes),
+		);
+		this.inboundChannelCredit.set(
+			channelId,
+			addCredit(this.inboundChannelCredit.get(channelId) ?? 0, bytes),
+		);
+		this.waitUntil(
+			this.sendCredit(channelId, FRAME_TYPE_STREAM_CREDIT, streamId, {
+				kind,
+				bytes,
+			})
+				.then(() =>
+					this.sendCredit(channelId, FRAME_TYPE_CHANNEL_CREDIT, 0n, { bytes }),
+				)
+				.catch((error) => this.onCreditError(error)),
+		);
 	}
 
 	wakeWaiters(): void {
@@ -132,77 +192,18 @@ export class TunnelCreditController {
 	}
 
 	private hasOutbound(
-		streamId: number,
+		streamId: bigint,
+		channelId: number,
 		kind: DataKind,
 		bytes: number,
 	): boolean {
 		return (
-			this.outboundConnectionCredit >= bytes &&
-			(this.outboundStreamCredit.get(creditKey(streamId, kind)) ?? 0) >= bytes
+			(this.outboundStreamCredit.get(creditKey(streamId, kind)) ?? 0) >=
+				bytes && (this.outboundChannelCredit.get(channelId) ?? 0) >= bytes
 		);
 	}
-
-	private addStreamCredit(
-		store: Map<CreditKey, number>,
-		streamId: number,
-		kind: DataKind,
-		bytes: number,
-	): void {
-		const key = creditKey(streamId, kind);
-		store.set(key, (store.get(key) ?? 0) + bytes);
-	}
-
-	private scheduleFlush(): void {
-		if (this.flushScheduled) {
-			return;
-		}
-		this.flushScheduled = true;
-		this.waitUntil(sleep(this.flushDelayMs).then(() => this.flush()));
-	}
-
-	private async flush(): Promise<void> {
-		const connectionBytes = this.pendingConnectionCredit;
-		const streamCredits = [...this.pendingStreamCredit.entries()];
-		this.pendingConnectionCredit = 0;
-		this.pendingStreamCredit.clear();
-		this.flushScheduled = false;
-
-		try {
-			for (const [key, bytes] of streamCredits) {
-				const { streamId, kind } = parseCreditKey(key);
-				await this.sendControl({
-					type: "credit",
-					scope: "stream",
-					id: streamId,
-					kind,
-					bytes,
-				});
-			}
-			if (connectionBytes > 0) {
-				await this.sendControl({
-					type: "credit",
-					scope: "connection",
-					bytes: connectionBytes,
-				});
-			}
-		} catch (error) {
-			this.onFlushError(error);
-		}
-	}
 }
 
-function creditKey(streamId: number, kind: DataKind): CreditKey {
-	return `${streamId}:${kind}`;
-}
-
-function parseCreditKey(key: CreditKey): { streamId: number; kind: DataKind } {
-	const separator = key.indexOf(":");
-	return {
-		streamId: Number(key.slice(0, separator)),
-		kind: key.slice(separator + 1) as DataKind,
-	};
-}
-
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+function creditKey(streamId: bigint, kind: DataKind): CreditKey {
+	return `${streamId.toString()}:${kind}`;
 }

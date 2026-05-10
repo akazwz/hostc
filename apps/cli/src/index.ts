@@ -1,13 +1,9 @@
 #!/usr/bin/env node
 
-import {
-	type CreateTunnelResponse,
-	defaultTunnelLimits,
-} from "@hostc/protocol";
+import { HostcClient, localOriginAdapter } from "@hostc/client";
 import chalk from "chalk";
 import { Command, InvalidArgumentError } from "commander";
 import { renderUnicode } from "uqr";
-import { createTunnel } from "./api";
 import {
 	getConfigPath,
 	parseConfigKey,
@@ -18,10 +14,19 @@ import {
 	validateDataChannels,
 	validateLocalHost,
 } from "./config";
+import {
+	hasDoctorFailure,
+	printDoctorChecks,
+	runDoctor,
+	warnIfLocalPortClosed,
+} from "./doctor";
 import { formatError } from "./redact";
-import { TunnelClient } from "./runtime";
+import { TerminalSpinner } from "./spinner";
+import { maybePrintUpdateNotice } from "./update";
 
-const CLI_VERSION = "1.3.0";
+declare const __HOSTC_CLI_VERSION__: string;
+
+const CLI_VERSION = __HOSTC_CLI_VERSION__;
 
 type TunnelCommandOptions = {
 	server?: string;
@@ -50,7 +55,7 @@ async function main(): Promise<void> {
 			"number of data channel WebSockets",
 			parseDataChannels,
 		)
-		.option("--qr", "print a terminal QR code for the public URL", false)
+		.option("--qr", "print a terminal QR code for the public URL")
 		.action(async (port: number, options: TunnelCommandOptions) => {
 			await runTunnel(port, options);
 		});
@@ -88,6 +93,28 @@ async function main(): Promise<void> {
 			console.log(JSON.stringify(next, null, 2));
 		});
 
+	program
+		.command("doctor")
+		.argument("[port]", "local port to check", parseOptionalPort)
+		.option("--server <url>", "hostc server URL")
+		.option(
+			"--local-host <host>",
+			"host of the local service",
+			validateLocalHost,
+		)
+		.description("Check hostc CLI, server, config, and optional local port")
+		.action(async (port: number | undefined, options: TunnelCommandOptions) => {
+			const checks = await runDoctor({
+				port,
+				server: options.server,
+				localHost: options.localHost,
+			});
+			printDoctorChecks(checks);
+			if (hasDoctorFailure(checks)) {
+				process.exitCode = 1;
+			}
+		});
+
 	if (process.argv.length <= 2) {
 		program.outputHelp();
 		return;
@@ -107,34 +134,75 @@ async function runTunnel(
 		qr: options.qr,
 	});
 	const localOrigin = new URL(`http://${resolved.localHost}:${port}/`);
-	let tunnel: CreateTunnelResponse;
+	const spinner = new TerminalSpinner("Creating tunnel...");
+	let printedFirstQr = false;
 
-	try {
-		tunnel = await createTunnel(resolved.serverUrl, resolved.dataChannels);
-	} catch (error) {
-		throw new Error(formatError(error));
-	}
+	maybePrintUpdateNotice(CLI_VERSION, {
+		disabled: resolved.disableUpdateCheck,
+	});
+	await warnIfLocalPortClosed(resolved.localHost, port);
 
-	if (resolved.qr && process.stdout.isTTY) {
-		console.log(renderUnicode(tunnel.publicUrl));
-	}
-
-	const client = new TunnelClient({
+	const client = new HostcClient({
 		serverUrl: resolved.serverUrl,
-		localOrigin,
-		tunnelId: tunnel.tunnelId,
-		publicUrl: tunnel.publicUrl,
-		connectionId: tunnel.connectionId,
-		controlUrl: tunnel.controlUrl,
-		dataUrl: tunnel.dataUrl,
-		connectToken: tunnel.connectToken,
-		refreshToken: tunnel.refreshToken,
-		dataChannels: tunnel.dataChannels,
-		limits: tunnel.limits ?? defaultTunnelLimits(),
+		dataChannels: resolved.dataChannels,
 		debug: resolved.debug,
+		upstream: localOriginAdapter({ origin: localOrigin }),
 	});
 
-	const close = (): void => client.close();
+	client.on("state", (state) => {
+		if (state === "creatingTunnel") {
+			spinner.update("Creating tunnel...");
+			spinner.start();
+		}
+		if (state === "connecting") {
+			spinner.update("Connecting tunnel...");
+			spinner.start();
+		}
+		if (state === "reconnecting") {
+			spinner.update("Reconnecting...");
+			spinner.start();
+		}
+		if (state === "ready" || state === "closed") {
+			spinner.stop();
+		}
+	});
+	client.on("ready", (event) => {
+		if (resolved.qr && process.stdout.isTTY && !printedFirstQr) {
+			console.log(renderUnicode(event.publicUrl));
+			printedFirstQr = true;
+		}
+		const snapshot = client.getSnapshot();
+		console.log(`${chalk.green("Success")}  ${chalk.bold("Tunnel ready")}`);
+		console.log(`  Public URL: ${event.publicUrl}`);
+		console.log(`  Local:      ${chalk.dim(localOrigin.href)}`);
+		console.log(`  Tunnel:     ${chalk.dim(event.tunnelId)}`);
+		console.log(`  Channels:   ${chalk.dim(String(snapshot.dataChannels))}`);
+	});
+	client.on("reconnecting", (event) => {
+		spinner.stop();
+		console.error(
+			`${chalk.yellow("Reconnect")} ${formatError(event.reason)}; retrying in ${event.delayMs}ms`,
+		);
+	});
+	client.on("log", (event) => {
+		if (resolved.debug) {
+			const fields = event.fields
+				? ` ${formatError(JSON.stringify(event.fields))}`
+				: "";
+			console.error(`[hostc:debug] ${event.message}${fields}`);
+		}
+	});
+
+	let closing = false;
+	const close = (): void => {
+		if (closing) {
+			return;
+		}
+		closing = true;
+		spinner.stop();
+		process.stdin.pause();
+		void client.stop();
+	};
 	process.once("SIGINT", close);
 	process.once("SIGTERM", close);
 	if (process.env.HOSTC_E2E_RECONNECT_SIGNAL === "1") {
@@ -149,7 +217,13 @@ async function runTunnel(
 		});
 		process.stdin.resume();
 	}
-	await client.run();
+
+	try {
+		await client.start();
+	} catch (error) {
+		spinner.stop();
+		throw new Error(formatError(error));
+	}
 }
 
 function parsePort(value: string): number {
@@ -158,6 +232,10 @@ function parsePort(value: string): number {
 		throw new InvalidArgumentError("port must be an integer from 1 to 65535");
 	}
 	return port;
+}
+
+function parseOptionalPort(value: string): number {
+	return parsePort(value);
 }
 
 function parseDataChannels(value: string): number {

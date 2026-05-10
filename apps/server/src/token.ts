@@ -1,10 +1,10 @@
-export type TokenAudience = "connect" | "refresh";
+export type TokenAudience = "connect";
 
 export type TokenPayload = {
 	v: 1;
 	aud: TokenAudience;
 	tunnelId: string;
-	connectionId?: string;
+	clientConnectionId?: string;
 	exp: number;
 	nonce: string;
 };
@@ -12,12 +12,13 @@ export type TokenPayload = {
 export type VerifyTokenOptions = {
 	audience: TokenAudience;
 	tunnelId: string;
-	connectionId?: string;
+	clientConnectionId?: string;
 	now?: number;
 };
 
 const keyCache = new Map<string, Promise<CryptoKey>>();
 const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
 export async function signToken(
 	secret: string,
@@ -65,7 +66,7 @@ export async function verifyToken(
 
 	let payload: unknown;
 	try {
-		payload = JSON.parse(new TextDecoder().decode(payloadBytes));
+		payload = JSON.parse(decoder.decode(payloadBytes));
 	} catch {
 		return null;
 	}
@@ -83,8 +84,8 @@ export async function verifyToken(
 		return null;
 	}
 	if (
-		options.connectionId !== undefined &&
-		payload.connectionId !== options.connectionId
+		options.clientConnectionId !== undefined &&
+		payload.clientConnectionId !== options.clientConnectionId
 	) {
 		return null;
 	}
@@ -96,14 +97,14 @@ export function createTokenPayload(
 	audience: TokenAudience,
 	tunnelId: string,
 	ttlSeconds: number,
-	connectionId?: string,
+	clientConnectionId?: string,
 	now = Math.floor(Date.now() / 1000),
 ): TokenPayload {
 	return {
 		v: 1,
 		aud: audience,
 		tunnelId,
-		connectionId,
+		clientConnectionId,
 		exp: now + ttlSeconds,
 		nonce: crypto.randomUUID(),
 	};
@@ -158,10 +159,10 @@ function isTokenPayload(value: unknown): value is TokenPayload {
 	const record = value as Record<string, unknown>;
 	return (
 		record.v === 1 &&
-		(record.aud === "connect" || record.aud === "refresh") &&
+		record.aud === "connect" &&
 		typeof record.tunnelId === "string" &&
-		(record.connectionId === undefined ||
-			typeof record.connectionId === "string") &&
+		(record.clientConnectionId === undefined ||
+			typeof record.clientConnectionId === "string") &&
 		Number.isInteger(record.exp) &&
 		typeof record.nonce === "string"
 	);

@@ -87,6 +87,7 @@ async function runLoad(tunnels) {
 				path: "upload",
 				method: "POST",
 				body: uploadBody,
+				expectedBody: String(uploadBody.byteLength),
 			}),
 		);
 	}
@@ -217,13 +218,18 @@ async function runHttpScenario(name, tunnels, options) {
 					const body = await response.arrayBuffer();
 					totalBytes += body.byteLength + byteLength(options.body);
 					addStatus(statusCounts, response.status);
-					if (response.ok) {
+					const decodedBody = decodeFailureBody(body);
+					if (
+						response.ok &&
+						(options.expectedBody === undefined ||
+							decodedBody === options.expectedBody)
+					) {
 						ok += 1;
 					} else {
 						failed += 1;
 						addFailureSample(failureSamples, {
 							status: response.status,
-							body: decodeFailureBody(body),
+							body: decodedBody,
 						});
 					}
 				} catch (error) {
@@ -378,6 +384,7 @@ async function runReconnectScenario(tunnels) {
 				tunnel.child.stdin.write("reconnect\n");
 				try {
 					await waitForReadyCount(tunnel.output, readyCountBefore + 1, 45_000);
+					tunnel.publicUrl = latestPublicUrl(tunnel.output.text);
 					const response = await fetch(tunnel.publicUrl);
 					if (response.ok) {
 						ok += 1;
@@ -539,7 +546,15 @@ async function waitForReadyCount(output, expectedCount, timeoutMs) {
 }
 
 function countReadyLines(output) {
-	return output.match(/^Tunnel ready /gm)?.length ?? 0;
+	return output.match(/^.*Tunnel ready/gm)?.length ?? 0;
+}
+
+function latestPublicUrl(output) {
+	const matches = [...output.matchAll(/^\s*Public URL:\s+(https?:\/\/\S+)/gm)];
+	if (matches.length === 0) {
+		throw new Error(`No public URL found:\n${output}`);
+	}
+	return matches[matches.length - 1][1];
 }
 
 function sumCliDebugLines(tunnels, phrase) {

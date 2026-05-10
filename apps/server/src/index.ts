@@ -1,27 +1,23 @@
 import {
 	buildPublicUrl,
-	buildTunnelControlPath,
-	buildTunnelDataPath,
-	type CreateTunnelResponse,
+	type CreateEphemeralTunnelResponse,
 	DEFAULT_DATA_CHANNELS,
 	defaultTunnelLimits,
+	isValidDataChannelCount,
 	MAX_DATA_CHANNELS,
-	type RefreshTunnelResponse,
+	PROTOCOL_VERSION,
+	TUNNEL_KIND_EPHEMERAL,
+	TUNNELS_API_PATH,
 } from "@hostc/protocol";
 import { HostcTunnel } from "./durable/tunnel";
 import type { HostcEnv } from "./env";
-import { createConnectionId, createTunnelId } from "./id";
+import { createClientConnectionId, createTunnelId } from "./id";
 import { log } from "./log";
 import { classifyHost, isWebSocketUpgrade, parseApiRoute } from "./router";
 import { createTokenPayload, signToken, verifyToken } from "./token";
 
 const CONNECT_TOKEN_TTL_SECONDS = 60;
-const REFRESH_TOKEN_TTL_SECONDS = 10 * 60;
 const INTERNAL_ORIGIN = "https://hostc.internal";
-
-type CreateTunnelOptions = {
-	dataChannels: number;
-};
 
 export { HostcTunnel };
 
@@ -61,12 +57,8 @@ export async function handleRequest(
 			return Response.json({ ok: true });
 		case "create":
 			return createTunnel(request, env, url);
-		case "refresh":
-			return refreshTunnel(request, env, url, apiRoute.tunnelId);
-		case "control":
-			return connectControl(request, env, apiRoute.tunnelId, apiRoute);
-		case "data":
-			return connectData(request, env, apiRoute.tunnelId, apiRoute);
+		case "channel":
+			return connectChannel(request, env, apiRoute.tunnelId, apiRoute);
 		case "method-not-allowed":
 			return new Response("Method Not Allowed", {
 				status: 405,
@@ -84,208 +76,122 @@ async function createTunnel(
 	env: HostcEnv,
 	requestUrl: URL,
 ): Promise<Response> {
-	const options = await parseCreateTunnelOptions(request);
+	const dataChannels = await parseCreateTunnelDataChannels(request);
 	const tunnelId = createTunnelId();
-	const issued = await issueTunnelConnection(
-		env,
-		requestUrl,
-		tunnelId,
-		options.dataChannels,
+	const clientConnectionId = createClientConnectionId();
+	const connectToken = await signToken(
+		env.TOKEN_SECRET,
+		createTokenPayload(
+			"connect",
+			tunnelId,
+			CONNECT_TOKEN_TTL_SECONDS,
+			clientConnectionId,
+		),
 	);
-	const response: CreateTunnelResponse = {
+
+	await initializeTunnelClientConnection(env, tunnelId, {
+		clientConnectionId,
+		dataChannels,
+	});
+
+	const response: CreateEphemeralTunnelResponse = {
+		kind: TUNNEL_KIND_EPHEMERAL,
+		protocolVersion: PROTOCOL_VERSION,
 		tunnelId,
 		publicUrl: buildPublicUrl(env.PUBLIC_BASE_DOMAIN, tunnelId),
-		...issued,
+		clientConnectionId,
+		dataUrl: buildAbsoluteWebSocketUrl(
+			requestUrl,
+			`${TUNNELS_API_PATH}/${encodeURIComponent(tunnelId)}/channels`,
+		),
+		connectToken,
+		dataChannels,
+		limits: defaultTunnelLimits(),
 	};
 
 	log({
 		event: "tunnel.created",
 		tunnelId,
-		dataChannels: options.dataChannels,
+		clientConnectionId,
+		dataChannels,
 	});
 	return Response.json(response, { status: 201 });
 }
 
-async function refreshTunnel(
-	request: Request,
-	env: HostcEnv,
-	requestUrl: URL,
-	tunnelId: string,
-): Promise<Response> {
-	const refreshToken = getBearerToken(request);
-	const payload = await verifyToken(env.TOKEN_SECRET, refreshToken, {
-		audience: "refresh",
-		tunnelId,
-	});
-	if (!payload) {
-		return jsonError("Invalid token", 403);
-	}
-
-	const dataChannels =
-		parseDataChannelsHeader(request) ?? DEFAULT_DATA_CHANNELS;
-	const response = await issueTunnelConnection(
-		env,
-		requestUrl,
-		tunnelId,
-		dataChannels,
-	);
-	log({
-		event: "tunnel.refreshed",
-		tunnelId,
-		connectionId: response.connectionId,
-	});
-	return Response.json(response);
-}
-
-async function connectControl(
+async function connectChannel(
 	request: Request,
 	env: HostcEnv,
 	tunnelId: string,
-	route: Extract<ReturnType<typeof parseApiRoute>, { kind: "control" }>,
+	route: Extract<ReturnType<typeof parseApiRoute>, { kind: "channel" }>,
 ): Promise<Response> {
 	if (!isWebSocketUpgrade(request)) {
 		return jsonError("Expected WebSocket upgrade", 426);
+	}
+	if (!route.clientConnectionId) {
+		return jsonError("Missing client connection id", 400);
 	}
 
 	const connectToken = getBearerToken(request);
 	const payload = await verifyToken(env.TOKEN_SECRET, connectToken, {
 		audience: "connect",
 		tunnelId,
-		connectionId: route.connectionId ?? undefined,
+		clientConnectionId: route.clientConnectionId,
 	});
-	if (!payload?.connectionId) {
+	if (!payload?.clientConnectionId) {
 		return jsonError("Invalid token", 403);
 	}
 
-	const dataChannels = route.dataChannels ?? DEFAULT_DATA_CHANNELS;
-	const internalUrl = new URL("/_hostc/control", INTERNAL_ORIGIN);
-	internalUrl.searchParams.set("connectionId", payload.connectionId);
-	internalUrl.searchParams.set("dataChannels", String(dataChannels));
+	const internalUrl = new URL(
+		`/_hostc/channels/${route.channelId}`,
+		INTERNAL_ORIGIN,
+	);
+	internalUrl.searchParams.set(
+		"clientConnectionId",
+		payload.clientConnectionId,
+	);
 	return env.HOSTC_TUNNEL.getByName(tunnelId).fetch(
 		new Request(internalUrl, request),
 	);
 }
 
-async function connectData(
-	request: Request,
+async function initializeTunnelClientConnection(
 	env: HostcEnv,
 	tunnelId: string,
-	route: Extract<ReturnType<typeof parseApiRoute>, { kind: "data" }>,
-): Promise<Response> {
-	if (!isWebSocketUpgrade(request)) {
-		return jsonError("Expected WebSocket upgrade", 426);
-	}
-	if (!route.connectionId) {
-		return jsonError("Missing connection id", 400);
-	}
-
-	const connectToken = getBearerToken(request);
-	const payload = await verifyToken(env.TOKEN_SECRET, connectToken, {
-		audience: "connect",
-		tunnelId,
-		connectionId: route.connectionId,
-	});
-	if (!payload?.connectionId) {
-		return jsonError("Invalid token", 403);
-	}
-
-	const internalUrl = new URL("/_hostc/data", INTERNAL_ORIGIN);
-	internalUrl.searchParams.set("connectionId", payload.connectionId);
-	internalUrl.searchParams.set("channel", String(route.channelId));
-	return env.HOSTC_TUNNEL.getByName(tunnelId).fetch(
-		new Request(internalUrl, request),
+	body: { clientConnectionId: string; dataChannels: number },
+): Promise<void> {
+	const response = await env.HOSTC_TUNNEL.getByName(tunnelId).fetch(
+		new Request(new URL("/_hostc/init", INTERNAL_ORIGIN), {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify(body),
+		}),
 	);
+	if (!response.ok) {
+		throw new Error(`failed to initialize tunnel: ${response.status}`);
+	}
 }
 
-async function issueTunnelConnection(
-	env: HostcEnv,
-	requestUrl: URL,
-	tunnelId: string,
-	dataChannels: number,
-): Promise<RefreshTunnelResponse> {
-	const connectionId = createConnectionId();
-	const [connectToken, refreshToken] = await Promise.all([
-		signToken(
-			env.TOKEN_SECRET,
-			createTokenPayload(
-				"connect",
-				tunnelId,
-				CONNECT_TOKEN_TTL_SECONDS,
-				connectionId,
-			),
-		),
-		signToken(
-			env.TOKEN_SECRET,
-			createTokenPayload("refresh", tunnelId, REFRESH_TOKEN_TTL_SECONDS),
-		),
-	]);
-	const controlUrl = buildAbsoluteWebSocketUrl(
-		requestUrl,
-		buildTunnelControlPath(tunnelId),
-		{
-			connectionId,
-			dataChannels: String(dataChannels),
-		},
-	);
-	const dataUrl = buildAbsoluteWebSocketUrl(
-		requestUrl,
-		buildTunnelDataPath(tunnelId),
-	);
-
-	return {
-		connectionId,
-		controlUrl,
-		dataUrl,
-		connectToken,
-		refreshToken,
-		dataChannels,
-		limits: defaultTunnelLimits(),
-	};
-}
-
-async function parseCreateTunnelOptions(
+async function parseCreateTunnelDataChannels(
 	request: Request,
-): Promise<CreateTunnelOptions> {
+): Promise<number> {
 	let dataChannels = DEFAULT_DATA_CHANNELS;
 	const contentType = request.headers.get("content-type") ?? "";
 	if (contentType.includes("application/json")) {
 		try {
 			const body = (await request.json()) as Record<string, unknown>;
-			if (
-				Number.isInteger(body.dataChannels) &&
-				(body.dataChannels as number) >= 1 &&
-				(body.dataChannels as number) <= MAX_DATA_CHANNELS
-			) {
-				dataChannels = body.dataChannels as number;
+			if (isValidDataChannelCount(body.dataChannels)) {
+				dataChannels = body.dataChannels;
 			}
 		} catch {
-			return { dataChannels };
+			return dataChannels;
 		}
 	}
-	return { dataChannels };
+	return Math.min(dataChannels, MAX_DATA_CHANNELS);
 }
 
-function parseDataChannelsHeader(request: Request): number | null {
-	const raw = request.headers.get("x-hostc-data-channels");
-	if (!raw) {
-		return null;
-	}
-	const value = Number(raw);
-	return Number.isInteger(value) && value >= 1 && value <= MAX_DATA_CHANNELS
-		? value
-		: null;
-}
-
-function buildAbsoluteWebSocketUrl(
-	requestUrl: URL,
-	pathname: string,
-	searchParams: Record<string, string> = {},
-): string {
+function buildAbsoluteWebSocketUrl(requestUrl: URL, pathname: string): string {
 	const url = new URL(pathname, requestUrl);
 	url.protocol = url.protocol === "http:" ? "ws:" : "wss:";
-	for (const [key, value] of Object.entries(searchParams)) {
-		url.searchParams.set(key, value);
-	}
 	return url.toString();
 }
 

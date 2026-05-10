@@ -97,12 +97,11 @@ TOKEN_SECRET
 用途：
 
 - signed connect token。
-- signed refresh token。
 
 local：
 
 ```text
-apps/server/.dev.vars
+apps/server/.env
 ```
 
 示例：
@@ -114,7 +113,7 @@ TOKEN_SECRET=dev-only-change-me-at-least-32-random-bytes
 staging：
 
 ```sh
-pnpm -F @hostc/server wrangler secret put TOKEN_SECRET --env staging
+pnpm -F @hostc/server wrangler secret bulk .env.staging --env staging
 ```
 
 production：
@@ -127,8 +126,8 @@ pnpm -F @hostc/server wrangler secret put TOKEN_SECRET
 
 - secret 至少 32 bytes 随机值。
 - staging 和 production 使用不同 secret。
-- `.dev.vars` 不提交真实 secret。
-- `.gitignore` 覆盖 `.dev.vars`、`.env.local`。
+- `.env` 不提交真实 secret。
+- `.gitignore` 覆盖 `.env`、`.env.local`。
 
 ## DNS 与 Routes
 
@@ -209,7 +208,7 @@ hostc config set server-url http://127.0.0.1:8787
 注意：
 
 - local 的 wildcard host 行为和真实 DNS 不完全一致。
-- local 可覆盖 API、control/data、基础 proxy。
+- local 可覆盖 API、dataChannel、基础 proxy。
 - wildcard/TLS/WebSocket edge 行为必须在 staging 验证。
 
 ## Staging 部署
@@ -294,7 +293,6 @@ production: 0.1 起步
 日志必须隐藏：
 
 - connectToken。
-- refreshToken。
 - Authorization header。
 - TOKEN_SECRET。
 
@@ -304,3 +302,49 @@ production: 0.1 起步
 - [Cloudflare Workers Best Practices](https://developers.cloudflare.com/workers/best-practices/workers-best-practices/)
 - [Durable Objects WebSockets](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)
 - [Durable Objects Limits](https://developers.cloudflare.com/durable-objects/platform/limits/)
+
+## Staging 一键流程
+
+v4 重构后，staging 的标准入口固定在根目录脚本：
+
+```sh
+pnpm staging:deploy
+pnpm staging:secret
+pnpm staging:preflight
+pnpm staging:test
+```
+
+日常完整验收使用：
+
+```sh
+pnpm staging:verify
+```
+
+`staging:secret` 只写入 `hostc-server-staging`：
+
+```sh
+pnpm -F @hostc/server exec wrangler secret bulk .env.staging --env staging
+```
+
+remote bench 和 remote stress 默认使用：
+
+```sh
+HOSTC_SERVER_URL=https://envoq.dev
+```
+
+详细步骤见 `docs/refactor/staging.md`。
+
+### Staging secrets bulk
+
+staging secrets 统一放在未提交的 `apps/server/.env.staging`：
+
+```sh
+cp apps/server/.env.staging.example apps/server/.env.staging
+pnpm staging:secret
+```
+
+首次创建或需要代码和 secret 同步部署时，使用：
+
+```sh
+pnpm staging:deploy:secrets
+```

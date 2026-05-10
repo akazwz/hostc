@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.3.0] - 2026-05-10
+
+### 新增
+- 新增 `@hostc/client` 客户端 SDK，CLI 现在基于 SDK 启动 tunnel，协议逻辑不再放在 CLI 内部
+- 新增 v4 tunnel 协议：以 data channel 承载二进制 frames，并以 stream 表示每个 HTTP/WebSocket 请求
+- 新增更完整的本地、staging、stress、load 和 refactor audit 验证流程
+
+### 变更
+- CLI 不再兼容旧协议 fallback；服务端协议升级后需要同步升级 CLI
+- 匿名 tunnel 重连时重新创建 ephemeral tunnel，不再刷新旧 token
+- CLI 输出更简洁，启动、成功、重连和错误状态更清晰
+- 代码结构调整为 `protocol`、`client`、`server`、`cli` 四层职责
+
+### 修复
+- 修复 Vite/HMR 等高频 WebSocket 场景下可能出现的 stream/channel 边界问题
+- 修复本地 upstream 单个 stream 失败时导致整个 client connection 重连的问题
+- 修复 `Set-Cookie` 响应头在部分运行时下丢失的问题
+- 修复 SDK 发布包中旧类型定义残留的问题
+
 ## [1.2.6] - 2026-04-27
 
 ### 修复

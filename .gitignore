@@ -2,8 +2,11 @@ node_modules
 .pnpm-store
 pnpm-debug.log*
 .DS_Store
-.dev.vars
-.env.local
+.env
+.env.*
+!.env.example
+!**/.env.example
+!**/.env.*.example
 .wrangler
 dist
 dist-test
