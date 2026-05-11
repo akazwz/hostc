@@ -19,6 +19,7 @@ const SERVER_PORT = Number(new URL(SERVER_URL).port || 8787);
 const TIMEOUT_MS = 60_000;
 const LOCAL_TOKEN_SECRET =
 	process.env.TOKEN_SECRET ?? "hostc-local-e2e-secret-32-bytes-minimum";
+const VIDEO_BYTES = makeVideoFixture(2 * 1024 * 1024);
 
 const origin = createOriginServer();
 await origin.start();
@@ -99,6 +100,7 @@ try {
 			"POST body did not roundtrip through local origin",
 		);
 
+		await assertVideoRangeCancel(publicHost);
 		await assertWebSocketEcho(publicHost, "/ws", "hostc-local-e2e");
 
 		console.log(
@@ -108,7 +110,12 @@ try {
 					serverUrl: SERVER_URL,
 					publicUrl,
 					originPort: origin.port,
-					checks: ["http-get", "http-post", "websocket-echo"],
+					checks: [
+						"http-get",
+						"http-post",
+						"http-range-cancel",
+						"websocket-echo",
+					],
 				},
 				null,
 				2,
@@ -124,6 +131,11 @@ try {
 
 function createOriginServer() {
 	const server = createServer(async (request, response) => {
+		if (request.url?.startsWith("/video.mp4")) {
+			serveVideoRange(request, response);
+			return;
+		}
+
 		const chunks = [];
 		for await (const chunk of request) chunks.push(chunk);
 		const body = Buffer.concat(chunks).toString();
@@ -153,17 +165,57 @@ function createOriginServer() {
 }
 
 async function publicFetch(publicHost, path, init = {}) {
-	const response = await fetch(new URL(path, SERVER_URL), {
+	const response = await publicRawFetch(publicHost, path, init);
+	return {
+		status: response.status,
+		body: await response.text(),
+	};
+}
+
+async function publicRawFetch(publicHost, path, init = {}) {
+	return fetch(new URL(path, SERVER_URL), {
 		...init,
 		headers: {
 			...(init.headers ?? {}),
 			"x-hostc-local-tunnel-host": publicHost,
 		},
 	});
-	return {
-		status: response.status,
-		body: await response.text(),
-	};
+}
+
+async function assertVideoRangeCancel(publicHost) {
+	const first = await publicRawFetch(publicHost, "/video.mp4?case=range", {
+		headers: {
+			"if-range": '"hostc-video-fixture"',
+			range: "bytes=0-1572863",
+		},
+	});
+	assert(first.status === 206, `first Range expected 206, got ${first.status}`);
+	assert(
+		first.headers.get("content-range")?.startsWith("bytes 0-1572863/"),
+		"first Range did not return the requested span",
+	);
+
+	const reader = first.body?.getReader();
+	assert(reader, "first Range response did not expose a readable body");
+	await reader.read();
+	await reader.cancel("simulate browser media seek").catch(() => undefined);
+	await delay(25);
+
+	const second = await publicRawFetch(publicHost, "/video.mp4?case=range", {
+		headers: {
+			"if-range": '"hostc-video-fixture"',
+			range: "bytes=1048576-1572863",
+		},
+	});
+	assert(
+		second.status === 206,
+		`second Range expected 206 after cancel, got ${second.status}`,
+	);
+	const bytes = await second.arrayBuffer();
+	assert(
+		bytes.byteLength === 524_288,
+		`second Range expected 524288 bytes, got ${bytes.byteLength}`,
+	);
 }
 
 async function assertWebSocketEcho(publicHost, path, message) {
@@ -248,6 +300,60 @@ async function waitForCliPublicUrl(child, timeoutMs) {
 
 function assert(condition, message) {
 	if (!condition) throw new Error(message);
+}
+
+function serveVideoRange(request, response) {
+	const range = parseRange(request.headers.range, VIDEO_BYTES.length);
+	const start = range?.start ?? 0;
+	const end = range?.end ?? VIDEO_BYTES.length - 1;
+	const body = VIDEO_BYTES.subarray(start, end + 1);
+	const status = range ? 206 : 200;
+
+	response.writeHead(status, {
+		"accept-ranges": "bytes",
+		"cache-control": "no-store",
+		"content-length": String(body.length),
+		"content-range": `bytes ${start}-${end}/${VIDEO_BYTES.length}`,
+		"content-type": "video/mp4",
+		etag: '"hostc-video-fixture"',
+	});
+	streamBytes(response, body);
+}
+
+function parseRange(header, size) {
+	if (!header) return undefined;
+	const match = header.match(/^bytes=(\d+)-(\d*)$/);
+	if (!match) return undefined;
+	const start = Number(match[1]);
+	const end = match[2] ? Number(match[2]) : size - 1;
+	if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) {
+		return undefined;
+	}
+	if (start < 0 || end < start || start >= size) return undefined;
+	return { start, end: Math.min(end, size - 1) };
+}
+
+function streamBytes(response, bytes) {
+	let offset = 0;
+	const interval = setInterval(() => {
+		if (offset >= bytes.length) {
+			clearInterval(interval);
+			response.end();
+			return;
+		}
+		const next = Math.min(offset + 64 * 1024, bytes.length);
+		response.write(bytes.subarray(offset, next));
+		offset = next;
+	}, 5);
+	response.on("close", () => clearInterval(interval));
+}
+
+function makeVideoFixture(size) {
+	const bytes = Buffer.allocUnsafe(size);
+	for (let index = 0; index < bytes.length; index += 1) {
+		bytes[index] = index % 251;
+	}
+	return bytes;
 }
 
 function terminate(child) {

@@ -4,8 +4,8 @@ import {
 	DocsGrid,
 	DocsLayout,
 	DocsSection,
-	InlineCode,
 	type DocsTocItem,
+	InlineCode,
 } from "~/components/docs-layout";
 import type { Route } from "./+types/docs-self-hosting";
 
@@ -64,10 +64,7 @@ export default function SelfHostingDocs() {
 				description="Use config for a persistent self-hosted server URL. Use environment variables for one-off local, staging, or temporary overrides."
 			>
 				<div className="grid gap-6 lg:grid-cols-2">
-					<DocsCodeBlock
-						label="Persistent config"
-						code={persistentConfig}
-					/>
+					<DocsCodeBlock label="Persistent config" code={persistentConfig} />
 					<DocsCodeBlock label="One-off environment" code={envUsage} />
 				</div>
 			</DocsSection>

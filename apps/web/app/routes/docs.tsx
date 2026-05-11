@@ -5,14 +5,10 @@ import {
 	DocsGrid,
 	DocsLayout,
 	DocsSection,
-	InlineCode,
 	type DocsTocItem,
+	InlineCode,
 } from "~/components/docs-layout";
-import {
-	Alert,
-	AlertDescription,
-	AlertTitle,
-} from "~/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import type { Route } from "./+types/docs";
 
@@ -81,15 +77,19 @@ export default function Docs() {
 				<DocsGrid>
 					<DocsCard title="Use the CLI">
 						Expose <InlineCode>localhost:3000</InlineCode>, configure a custom
-						server URL, show a QR code, or run diagnostics before opening a tunnel.
+						server URL, show a QR code, or run diagnostics before opening a
+						tunnel.
 					</DocsCard>
 					<DocsCard title="Embed the SDK">
-						Install <InlineCode>@hostc/client</InlineCode> and create tunnels from
-						Node.js, desktop apps, daemons, or your own command-line tools.
+						Install <InlineCode>@hostc/client</InlineCode> and create tunnels
+						from Node.js, desktop apps, daemons, or your own command-line tools.
 					</DocsCard>
 				</DocsGrid>
 				<div className="grid gap-3 sm:grid-cols-2">
-					<Button nativeButton={false} render={(props) => <Link {...props} to="/docs/cli" />}>
+					<Button
+						nativeButton={false}
+						render={(props) => <Link {...props} to="/docs/cli" />}
+					>
 						CLI docs
 					</Button>
 					<Button

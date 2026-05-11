@@ -107,11 +107,7 @@ function MobileDocsNav() {
 		<Sheet open={open} onOpenChange={setOpen}>
 			<SheetTrigger
 				render={
-					<Button
-						variant="outline"
-						size="icon-sm"
-						className="lg:hidden"
-					/>
+					<Button variant="outline" size="icon-sm" className="lg:hidden" />
 				}
 			>
 				<MenuIcon />
@@ -124,7 +120,11 @@ function MobileDocsNav() {
 						CLI usage, SDK integration, server URL, and preview limits.
 					</SheetDescription>
 				</SheetHeader>
-				<DocsNav mobile onNavigate={() => setOpen(false)} className="px-4 py-4" />
+				<DocsNav
+					mobile
+					onNavigate={() => setOpen(false)}
+					className="px-4 py-4"
+				/>
 			</SheetContent>
 		</Sheet>
 	);
@@ -151,9 +151,7 @@ function DocsNav({
 						cn(
 							"group border-l px-4 py-3 transition-colors hover:border-foreground hover:bg-muted/30",
 							mobile && "border border-border border-l-border",
-							isActive
-								? "border-foreground bg-muted/40"
-								: "border-border",
+							isActive ? "border-foreground bg-muted/40" : "border-border",
 						)
 					}
 				>

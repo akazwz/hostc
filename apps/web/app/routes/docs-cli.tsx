@@ -4,8 +4,8 @@ import {
 	DocsGrid,
 	DocsLayout,
 	DocsSection,
-	InlineCode,
 	type DocsTocItem,
+	InlineCode,
 } from "~/components/docs-layout";
 import type { Route } from "./+types/docs-cli";
 
@@ -61,8 +61,9 @@ export default function CliDocs() {
 				<DocsCodeBlock label="Config" code={cliConfig} />
 				<DocsGrid>
 					<DocsCard title="Default server">
-						The public CLI defaults to <InlineCode>https://hostc.dev</InlineCode>.
-						Use <InlineCode>--server</InlineCode> or{" "}
+						The public CLI defaults to{" "}
+						<InlineCode>https://hostc.dev</InlineCode>. Use{" "}
+						<InlineCode>--server</InlineCode> or{" "}
 						<InlineCode>HOSTC_SERVER_URL</InlineCode> for a self-hosted server.
 					</DocsCard>
 					<DocsCard title="Keep it current">

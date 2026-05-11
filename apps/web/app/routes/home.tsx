@@ -49,12 +49,7 @@ export default function Home() {
 						size="lg"
 						className="w-full sm:w-auto"
 						nativeButton={false}
-						render={(props) => (
-							<Link
-								{...props}
-								to="/docs"
-							/>
-						)}
+						render={(props) => <Link {...props} to="/docs" />}
 					>
 						Get started
 					</Button>

@@ -626,7 +626,7 @@ export class HostcTunnel extends DurableObject<Env> {
 					flags: frame.flags,
 					payload: frame.payload,
 				};
-				if (!(await this.deliverFrame(stream, pendingFrame))) {
+				if (!(await this.deliverFrameOrAbort(stream, pendingFrame))) {
 					this.enqueuePendingFrame(stream, pendingFrame);
 				}
 				return;
@@ -1051,13 +1051,33 @@ export class HostcTunnel extends DurableObject<Env> {
 		return true;
 	}
 
+	private async deliverFrameOrAbort(
+		stream: StreamState,
+		frame: PendingFrame,
+	): Promise<boolean> {
+		try {
+			return await this.deliverFrame(stream, frame);
+		} catch (error) {
+			if (this.streams.get(stream.id) === stream && !stream.aborted) {
+				await this.abortPublicStream(
+					stream,
+					`public response delivery failed: ${errorMessage(error)}`,
+				);
+			}
+			return true;
+		}
+	}
+
 	private async flushPendingFrames(stream: StreamState): Promise<void> {
 		for (;;) {
 			const frame = stream.pendingFrames[0];
 			if (!frame) {
 				break;
 			}
-			if (!(await this.deliverFrame(stream, frame))) {
+			if (!(await this.deliverFrameOrAbort(stream, frame))) {
+				break;
+			}
+			if (this.streams.get(stream.id) !== stream) {
 				break;
 			}
 			stream.pendingFrames.shift();

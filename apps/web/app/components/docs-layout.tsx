@@ -1,5 +1,5 @@
 import { CheckIcon, CopyIcon } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
@@ -168,6 +168,7 @@ export function DocsCodeBlock({
 			{highlightedHtml ? (
 				<div
 					className="docs-shiki-code max-w-full overflow-x-auto"
+					// biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki renders static local docs snippets, not user-provided input.
 					dangerouslySetInnerHTML={{ __html: highlightedHtml }}
 				/>
 			) : (
@@ -223,13 +224,15 @@ function getShikiHighlighter(): Promise<ShikiHighlighter> {
 }
 
 async function createShikiHighlighter(): Promise<ShikiHighlighter> {
-	const [core, engine, typescript, shellscript, githubDark] = await Promise.all([
-		import("shiki/core"),
-		import("shiki/engine/javascript"),
-		import("shiki/langs/typescript.mjs"),
-		import("shiki/langs/shellscript.mjs"),
-		import("shiki/themes/github-dark.mjs"),
-	]);
+	const [core, engine, typescript, shellscript, githubDark] = await Promise.all(
+		[
+			import("shiki/core"),
+			import("shiki/engine/javascript"),
+			import("shiki/langs/typescript.mjs"),
+			import("shiki/langs/shellscript.mjs"),
+			import("shiki/themes/github-dark.mjs"),
+		],
+	);
 
 	return core.createHighlighterCore({
 		langs: [typescript.default, shellscript.default],

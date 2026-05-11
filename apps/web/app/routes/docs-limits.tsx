@@ -65,8 +65,8 @@ export default function LimitsDocs() {
 				description="The v4 protocol represents public requests as streams and carries them over binary WebSocket data channels."
 			>
 				<DocsCard title="Streams over channels">
-					Requests are represented as streams and carried over binary data channel
-					WebSockets with credit-based flow control.
+					Requests are represented as streams and carried over binary data
+					channel WebSockets with credit-based flow control.
 				</DocsCard>
 			</DocsSection>
 		</DocsLayout>

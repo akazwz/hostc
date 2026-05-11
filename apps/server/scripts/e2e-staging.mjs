@@ -14,6 +14,7 @@ const { WebSocket, WebSocketServer } = require("ws");
 
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const serverUrl = process.env.HOSTC_SERVER_URL ?? "https://envoq.dev";
+const VIDEO_BYTES = makeVideoFixture(2 * 1024 * 1024);
 const local = await startLocalEchoServer();
 const client = new HostcClient({
 	serverUrl,
@@ -38,6 +39,7 @@ try {
 		method: "POST",
 		body: "hello",
 	});
+	await assertVideoRangeCancel(publicUrl, readyEvents);
 	await assertWebSocket(
 		new URL("socket", publicTunnelUrl(publicUrl, "")),
 		false,
@@ -64,6 +66,7 @@ try {
 			"HTTP GET",
 			"HTTP POST body",
 			"streaming response",
+			"HTTP media Range cancel",
 			"WebSocket text echo",
 			"WebSocket binary echo",
 			"public WebSocket close",
@@ -88,6 +91,10 @@ try {
 
 async function startLocalEchoServer() {
 	const server = createServer((request, response) => {
+		if (request.url?.startsWith("/video.mp4")) {
+			serveVideoRange(request, response);
+			return;
+		}
 		if (request.url === "/stream") {
 			response.writeHead(200, { "content-type": "text/plain" });
 			response.write("a");
@@ -126,6 +133,62 @@ async function startLocalEchoServer() {
 				wss.close(() => server.close(resolve));
 			}),
 	};
+}
+
+async function assertVideoRangeCancel(publicUrl, readyEvents) {
+	const readyCountBefore = readyEvents.length;
+	const first = await fetch(
+		publicTunnelUrl(publicUrl, "video.mp4?case=range"),
+		{
+			headers: {
+				"if-range": '"hostc-video-fixture"',
+				range: "bytes=0-1572863",
+			},
+		},
+	);
+	if (first.status !== 206) {
+		throw new Error(`first video range returned ${first.status}`);
+	}
+	if (!first.headers.get("content-range")?.startsWith("bytes 0-1572863/")) {
+		throw new Error(
+			`first video range content-range was ${first.headers.get("content-range")}`,
+		);
+	}
+	const reader = first.body?.getReader();
+	if (!reader) {
+		throw new Error("first video range response has no body");
+	}
+	const firstChunk = await reader.read();
+	if (firstChunk.done || !firstChunk.value?.byteLength) {
+		throw new Error("first video range produced no data before cancel");
+	}
+	void reader.cancel("simulate browser media seek").catch(() => undefined);
+	await sleep(25);
+
+	const second = await fetch(
+		publicTunnelUrl(publicUrl, "video.mp4?case=range"),
+		{
+			headers: {
+				"if-range": '"hostc-video-fixture"',
+				range: "bytes=1048576-1572863",
+			},
+		},
+	);
+	const secondBody = new Uint8Array(await second.arrayBuffer());
+	if (second.status !== 206) {
+		throw new Error(
+			`second video range returned ${second.status}: ${decodeText(secondBody)}`,
+		);
+	}
+	if (secondBody.byteLength !== 524288) {
+		throw new Error(
+			`second video range returned ${secondBody.byteLength} bytes`,
+		);
+	}
+	await sleep(1000);
+	if (readyEvents.length !== readyCountBefore) {
+		throw new Error("video range cancel caused SDK reconnect");
+	}
 }
 
 async function assertTunnelNotReady(baseUrl) {
@@ -241,6 +304,76 @@ async function retryUntil(timeoutMs, fn) {
 function publicTunnelUrl(base, pathname) {
 	const normalizedBase = base.endsWith("/") ? base : `${base}/`;
 	return new URL(pathname, normalizedBase).toString();
+}
+
+function serveVideoRange(request, response) {
+	const range = parseRange(request.headers.range, VIDEO_BYTES.byteLength);
+	if (!range) {
+		response.writeHead(200, {
+			"accept-ranges": "bytes",
+			"content-length": VIDEO_BYTES.byteLength,
+			"content-type": "video/mp4",
+			etag: '"hostc-video-fixture"',
+		});
+		streamBytes(response, VIDEO_BYTES);
+		return;
+	}
+	const body = VIDEO_BYTES.subarray(range.start, range.end + 1);
+	response.writeHead(206, {
+		"accept-ranges": "bytes",
+		"content-length": body.byteLength,
+		"content-range": `bytes ${range.start}-${range.end}/${VIDEO_BYTES.byteLength}`,
+		"content-type": "video/mp4",
+		etag: '"hostc-video-fixture"',
+	});
+	streamBytes(response, body);
+}
+
+function parseRange(header, size) {
+	const match = /^bytes=(\d+)-(\d*)$/.exec(header ?? "");
+	if (!match) {
+		return null;
+	}
+	const start = Number(match[1]);
+	const requestedEnd = match[2] ? Number(match[2]) : size - 1;
+	if (
+		!Number.isSafeInteger(start) ||
+		!Number.isSafeInteger(requestedEnd) ||
+		start < 0 ||
+		requestedEnd < start ||
+		start >= size
+	) {
+		return null;
+	}
+	return { start, end: Math.min(requestedEnd, size - 1) };
+}
+
+function streamBytes(response, bytes) {
+	const chunkBytes = 64 * 1024;
+	let offset = 0;
+	const interval = setInterval(() => {
+		if (offset >= bytes.byteLength) {
+			clearInterval(interval);
+			response.end();
+			return;
+		}
+		const chunk = bytes.subarray(offset, offset + chunkBytes);
+		offset += chunk.byteLength;
+		response.write(chunk);
+	}, 5);
+	response.on("close", () => clearInterval(interval));
+}
+
+function makeVideoFixture(size) {
+	const bytes = Buffer.alloc(size);
+	for (let index = 0; index < bytes.byteLength; index += 1) {
+		bytes[index] = index % 251;
+	}
+	return bytes;
+}
+
+function decodeText(bytes) {
+	return new TextDecoder().decode(bytes);
 }
 
 function sleep(ms) {

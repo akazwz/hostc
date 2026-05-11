@@ -2,14 +2,10 @@ import {
 	DocsCodeBlock,
 	DocsLayout,
 	DocsSection,
-	InlineCode,
 	type DocsTocItem,
+	InlineCode,
 } from "~/components/docs-layout";
-import {
-	Alert,
-	AlertDescription,
-	AlertTitle,
-} from "~/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import type { Route } from "./+types/docs-sdk";
 
 const toc: DocsTocItem[] = [
@@ -81,8 +77,8 @@ export default function SdkDocs() {
 				<Alert>
 					<AlertTitle>Use the SDK, not the protocol package.</AlertTitle>
 					<AlertDescription>
-						<InlineCode>@hostc/protocol</InlineCode> is the internal wire-contract
-						source of truth. It is bundled into{" "}
+						<InlineCode>@hostc/protocol</InlineCode> is the internal
+						wire-contract source of truth. It is bundled into{" "}
 						<InlineCode>@hostc/client</InlineCode> so your app only needs one
 						public dependency.
 					</AlertDescription>
