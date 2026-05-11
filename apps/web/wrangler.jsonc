@@ -6,7 +6,8 @@
 		"enabled": true
 	},
 	"assets": {
-		"directory": "build/client"
+		"directory": "build/client",
+		"html_handling": "drop-trailing-slash"
 	},
 	"routes": [
 		{
