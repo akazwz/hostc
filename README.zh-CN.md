@@ -66,6 +66,26 @@ Success  Tunnel ready
   Channels:   4
 ```
 
+## Agent skill
+
+hostc 提供了一个轻量的 agent skill，用于 public preview 工作流。
+
+使用 Skills CLI 安装：
+
+```sh
+npx skills add akazwz/hostc@hostc-public-preview -g
+```
+
+也可以直接让 Codex 从 GitHub 安装：
+
+```text
+Install the hostc public preview skill from akazwz/hostc, path skills/hostc-public-preview.
+```
+
+安装后重启你的 agent。之后只要让 agent 把本地应用暴露成 public preview，它就会优先使用 `npx hostc@latest <port>`，避免 CLI 和当前服务端协议不兼容。
+
+要关闭 preview，终止正在运行的 hostc 进程即可。交互式终端里通常是 Ctrl+C；如果 agent 在后台启动了 hostc，就让它 stop 或 kill 对应进程。
+
 ## CLI 用法
 
 ```sh
