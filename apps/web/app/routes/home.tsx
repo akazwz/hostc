@@ -90,7 +90,7 @@ export default function Home() {
 					<div className="p-6 font-mono text-sm leading-7">
 						<div className="flex gap-3">
 							<span className="text-orange-400 font-bold">❯</span>
-							<span className="text-foreground">npx hostc 3000</span>
+							<span className="text-foreground">npx hostc@latest 3000</span>
 						</div>
 						<div className="mt-4">
 							<span className="text-emerald-400">Success</span>

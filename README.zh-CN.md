@@ -19,7 +19,7 @@ hostc 可以给你的本地开发服务生成一个公网 URL。
 它适合用来分享本地 Web 应用、测试 webhook、预览 Vite 或 Next.js 项目，或者临时暴露一个本地 HTTP/WebSocket 服务。
 
 ```sh
-npx hostc 3000
+npx hostc@latest 3000
 ```
 
 运行后会得到一个公网 URL，并把请求转发到 `http://localhost:3000`。
@@ -38,14 +38,22 @@ npx hostc 3000
 无需安装，直接运行：
 
 ```sh
-npx hostc 5173
+npx hostc@latest 5173
 ```
+
+推荐使用 `@latest`，这样 CLI 会尽量和当前服务端协议保持一致。
 
 也可以全局安装：
 
 ```sh
 npm install -g hostc
 hostc 5173
+```
+
+如果选择全局安装，请注意保持更新：
+
+```sh
+npm install -g hostc@latest
 ```
 
 示例输出：

@@ -19,7 +19,7 @@ hostc gives your local development server a public URL.
 It is useful for sharing local web apps, testing webhooks, previewing Vite or Next.js projects, and exposing temporary HTTP/WebSocket services without configuring a reverse proxy.
 
 ```sh
-npx hostc 3000
+npx hostc@latest 3000
 ```
 
 You will get a public URL that forwards traffic to `http://localhost:3000`.
@@ -38,14 +38,22 @@ You will get a public URL that forwards traffic to `http://localhost:3000`.
 Run without installing:
 
 ```sh
-npx hostc 5173
+npx hostc@latest 5173
 ```
+
+Using `@latest` is recommended so the CLI matches the current server protocol.
 
 Or install globally:
 
 ```sh
 npm install -g hostc
 hostc 5173
+```
+
+If you install globally, keep hostc updated:
+
+```sh
+npm install -g hostc@latest
 ```
 
 Example output:
