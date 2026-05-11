@@ -3,12 +3,15 @@
 		"target": "ES2022",
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext",
-		"ignoreDeprecations": "6.0",
 		"rootDir": "src",
 		"strict": true,
-		"types": ["node"],
+		"types": [
+			"node"
+		],
 		"esModuleInterop": true,
 		"skipLibCheck": true
 	},
-	"include": ["src/**/*.ts"]
+	"include": [
+		"src/**/*.ts"
+	]
 }

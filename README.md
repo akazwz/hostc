@@ -121,18 +121,24 @@ Streams are assigned to a data channel once and stay pinned to that channel. Str
 
 ## Client SDK
 
-The client SDK is currently an internal preview package in this monorepo. The CLI already uses it internally, and it is intended to become the public integration surface for Electron apps, desktop GUIs, background daemons, and custom Node.js tooling.
+The client SDK is the public integration surface for Electron apps, desktop GUIs, background daemons, custom CLIs, and Node.js tooling.
 
-The public npm package for the SDK is not stable yet. Treat this example as a repository-level integration preview:
+Install it from npm:
+
+```sh
+npm install @hostc/client
+```
+
+Example:
 
 ```ts
 import { HostcClient, localOriginAdapter } from "@hostc/client";
 
 const client = new HostcClient({
-  serverUrl: "https://hostc.example.com",
-  upstream: localOriginAdapter({
-    origin: new URL("http://localhost:5173/"),
-  }),
+	serverUrl: "https://hostc.example.com",
+	upstream: localOriginAdapter({
+		origin: "http://localhost:5173/",
+	}),
 });
 
 client.on("ready", (event) => {
@@ -145,6 +151,8 @@ client.on("reconnecting", (event) => {
 
 await client.start();
 ```
+
+Application code should import `@hostc/client`, not `@hostc/protocol`. The protocol package remains the internal wire-contract source of truth and is bundled into the SDK.
 
 ## Current behavior and limitations
 
@@ -219,7 +227,6 @@ Staging uses `https://hostc.example.com` and `*.hostc.example.com`.
 
 - Harden tunnel lifecycle behavior under real browser, HMR, and WebSocket workloads.
 - Improve Worker and Durable Object observability.
-- Publish and document the client SDK as a first-class integration surface.
 - Add reserved tunnels, stable domains, accounts, and access control.
 - Explore daemon and desktop GUI workflows.
 

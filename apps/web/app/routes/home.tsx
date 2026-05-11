@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { GithubIcon } from "~/components/icons";
 import { Button } from "~/components/ui/button";
 import type { Route } from "./+types/home";
@@ -49,15 +50,13 @@ export default function Home() {
 						className="w-full sm:w-auto"
 						nativeButton={false}
 						render={(props) => (
-							<a
+							<Link
 								{...props}
-								href="https://www.npmjs.com/package/hostc"
-								target="_blank"
-								rel="noreferrer"
+								to="/docs"
 							/>
 						)}
 					>
-						Install hostc
+						Get started
 					</Button>
 					<Button
 						variant="outline"

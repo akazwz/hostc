@@ -16,6 +16,12 @@ export default function Layout() {
 						hostc
 					</Link>
 					<div className="flex items-center gap-2">
+						<Link
+							to="/docs"
+							className="hidden sm:inline-flex h-9 items-center px-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+						>
+							Docs
+						</Link>
 						<Button
 							variant="ghost"
 							size="sm"

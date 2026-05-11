@@ -121,18 +121,24 @@ stream 会被分配到某个 data channel，并固定在这个 channel 上。str
 
 ## Client SDK
 
-client SDK 目前还是 monorepo 内的 internal preview package。CLI 已经在内部使用它，后续它会成为 Electron、桌面 GUI、后台 daemon 或自定义 Node.js 工具的公共集成入口。
+client SDK 是面向 Electron、桌面 GUI、后台 daemon、自定义 CLI 和 Node.js 工具的公共集成入口。
 
-SDK 的公开 npm package 还没有稳定发布。下面的示例可以先理解为仓库内集成预览：
+从 npm 安装：
+
+```sh
+npm install @hostc/client
+```
+
+示例：
 
 ```ts
 import { HostcClient, localOriginAdapter } from "@hostc/client";
 
 const client = new HostcClient({
-  serverUrl: "https://hostc.example.com",
-  upstream: localOriginAdapter({
-    origin: new URL("http://localhost:5173/"),
-  }),
+	serverUrl: "https://hostc.example.com",
+	upstream: localOriginAdapter({
+		origin: "http://localhost:5173/",
+	}),
 });
 
 client.on("ready", (event) => {
@@ -145,6 +151,8 @@ client.on("reconnecting", (event) => {
 
 await client.start();
 ```
+
+应用代码应该 import `@hostc/client`，不要直接依赖 `@hostc/protocol`。protocol 包仍然是内部 wire contract 的事实来源，并会被打包进 SDK。
 
 ## 当前行为和限制
 
@@ -219,7 +227,6 @@ staging 使用 `https://hostc.example.com` 和 `*.hostc.example.com`。
 
 - 在真实浏览器、HMR、WebSocket 场景下继续强化 tunnel 生命周期。
 - 改进 Worker 和 Durable Object 的观测能力。
-- 把 client SDK 作为一等集成方式发布和文档化。
 - 增加 reserved tunnel、稳定域名、账号系统和访问控制。
 - 探索 daemon 和桌面 GUI 工作流。
 
