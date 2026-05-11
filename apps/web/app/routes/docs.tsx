@@ -14,11 +14,13 @@ import type { Route } from "./+types/docs";
 
 const toc: DocsTocItem[] = [
 	{ title: "Create your first tunnel", href: "#quick-start" },
+	{ title: "Agent workflows", href: "#agent-skill" },
 	{ title: "What happens next", href: "#what-happens-next" },
 	{ title: "Where to go next", href: "#next" },
 ];
 
 const quickstart = `npx hostc@latest 3000`;
+const skillInstall = `npx skills add akazwz/hostc`;
 
 export function meta(_args: Route.MetaArgs) {
 	return [
@@ -67,6 +69,27 @@ export default function Docs() {
 						prints a public HTTPS URL that forwards to your local service.
 					</AlertDescription>
 				</Alert>
+			</DocsSection>
+
+			<DocsSection
+				id="agent-skill"
+				title="Use hostc from an agent"
+				description="Install the hostc public preview skill when your agent needs to expose a local app, test a webhook against localhost, or share a temporary preview URL."
+			>
+				<DocsCodeBlock label="Install skill" code={skillInstall} />
+				<DocsGrid>
+					<DocsCard title="What the skill does">
+						It tells the agent to prefer{" "}
+						<InlineCode>npx hostc@latest &lt;port&gt;</InlineCode>, wait for
+						the public URL, and keep the process running while the preview is
+						needed.
+					</DocsCard>
+					<DocsCard title="How to stop">
+						Terminate the running hostc process. In an interactive terminal this
+						is usually Ctrl+C. If the agent started hostc in the background, ask
+						it to stop or kill that process.
+					</DocsCard>
+				</DocsGrid>
 			</DocsSection>
 
 			<DocsSection

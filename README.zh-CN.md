@@ -73,7 +73,7 @@ hostc 提供了一个轻量的 agent skill，用于 public preview 工作流。
 使用 Skills CLI 安装：
 
 ```sh
-npx skills add akazwz/hostc@hostc-public-preview -g
+npx skills add akazwz/hostc
 ```
 
 也可以直接让 Codex 从 GitHub 安装：

@@ -122,6 +122,41 @@ export default function Home() {
 				</div>
 			</div>
 
+			{/* Agent Skill */}
+			<section className="border-t border-border py-16">
+				<div className="grid gap-8 md:grid-cols-[0.9fr_1.1fr] md:items-center">
+					<div>
+						<p className="text-xs uppercase tracking-widest text-muted-foreground mb-4">
+							Agent-ready public preview
+						</p>
+						<h2 className="font-heading text-3xl md:text-4xl font-bold mb-4">
+							Give your agent a tunnel tool.
+						</h2>
+						<p className="text-muted-foreground leading-relaxed">
+							Install the hostc skill so Codex and other agents know how to
+							expose a local dev server, share a public preview URL, and stop
+							the tunnel when the preview is no longer needed.
+						</p>
+					</div>
+					<div className="border border-border rounded-sm overflow-hidden bg-card">
+						<div className="px-4 py-3 border-b border-border bg-muted/30 text-xs uppercase tracking-widest text-muted-foreground">
+							Install skill
+						</div>
+						<div className="p-6 font-mono text-sm leading-7">
+							<div className="text-foreground">
+								npx skills add akazwz/hostc
+							</div>
+							<div className="mt-4 text-muted-foreground">
+								Then ask your agent:{" "}
+								<span className="text-blue-400">
+									Expose localhost:3000 as a public preview.
+								</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
 			{/* Features */}
 			<section className="border-t border-border pt-16 pb-24">
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-border rounded-sm overflow-hidden">

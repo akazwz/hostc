@@ -167,7 +167,7 @@ export function DocsCodeBlock({
 			</div>
 			{highlightedHtml ? (
 				<div
-					className="docs-shiki-code max-w-full overflow-x-auto"
+					className="docs-shiki-code max-w-full overflow-x-auto [&_pre]:!m-0 [&_pre]:!bg-transparent [&_pre]:!p-4 [&_pre]:text-[0.8125rem] [&_pre]:leading-7 sm:[&_pre]:!p-5 sm:[&_pre]:text-sm"
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki renders static local docs snippets, not user-provided input.
 					dangerouslySetInnerHTML={{ __html: highlightedHtml }}
 				/>

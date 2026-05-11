@@ -73,7 +73,7 @@ hostc includes a lightweight agent skill for public preview workflows.
 Install it with the Skills CLI:
 
 ```sh
-npx skills add akazwz/hostc@hostc-public-preview -g
+npx skills add akazwz/hostc
 ```
 
 Or ask Codex to install it from GitHub:
