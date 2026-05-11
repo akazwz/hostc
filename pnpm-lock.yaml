@@ -146,19 +146,22 @@ importers:
 
   packages/client:
     dependencies:
-      '@hostc/protocol':
-        specifier: workspace:*
-        version: link:../protocol
       ws:
         specifier: ^8.20.0
         version: 8.20.0
     devDependencies:
+      '@hostc/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.10)(typescript@6.0.3)
       typescript:
         specifier: ^6.0.2
         version: 6.0.3
@@ -6339,6 +6342,34 @@ snapshots:
     optionalDependencies:
       postcss: 8.5.10
       typescript: 6.0.2
+    transitivePeerDependencies:
+      - jiti
+      - supports-color
+      - tsx
+      - yaml
+
+  tsup@8.5.1(jiti@2.6.1)(postcss@8.5.10)(typescript@6.0.3):
+    dependencies:
+      bundle-require: 5.1.0(esbuild@0.27.3)
+      cac: 6.7.14
+      chokidar: 4.0.3
+      consola: 3.4.2
+      debug: 4.4.3
+      esbuild: 0.27.3
+      fix-dts-default-cjs-exports: 1.0.1
+      joycon: 3.1.1
+      picocolors: 1.1.1
+      postcss-load-config: 6.0.1(jiti@2.6.1)(postcss@8.5.10)
+      resolve-from: 5.0.0
+      rollup: 4.60.1
+      source-map: 0.7.6
+      sucrase: 3.35.1
+      tinyexec: 0.3.2
+      tinyglobby: 0.2.16
+      tree-kill: 1.2.2
+    optionalDependencies:
+      postcss: 8.5.10
+      typescript: 6.0.3
     transitivePeerDependencies:
       - jiti
       - supports-color

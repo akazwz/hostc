@@ -1,10 +1,22 @@
 import {
-	type CreateEphemeralTunnelResponse,
 	DEFAULT_DATA_CHANNELS,
 	EPHEMERAL_TUNNELS_API_PATH,
 	PROTOCOL_VERSION,
 	parseCreateEphemeralTunnelResponse,
 } from "@hostc/protocol";
+import type { HostcTunnelLimits } from "./client-types.js";
+
+export type HostcEphemeralTunnel = {
+	readonly kind: "ephemeral";
+	readonly protocolVersion: 4;
+	readonly tunnelId: string;
+	readonly publicUrl: string;
+	readonly clientConnectionId: string;
+	readonly dataUrl: string;
+	readonly connectToken: string;
+	readonly dataChannels: number;
+	readonly limits: HostcTunnelLimits;
+};
 
 export class HostcProtocolUpgradeError extends Error {
 	constructor(detail?: string) {
@@ -19,7 +31,7 @@ export async function createEphemeralTunnel(options: {
 	fetcher?: typeof fetch;
 	signal?: AbortSignal;
 	timeoutMs?: number;
-}): Promise<CreateEphemeralTunnelResponse> {
+}): Promise<HostcEphemeralTunnel> {
 	const fetcher = options.fetcher ?? fetch;
 	const controller = new AbortController();
 	const timeout = setTimeout(
@@ -54,7 +66,7 @@ export async function createEphemeralTunnel(options: {
 		} catch {
 			throw new Error("create tunnel returned invalid JSON");
 		}
-		let parsed: CreateEphemeralTunnelResponse;
+		let parsed: HostcEphemeralTunnel;
 		try {
 			parsed = parseCreateEphemeralTunnelResponse(json);
 		} catch {
@@ -73,9 +85,9 @@ export function withJitter(delayMs: number, jitterRatio = 0.2): number {
 }
 
 function rewriteLocalDataUrl(
-	response: CreateEphemeralTunnelResponse,
+	response: HostcEphemeralTunnel,
 	serverUrl: string,
-): CreateEphemeralTunnelResponse {
+): HostcEphemeralTunnel {
 	const server = new URL(serverUrl);
 	if (!isLocalServer(server.hostname)) {
 		return response;

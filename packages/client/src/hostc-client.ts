@@ -3,12 +3,12 @@ import {
 	CLOSE_INTERNAL_ERROR,
 	CLOSE_NORMAL,
 	DEFAULT_DATA_CHANNELS,
-	type TunnelLimits,
 } from "@hostc/protocol";
 import { ClientConnection } from "./client-connection.js";
 import type {
 	HostcClientOptions,
 	HostcClientSnapshot,
+	HostcTunnelLimits,
 } from "./client-types.js";
 import type {
 	HostcClientEvents,
@@ -20,9 +20,11 @@ import { createEphemeralTunnel, withJitter } from "./tunnel-api.js";
 export type {
 	HostcClientOptions,
 	HostcClientSnapshot,
+	HostcTunnelLimits,
 } from "./client-types.js";
 export {
 	createEphemeralTunnel,
+	type HostcEphemeralTunnel,
 	HostcProtocolUpgradeError,
 } from "./tunnel-api.js";
 
@@ -167,7 +169,7 @@ export class HostcClient {
 		this.connection?.close(CLOSE_INTERNAL_ERROR, reason);
 	}
 
-	protected setReady(event: HostcReadyEvent, limits: TunnelLimits): void {
+	protected setReady(event: HostcReadyEvent, limits: HostcTunnelLimits): void {
 		this.snapshot = {
 			...this.snapshot,
 			state: "ready",

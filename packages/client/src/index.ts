@@ -15,7 +15,9 @@ export {
 	HostcClient,
 	type HostcClientOptions,
 	type HostcClientSnapshot,
+	type HostcEphemeralTunnel,
 	HostcProtocolUpgradeError,
+	type HostcTunnelLimits,
 } from "./hostc-client.js";
 export type {
 	HeaderEntry,

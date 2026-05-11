@@ -83,9 +83,32 @@ check("@hostc/protocol exposes the v4 wire contract", () => {
 
 check("@hostc/client owns SDK transport behavior", () => {
 	const manifest = readJson("packages/client/package.json");
+	assert(manifest.private !== true, "@hostc/client must be publishable");
 	assert(
-		manifest.scripts?.build?.includes("rm -rf dist"),
-		"@hostc/client build must clean dist before compiling",
+		manifest.publishConfig?.access === "public",
+		"@hostc/client must publish as a public scoped package",
+	);
+	assert(
+		!("@hostc/protocol" in (manifest.dependencies ?? {})),
+		"@hostc/client must not require @hostc/protocol at runtime",
+	);
+	assert(
+		manifest.devDependencies?.["@hostc/protocol"] === "workspace:*",
+		"@hostc/client source must keep @hostc/protocol as an internal dev dependency",
+	);
+	const tsupConfig = readText("packages/client/tsup.config.ts");
+	for (const text of [
+		"bundle: true",
+		"clean: true",
+		"dts: true",
+		'external: ["ws"]',
+		'noExternal: ["@hostc/protocol"]',
+	]) {
+		assert(tsupConfig.includes(text), `client tsup config is missing ${text}`);
+	}
+	assert(
+		manifest.scripts?.build?.includes("tsup --config tsup.config.ts"),
+		"@hostc/client build must use the bundled publish build",
 	);
 	const index = readText("packages/client/src/index.ts");
 	for (const text of [
@@ -124,6 +147,10 @@ check("@hostc/client owns SDK transport behavior", () => {
 	);
 	if (existsSync("packages/client/dist/index.d.ts")) {
 		const distIndex = readText("packages/client/dist/index.d.ts");
+		assert(
+			!distIndex.includes("@hostc/protocol"),
+			"client public declarations must not expose @hostc/protocol",
+		);
 		for (const legacy of [
 			"ClientTunnelSession",
 			"HostcWebSocketSession",
@@ -134,6 +161,13 @@ check("@hostc/client owns SDK transport behavior", () => {
 				`client dist still contains ${legacy}`,
 			);
 		}
+	}
+	if (existsSync("packages/client/dist/index.js")) {
+		const distIndex = readText("packages/client/dist/index.js");
+		assert(
+			!distIndex.includes("@hostc/protocol"),
+			"client runtime bundle must not import @hostc/protocol",
+		);
 	}
 });
 

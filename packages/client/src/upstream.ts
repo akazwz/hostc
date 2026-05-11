@@ -1,6 +1,4 @@
-import type { HeaderEntry } from "@hostc/protocol";
-
-export type { HeaderEntry };
+export type HeaderEntry = readonly [name: string, value: string];
 
 export type HostcHttpRequest = {
 	method: string;

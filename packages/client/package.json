@@ -1,8 +1,10 @@
 {
 	"name": "@hostc/client",
-	"private": true,
-	"version": "0.0.0",
+	"version": "1.3.0",
+	"description": "Embeddable hostc tunnel client SDK.",
 	"type": "module",
+	"license": "Apache-2.0",
+	"sideEffects": false,
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {
@@ -12,19 +14,41 @@
 		}
 	},
 	"files": [
-		"dist"
+		"dist",
+		"README.md"
 	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/akazwz/hostc.git",
+		"directory": "packages/client"
+	},
+	"bugs": {
+		"url": "https://github.com/akazwz/hostc/issues"
+	},
+	"homepage": "https://github.com/akazwz/hostc/tree/main/packages/client#readme",
+	"keywords": [
+		"hostc",
+		"tunnel",
+		"reverse-proxy",
+		"cloudflare-workers",
+		"sdk"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
-		"build": "rm -rf dist && tsc -p tsconfig.json",
+		"build": "tsup --config tsup.config.ts",
+		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"test": "pnpm -F @hostc/protocol build && tsc -p tsconfig.json && node --test test/*.test.mjs"
 	},
 	"dependencies": {
-		"@hostc/protocol": "workspace:*",
 		"ws": "^8.20.0"
 	},
 	"devDependencies": {
+		"@hostc/protocol": "workspace:*",
 		"@types/node": "^25.6.0",
 		"@types/ws": "^8.18.1",
+		"tsup": "^8.5.0",
 		"typescript": "^6.0.2"
 	}
 }
