@@ -46,6 +46,7 @@ import {
 	utf8Decode,
 	utf8Encode,
 } from "@hostc/protocol";
+import { tunnelErrorResponse } from "../error-page";
 import { type JsonLog, log } from "../log";
 import { isWebSocketUpgrade } from "../router";
 import { TunnelCreditController } from "./credit";
@@ -320,7 +321,7 @@ export class HostcTunnel extends DurableObject<Env> {
 			} satisfies RequestStartMetadata);
 		} catch (error) {
 			this.abortStream(stream, errorMessage(error));
-			return jsonError("Tunnel not ready", 502);
+			return tunnelNotReadyResponse(request);
 		}
 
 		this.ctx.waitUntil(this.pumpPublicRequestBody(stream, request));
@@ -334,7 +335,14 @@ export class HostcTunnel extends DurableObject<Env> {
 			);
 		} catch (error) {
 			this.abortStream(stream, errorMessage(error));
-			return jsonError("Local server unavailable", 502);
+			return tunnelErrorResponse(request, {
+				status: 502,
+				eyebrow: "502",
+				title: "Local server unavailable",
+				message:
+					"The tunnel is connected, but hostc could not get a response from the local service.",
+				hint: "Make sure your local server is running and try refreshing this page.",
+			});
 		}
 
 		if (
@@ -343,7 +351,14 @@ export class HostcTunnel extends DurableObject<Env> {
 			(responseStart.hasBody && !allowsHttpResponseBody(responseStart.status))
 		) {
 			this.abortStream(stream, "Invalid HTTP response start");
-			return jsonError("Invalid tunnel response", 502);
+			return tunnelErrorResponse(request, {
+				status: 502,
+				eyebrow: "502",
+				title: "Invalid tunnel response",
+				message:
+					"The local service returned a response that cannot be proxied by this tunnel.",
+				hint: "Check the local server response and try again.",
+			});
 		}
 
 		const headers = new Headers();
@@ -1540,17 +1555,14 @@ function isSelectedProtocolValid(
 }
 
 function tunnelNotReadyResponse(request: Request): Response {
-	const accept = request.headers.get("accept") ?? "";
-	if (accept.includes("text/html")) {
-		return new Response(
-			"<!doctype html><title>Tunnel not ready</title><h1>Tunnel not ready</h1>",
-			{
-				status: 502,
-				headers: { "content-type": "text/html; charset=utf-8" },
-			},
-		);
-	}
-	return jsonError("Tunnel not ready", 502);
+	return tunnelErrorResponse(request, {
+		status: 502,
+		eyebrow: "502",
+		title: "Tunnel not ready",
+		message:
+			"This public URL is valid, but the hostc client is not connected right now.",
+		hint: "Start or reconnect hostc on the machine that owns this tunnel.",
+	});
 }
 
 function jsonError(message: string, status: number): Response {

@@ -11,6 +11,7 @@ import {
 } from "@hostc/protocol";
 import { HostcTunnel } from "./durable/tunnel";
 import type { HostcEnv } from "./env";
+import { tunnelErrorResponse } from "./error-page";
 import { createClientConnectionId, createTunnelId } from "./id";
 import { log } from "./log";
 import { classifyHost, isWebSocketUpgrade, parseApiRoute } from "./router";
@@ -43,7 +44,14 @@ export async function handleRequest(
 	const hostRoute = getEffectiveHostRoute(request, url, env);
 
 	if (hostRoute.kind === "unknown") {
-		return new Response("Not Found", { status: 404 });
+		return tunnelErrorResponse(request, {
+			status: 404,
+			eyebrow: "404",
+			title: "Tunnel not found",
+			message:
+				"This hostc tunnel does not exist, or the public URL is no longer valid.",
+			hint: "Check the URL or restart hostc to create a fresh tunnel.",
+		});
 	}
 
 	if (hostRoute.kind === "tunnel") {
