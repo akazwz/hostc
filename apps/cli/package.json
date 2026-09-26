@@ -1,6 +1,6 @@
 {
 	"name": "hostc",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"description": "Expose a local HTTP/WebSocket server through a public URL",
 	"keywords": [
 		"cli",
@@ -29,7 +29,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "tsdown",
-		"prepublishOnly": "pnpm build",
+		"prepack": "pnpm build",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run --exclude test/e2e.test.ts",
 		"test:e2e": "vitest run test/e2e.test.ts"
