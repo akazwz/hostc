@@ -1,38 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
-  <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#ff7a18"/>
-      <stop offset="100%" stop-color="#e52e71"/>
-    </linearGradient>
-    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
-      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
-    </pattern>
-    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#ff7a18" stop-opacity="0.12"/>
-      <stop offset="100%" stop-color="#1a1208" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
+	<!-- Source of og-image.png: the social card, in the site's dark colors. Render it at 1200x630. -->
+	<defs>
+		<linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="0%">
+			<stop offset="0%" stop-color="#ff7a18" />
+			<stop offset="100%" stop-color="#f0457f" />
+		</linearGradient>
+		<linearGradient id="word" gradientUnits="userSpaceOnUse" x1="96" y1="0" x2="620" y2="0">
+			<stop offset="0%" stop-color="#ff7a18" />
+			<stop offset="100%" stop-color="#f0457f" />
+		</linearGradient>
+	</defs>
+	<rect width="1200" height="630" fill="#1c1c1f" />
 
-  <rect width="1200" height="630" fill="#09090b"/>
-  <rect width="1200" height="630" fill="url(#grid)"/>
-  <circle cx="600" cy="315" r="500" fill="url(#glow)"/>
+	<g transform="translate(96 64) scale(0.56)">
+		<rect width="100" height="100" rx="22" fill="#09090b" />
+		<line x1="28" y1="20" x2="28" y2="80" stroke="#ffffff" stroke-width="14" stroke-linecap="round" />
+		<g stroke="url(#brand)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none">
+			<path d="M 28 60 C 28 36, 45 36, 60 36 L 76 36" />
+			<path d="M 60 20 L 76 36 L 60 52" />
+		</g>
+	</g>
+	<text x="168" y="106" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="38" font-weight="600" fill="#f4f4f5">hostc</text>
 
-  <!-- Logo mark -->
-  <g transform="translate(500, 95) scale(2)">
-    <line x1="28" y1="20" x2="28" y2="80" stroke="#ffffff" stroke-width="14" stroke-linecap="round"/>
-    <g stroke="url(#grad)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none">
-      <path d="M 28 60 C 28 36, 45 36, 60 36 L 76 36" />
-      <path d="M 60 20 L 76 36 L 60 52" />
-    </g>
-  </g>
+	<g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="124" font-weight="700" letter-spacing="-5">
+		<text x="90" y="262" fill="#f4f4f5">Localhost,</text>
+		<text x="90" y="378" fill="url(#word)">anywhere.</text>
+	</g>
+	<text x="96" y="446" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="32" fill="#a1a1aa">
+		A public HTTPS URL for your dev server. Hot reload included.
+	</text>
 
-  <text x="600" y="375" font-family="Georgia, serif" font-size="100" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-2">
-    hostc
-  </text>
-  <text x="600" y="448" font-family="system-ui, sans-serif" font-size="40" font-weight="500" fill="#a1a1aa" text-anchor="middle" letter-spacing="-0.5">
-    Localhost to the edge.
-  </text>
-  <text x="600" y="502" font-family="system-ui, sans-serif" font-size="26" font-weight="400" fill="#52525b" text-anchor="middle">
-    Powered by Cloudflare Workers
-  </text>
+	<rect x="96" y="486" width="476" height="72" rx="14" fill="#26262a" stroke="#323237" stroke-width="2" />
+	<text x="126" y="533" font-family="ui-monospace, 'SF Mono', Menlo, monospace" font-size="30" fill="#f4f4f5" xml:space="preserve"><tspan fill="#a1a1aa">$</tspan> npx hostc@latest 3000</text>
 </svg>

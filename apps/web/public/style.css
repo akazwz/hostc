@@ -1,0 +1,287 @@
+/*
+ * hostc.dev: one stylesheet for every page. System fonts only, no JavaScript.
+ * Colors come from the logo: zinc neutrals, white, and the orange-to-pink arrow.
+ */
+
+:root {
+	--bg: #ffffff;
+	--subtle: #f4f4f5;
+	--ink: #111113;
+	--muted: #5f5f68;
+	--line: #e4e4e7;
+	--link: #c2410c;
+	--from: #ea580c;
+	--to: #db2777;
+	--mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+	color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #1c1c1f;
+		--subtle: #26262a;
+		--ink: #f4f4f5;
+		--muted: #a1a1aa;
+		--line: #323237;
+		--link: #ff8a3d;
+		--from: #ff7a18;
+		--to: #f0457f;
+		color-scheme: dark;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--ink);
+	font:
+		17px/1.6 -apple-system,
+		BlinkMacSystemFont,
+		"Segoe UI",
+		"PingFang SC",
+		"Hiragino Sans GB",
+		"Microsoft YaHei",
+		Roboto,
+		"Helvetica Neue",
+		sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-webkit-text-size-adjust: 100%;
+}
+
+a {
+	color: var(--link);
+	text-decoration: none;
+}
+a:hover {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+code {
+	font-family: var(--mono);
+	font-size: 0.9em;
+}
+
+.wrap {
+	max-width: 880px;
+	margin: 0 auto;
+	padding-inline: 24px;
+}
+
+/* Header */
+.top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding-block: 24px;
+}
+.brand {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	color: var(--ink);
+	font-weight: 600;
+}
+.brand:hover {
+	text-decoration: none;
+}
+.brand img {
+	width: 28px;
+	height: 28px;
+}
+.top nav {
+	display: flex;
+	align-items: center;
+	gap: 24px;
+	font-size: 15px;
+}
+.top nav a {
+	display: flex;
+	color: var(--muted);
+}
+.top nav a:hover {
+	color: var(--ink);
+	text-decoration: none;
+}
+.top nav svg {
+	width: 20px;
+	height: 20px;
+}
+
+/* Hero */
+.hero {
+	padding-block: 88px 96px;
+}
+.hero h1 {
+	margin: 0;
+	font-size: clamp(44px, 9vw, 76px);
+	line-height: 1.02;
+	letter-spacing: -0.04em;
+}
+/* The one place the logo's gradient appears outside the logo. */
+.hero h1 span {
+	background: linear-gradient(90deg, var(--from), var(--to));
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+.hero .lead {
+	max-width: 30em;
+	margin: 24px 0 40px;
+	color: var(--muted);
+	font-size: 20px;
+	line-height: 1.5;
+}
+.command {
+	display: inline-flex;
+	gap: 14px;
+	margin: 0;
+	padding: 16px 22px;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	background: var(--subtle);
+	font-family: var(--mono);
+	font-size: 18px;
+}
+.command span {
+	color: var(--muted);
+	user-select: none;
+}
+/* One click selects the whole command, ready to copy. */
+.command code {
+	font-size: inherit;
+	user-select: all;
+}
+.note {
+	margin: 16px 0 0;
+	color: var(--muted);
+	font-size: 15px;
+}
+.note code {
+	color: var(--ink);
+}
+
+/* Sections: a label on the left, content on the right, hairlines between. */
+section {
+	display: grid;
+	grid-template-columns: 200px minmax(0, 1fr);
+	gap: 24px;
+	padding-block: 48px;
+	border-top: 1px solid var(--line);
+}
+/* A quiet label, below the item titles beside it in weight. */
+section h2 {
+	margin: 0;
+	color: var(--muted);
+	font-size: 15px;
+	font-weight: 500;
+	line-height: 1.6;
+}
+section p {
+	margin: 0 0 16px;
+	color: var(--muted);
+}
+
+dl {
+	display: grid;
+	gap: 24px;
+	margin: 0;
+}
+dt {
+	font-weight: 600;
+}
+dd {
+	margin: 4px 0 0;
+	color: var(--muted);
+}
+
+.table {
+	overflow-x: auto;
+}
+table {
+	width: 100%;
+	min-width: 520px;
+	border-collapse: collapse;
+	font-size: 15px;
+}
+th,
+td {
+	padding: 10px 12px 10px 0;
+	border-bottom: 1px solid var(--line);
+	text-align: left;
+	vertical-align: top;
+}
+thead th {
+	padding-top: 0;
+	white-space: nowrap;
+	font-weight: 600;
+}
+tbody th {
+	font-weight: 500;
+	white-space: nowrap;
+}
+td {
+	color: var(--muted);
+}
+tbody tr:last-child > * {
+	border-bottom: 0;
+}
+
+footer {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 16px;
+	padding-block: 28px 48px;
+	border-top: 1px solid var(--line);
+	color: var(--muted);
+	font-size: 14px;
+}
+footer nav {
+	display: flex;
+	gap: 20px;
+}
+footer a {
+	color: inherit;
+}
+footer a:hover {
+	color: var(--ink);
+}
+
+/* 404 */
+.missing {
+	padding-block: 88px 120px;
+}
+.missing h1 {
+	margin: 0 0 16px;
+	font-size: 44px;
+	letter-spacing: -0.03em;
+}
+.missing p {
+	margin: 0 0 8px;
+	color: var(--muted);
+}
+
+@media (max-width: 720px) {
+	body {
+		font-size: 16px;
+	}
+	.hero {
+		padding-block: 48px 64px;
+	}
+	.hero .lead {
+		font-size: 18px;
+	}
+	.command {
+		font-size: 16px;
+	}
+	section {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 16px;
+		padding-block: 40px;
+	}
+}

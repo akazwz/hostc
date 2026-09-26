@@ -1,243 +1,118 @@
 import {
-	buildPublicUrl,
-	type CreateEphemeralTunnelResponse,
-	DEFAULT_DATA_CHANNELS,
-	defaultTunnelLimits,
-	isValidDataChannelCount,
-	MAX_DATA_CHANNELS,
+	API_TUNNELS_PATH,
+	type CreateTunnelResponse,
+	isTunnelId,
+	PROTOCOL_HEADER,
 	PROTOCOL_VERSION,
-	TUNNEL_KIND_EPHEMERAL,
-	TUNNELS_API_PATH,
+	TUNNEL_ID_ALPHABET,
+	TUNNEL_ID_LENGTH,
 } from "@hostc/protocol";
-import { HostcTunnel } from "./durable/tunnel";
-import type { HostcEnv } from "./env";
-import { tunnelErrorResponse } from "./error-page";
-import { createClientConnectionId, createTunnelId } from "./id";
-import { log } from "./log";
-import { classifyHost, isWebSocketUpgrade, parseApiRoute } from "./router";
-import { createTokenPayload, signToken, verifyToken } from "./token";
 
-const CONNECT_TOKEN_TTL_SECONDS = 60;
-const INTERNAL_ORIGIN = "https://hostc.internal";
+import { errorResponse, pages } from "./pages.ts";
+import { signConnectToken, verifyConnectToken } from "./token.ts";
+import { CONNECT_URL } from "./tunnel.ts";
 
-export { HostcTunnel };
+export { Tunnel } from "./tunnel.ts";
 
 export default {
 	async fetch(request, env): Promise<Response> {
-		try {
-			return await handleRequest(request, env);
-		} catch (error) {
-			log({
-				event: "server.unhandled",
-				error: error instanceof Error ? error.message : String(error),
-			});
-			return jsonError("Internal server error", 500);
+		const url = new URL(request.url);
+		const tunnelId = tunnelIdFromHost(url.host, env.TUNNEL_DOMAIN);
+		if (tunnelId !== undefined) {
+			return handleTunnelRequest(request, env, tunnelId);
 		}
-	},
-} satisfies ExportedHandler<HostcEnv>;
 
-export async function handleRequest(
-	request: Request,
-	env: HostcEnv,
-): Promise<Response> {
-	const url = new URL(request.url);
-	const hostRoute = getEffectiveHostRoute(request, url, env);
-
-	if (hostRoute.kind === "unknown") {
-		return tunnelErrorResponse(request, {
-			status: 404,
-			eyebrow: "404",
-			title: "Tunnel not found",
-			message:
-				"This hostc tunnel does not exist, or the public URL is no longer valid.",
-			hint: "Check the URL or restart hostc to create a fresh tunnel.",
-		});
-	}
-
-	if (hostRoute.kind === "tunnel") {
-		const stub = env.HOSTC_TUNNEL.getByName(hostRoute.tunnelId);
-		return stub.fetch(request);
-	}
-
-	const apiRoute = parseApiRoute(request.method, url);
-	switch (apiRoute.kind) {
-		case "health":
+		if (url.pathname === "/api/health") {
 			return Response.json({ ok: true });
-		case "create":
-			return createTunnel(request, env, url);
-		case "channel":
-			return connectChannel(request, env, apiRoute.tunnelId, apiRoute);
-		case "method-not-allowed":
-			return new Response("Method Not Allowed", {
-				status: 405,
-				headers: { Allow: apiRoute.allow },
-			});
-		case "invalid":
-			return jsonError(apiRoute.message, apiRoute.status);
-		case "not-found":
-			return new Response("Not Found", { status: 404 });
+		}
+		if (url.pathname.startsWith(API_TUNNELS_PATH)) {
+			// Checked before routing, so clients on any older protocol (including their old paths)
+			// get the 426 they know how to show as "please upgrade".
+			const mismatch = checkProtocol(request);
+			if (mismatch) {
+				return mismatch;
+			}
+		}
+		if (url.pathname === API_TUNNELS_PATH) {
+			return request.method === "POST" ? createTunnel(request, env, url) : jsonError(405, "Method not allowed");
+		}
+		const connect = url.pathname.match(/^\/api\/tunnels\/([^/]+)\/connect$/);
+		if (connect?.[1]) {
+			return connectTunnel(request, env, connect[1]);
+		}
+		return jsonError(404, "Not found");
+	},
+} satisfies ExportedHandler<Env>;
+
+/**
+ * `undefined` when the host is not under the tunnel domain,
+ * `null` when it is but the label is not a valid tunnel id.
+ */
+export function tunnelIdFromHost(host: string, tunnelDomain: string): string | null | undefined {
+	const suffix = `.${tunnelDomain.toLowerCase()}`;
+	const normalized = host.toLowerCase();
+	if (!normalized.endsWith(suffix)) {
+		return undefined;
 	}
+	const label = normalized.slice(0, -suffix.length);
+	return isTunnelId(label) ? label : null;
 }
 
-async function createTunnel(
-	request: Request,
-	env: HostcEnv,
-	requestUrl: URL,
-): Promise<Response> {
-	const dataChannels = await parseCreateTunnelDataChannels(request);
-	const tunnelId = createTunnelId();
-	const clientConnectionId = createClientConnectionId();
-	const connectToken = await signToken(
-		env.TOKEN_SECRET,
-		createTokenPayload(
-			"connect",
-			tunnelId,
-			CONNECT_TOKEN_TTL_SECONDS,
-			clientConnectionId,
-		),
-	);
+function handleTunnelRequest(request: Request, env: Env, tunnelId: string | null): Promise<Response> | Response {
+	if (tunnelId === null) {
+		return errorResponse(request, pages.notFound);
+	}
+	return env.TUNNEL.getByName(tunnelId).fetch(request);
+}
 
-	await initializeTunnelClientConnection(env, tunnelId, {
-		clientConnectionId,
-		dataChannels,
-	});
+async function createTunnel(request: Request, env: Env, url: URL): Promise<Response> {
+	const client = request.headers.get("cf-connecting-ip") ?? "local";
+	const { success } = await env.CREATE_LIMIT.limit({ key: client });
+	if (!success) {
+		return jsonError(429, "Too many tunnels created. Try again in a minute.");
+	}
 
-	const response: CreateEphemeralTunnelResponse = {
-		kind: TUNNEL_KIND_EPHEMERAL,
-		protocolVersion: PROTOCOL_VERSION,
-		tunnelId,
-		publicUrl: buildPublicUrl(env.PUBLIC_BASE_DOMAIN, tunnelId),
-		clientConnectionId,
-		dataUrl: buildAbsoluteWebSocketUrl(
-			requestUrl,
-			`${TUNNELS_API_PATH}/${encodeURIComponent(tunnelId)}/channels`,
-		),
-		connectToken,
-		dataChannels,
-		limits: defaultTunnelLimits(),
+	const id = randomTunnelId();
+	await env.TUNNEL.getByName(id).init();
+
+	const connectUrl = new URL(`${API_TUNNELS_PATH}/${id}/connect`, url);
+	connectUrl.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+	const body: CreateTunnelResponse = {
+		id,
+		url: `${url.protocol}//${id}.${env.TUNNEL_DOMAIN}`,
+		connectUrl: connectUrl.toString(),
+		token: await signConnectToken(env.TOKEN_SECRET, id),
 	};
-
-	log({
-		event: "tunnel.created",
-		tunnelId,
-		clientConnectionId,
-		dataChannels,
-	});
-	return Response.json(response, { status: 201 });
+	return Response.json(body, { status: 201 });
 }
 
-async function connectChannel(
-	request: Request,
-	env: HostcEnv,
-	tunnelId: string,
-	route: Extract<ReturnType<typeof parseApiRoute>, { kind: "channel" }>,
-): Promise<Response> {
-	if (!isWebSocketUpgrade(request)) {
-		return jsonError("Expected WebSocket upgrade", 426);
+async function connectTunnel(request: Request, env: Env, id: string): Promise<Response> {
+	if (!isTunnelId(id)) {
+		return jsonError(404, "Tunnel not found");
 	}
-	if (!route.clientConnectionId) {
-		return jsonError("Missing client connection id", 400);
+	if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
+		return jsonError(426, "Expected a WebSocket upgrade");
 	}
-
-	const connectToken = getBearerToken(request);
-	const payload = await verifyToken(env.TOKEN_SECRET, connectToken, {
-		audience: "connect",
-		tunnelId,
-		clientConnectionId: route.clientConnectionId,
-	});
-	if (!payload?.clientConnectionId) {
-		return jsonError("Invalid token", 403);
+	const token = request.headers.get("authorization")?.match(/^Bearer (\S+)$/)?.[1];
+	if (!token || !(await verifyConnectToken(env.TOKEN_SECRET, id, token))) {
+		return jsonError(401, "Invalid tunnel token");
 	}
-
-	const internalUrl = new URL(
-		`/_hostc/channels/${route.channelId}`,
-		INTERNAL_ORIGIN,
-	);
-	internalUrl.searchParams.set(
-		"clientConnectionId",
-		payload.clientConnectionId,
-	);
-	return env.HOSTC_TUNNEL.getByName(tunnelId).fetch(
-		new Request(internalUrl, request),
-	);
+	return env.TUNNEL.getByName(id).fetch(new Request(CONNECT_URL, request));
 }
 
-async function initializeTunnelClientConnection(
-	env: HostcEnv,
-	tunnelId: string,
-	body: { clientConnectionId: string; dataChannels: number },
-): Promise<void> {
-	const response = await env.HOSTC_TUNNEL.getByName(tunnelId).fetch(
-		new Request(new URL("/_hostc/init", INTERNAL_ORIGIN), {
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify(body),
-		}),
-	);
-	if (!response.ok) {
-		throw new Error(`failed to initialize tunnel: ${response.status}`);
+function checkProtocol(request: Request): Response | null {
+	if (request.headers.get(PROTOCOL_HEADER) === String(PROTOCOL_VERSION)) {
+		return null;
 	}
+	return jsonError(426, "This hostc version is not supported by the server. Run `npx hostc@latest` to upgrade.");
 }
 
-async function parseCreateTunnelDataChannels(
-	request: Request,
-): Promise<number> {
-	let dataChannels = DEFAULT_DATA_CHANNELS;
-	const contentType = request.headers.get("content-type") ?? "";
-	if (contentType.includes("application/json")) {
-		try {
-			const body = (await request.json()) as Record<string, unknown>;
-			if (isValidDataChannelCount(body.dataChannels)) {
-				dataChannels = body.dataChannels;
-			}
-		} catch {
-			return dataChannels;
-		}
-	}
-	return Math.min(dataChannels, MAX_DATA_CHANNELS);
+function randomTunnelId(): string {
+	// The alphabet has 32 characters, so masking a random byte has no bias.
+	const bytes = crypto.getRandomValues(new Uint8Array(TUNNEL_ID_LENGTH));
+	return Array.from(bytes, (byte) => TUNNEL_ID_ALPHABET[byte & 31]).join("");
 }
 
-function buildAbsoluteWebSocketUrl(requestUrl: URL, pathname: string): string {
-	const url = new URL(pathname, requestUrl);
-	url.protocol = url.protocol === "http:" ? "ws:" : "wss:";
-	return url.toString();
-}
-
-function getBearerToken(request: Request): string {
-	const authorization = request.headers.get("authorization") ?? "";
-	const [scheme, token, ...rest] = authorization.trim().split(/\s+/);
-	if (scheme?.toLowerCase() !== "bearer" || !token || rest.length > 0) {
-		return "";
-	}
-	return token;
-}
-
-function getEffectiveHostRoute(
-	request: Request,
-	url: URL,
-	env: HostcEnv,
-): ReturnType<typeof classifyHost> {
-	if (env.ALLOW_LOCAL_TUNNEL_HEADER === "1" || isLocalHostname(url.hostname)) {
-		const tunnelHost = request.headers.get("x-hostc-local-tunnel-host");
-		if (tunnelHost) {
-			const tunnelRoute = classifyHost(tunnelHost, env.PUBLIC_BASE_DOMAIN);
-			if (tunnelRoute.kind === "tunnel") {
-				return tunnelRoute;
-			}
-		}
-	}
-	return classifyHost(url.hostname, env.PUBLIC_BASE_DOMAIN);
-}
-
-function isLocalHostname(hostname: string): boolean {
-	return (
-		hostname === "localhost" ||
-		hostname === "127.0.0.1" ||
-		hostname === "::1" ||
-		hostname === "[::1]"
-	);
-}
-
-function jsonError(message: string, status: number): Response {
-	return Response.json({ error: message }, { status });
+function jsonError(status: number, error: string): Response {
+	return Response.json({ error }, { status });
 }
