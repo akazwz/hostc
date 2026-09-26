@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.2
+
+Same as 2.0.1, published through the release workflow to become `latest`.
+
 ## 2.0.1
 
 2.0.0 was published without its executable; 2.0.1 is the same release, packaged correctly.

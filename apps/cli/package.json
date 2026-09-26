@@ -1,6 +1,6 @@
 {
 	"name": "hostc",
-	"version": "2.0.1",
+	"version": "2.0.2",
 	"description": "Expose a local HTTP/WebSocket server through a public URL",
 	"keywords": [
 		"cli",
