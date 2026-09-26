@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.3
+
+- Reconnects back off properly when connections keep dropping right after they open, instead of
+  retrying every 250 ms. The delay starts over only after a connection has been up for 30 seconds.
+
 ## 2.0.2
 
 Same as 2.0.1, published through the release workflow to become `latest`.

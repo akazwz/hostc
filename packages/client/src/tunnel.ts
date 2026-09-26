@@ -35,6 +35,7 @@ export class Tunnel extends EventEmitter<TunnelEvents> {
 	private connection: Connection | null = null;
 	private closing = false;
 	private wakeBackoff: (() => void) | null = null;
+	private readonly backoff = new ReconnectBackoff();
 	/** Set when a new tunnel replaced an expired one and the user has not been told yet. */
 	private urlChanged = false;
 
@@ -42,6 +43,7 @@ export class Tunnel extends EventEmitter<TunnelEvents> {
 		const info = await createTunnel(options.server);
 		const tunnel = new Tunnel(options, info);
 		tunnel.connection = await tunnel.connect();
+		tunnel.backoff.connected();
 		void tunnel.supervise();
 		return tunnel;
 	}
@@ -83,6 +85,7 @@ export class Tunnel extends EventEmitter<TunnelEvents> {
 		while (this.connection && !this.closing) {
 			const { code, reason } = await this.connection.closed;
 			this.connection = null;
+			this.backoff.disconnected();
 			if (this.closing) {
 				return;
 			}
@@ -100,8 +103,8 @@ export class Tunnel extends EventEmitter<TunnelEvents> {
 
 	private async reconnect(): Promise<void> {
 		let error: TunnelError | undefined;
-		for (let attempt = 1; !this.closing; attempt += 1) {
-			const delayMs = backoff(attempt);
+		while (!this.closing) {
+			const { attempt, delayMs } = this.backoff.next();
 			this.emit("reconnecting", error ? { attempt, delayMs, error } : { attempt, delayMs });
 			await new Promise<void>((resolve) => {
 				const timer = setTimeout(resolve, delayMs);
@@ -130,6 +133,7 @@ export class Tunnel extends EventEmitter<TunnelEvents> {
 					this.connection.close(CLOSE_SHUTDOWN, "client shutdown");
 					return;
 				}
+				this.backoff.connected();
 				this.emit("reconnected", { url: this.url, urlChanged: this.urlChanged });
 				this.urlChanged = false;
 				return;
@@ -146,10 +150,33 @@ export class Tunnel extends EventEmitter<TunnelEvents> {
 	}
 }
 
-/** 250 ms, 500 ms, 1 s … capped at 10 s, with ±20% jitter so clients don't reconnect in lockstep. */
-function backoff(attempt: number): number {
-	const base = Math.min(250 * 2 ** (attempt - 1), 10_000);
-	return Math.round(base * (0.8 + Math.random() * 0.4));
+/** A connection that lasted this long was healthy, so the next outage starts again at the shortest delay. */
+const STABLE_CONNECTION_MS = 30_000;
+
+/**
+ * Reconnect delays: 250 ms, 500 ms, 1 s … capped at 10 s, with ±20% jitter so clients don't
+ * reconnect in lockstep. The count only resets after a stable connection: one the server accepts
+ * and then drops at once must not turn into a reconnect every 250 ms, each a billed request.
+ */
+export class ReconnectBackoff {
+	private attempt = 0;
+	private connectedAt = 0;
+
+	next(): { attempt: number; delayMs: number } {
+		this.attempt += 1;
+		const base = Math.min(250 * 2 ** (this.attempt - 1), 10_000);
+		return { attempt: this.attempt, delayMs: Math.round(base * (0.8 + Math.random() * 0.4)) };
+	}
+
+	connected(now = Date.now()): void {
+		this.connectedAt = now;
+	}
+
+	disconnected(now = Date.now()): void {
+		if (now - this.connectedAt >= STABLE_CONNECTION_MS) {
+			this.attempt = 0;
+		}
+	}
 }
 
 function sleep(ms: number): Promise<void> {
