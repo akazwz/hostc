@@ -8,7 +8,7 @@ Run it as a long-lived background process, pointing at the local server's port:
 
     npx hostc@latest 3000
 
-Other targets: `127.0.0.1:8080` (host and port) or a full origin such as `https://localhost:5173`. Always use `@latest`; an outdated CLI exits with a message telling you to upgrade.
+Other targets: `127.0.0.1:8080` (host and port) or a full origin such as `https://localhost:5173`. Always use `npx hostc@latest`; never install it globally (`npm i -g`) or add it to package.json, which pins a version that stops working when the server updates. An outdated CLI exits with a message telling you to upgrade.
 
 The public URL is the first `https://` URL printed, on its own line:
 

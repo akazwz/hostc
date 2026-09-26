@@ -12,6 +12,8 @@ Same as 2.0.1, published through the release workflow to become `latest`.
 
 Rewritten from scratch on protocol 5. Older CLIs are told to upgrade by the server.
 
+- Public URLs are now on `hostc.app` (`https://<id>.hostc.app`); the API stays on `hostc.dev`.
+
 - The public URL now survives network drops and server restarts (reconnects to the same tunnel for
   up to 10 minutes offline).
 - Heartbeats detect dead connections (sleep, network change) and reconnect automatically.
