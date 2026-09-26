@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.1
+
+2.0.0 was published without its executable; 2.0.1 is the same release, packaged correctly.
+
 ## 2.0.0
 
 Rewritten from scratch on protocol 5. Older CLIs are told to upgrade by the server.

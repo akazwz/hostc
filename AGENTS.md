@@ -56,3 +56,5 @@ simulates hibernation.
 - Hibernatable sockets are left in `CLOSING` in `webSocketClose`; call `ws.close()` there to finish
   the handshake.
 - `@cloudflare/vitest-pool-workers` is superseded by `@cloudflare/vitest-plugin`.
+- `prepublishOnly` does not run for `pnpm pack` or for `npm publish <tarball>`, which the release
+  workflow uses; the CLI builds in `prepack`. hostc 2.0.0 went out without `dist/` because of it.
