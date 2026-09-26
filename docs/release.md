@@ -75,7 +75,8 @@ Prepare (no user impact):
    Also publish `v=spf1 -all` and a `p=reject` DMARC record: the domain never sends mail.
 2. Create `hostc-tunnel`: from `apps/server`, run
    `API_DOMAIN=hostc.app TUNNEL_DOMAIN=hostc.app pnpm run deploy` once, then set `TOKEN_SECRET`.
-3. Connect Workers Builds as above, but with `API_DOMAIN=hostc.app` for now.
+3. Connect Workers Builds for `hostc-tunnel` and `hostc-web` as above, but with
+   `API_DOMAIN=hostc.app` for now.
 4. Set up trusted publishing, merge `rewrite` into `main`, run "Release CLI" with dist-tag `next`,
    and test for real: `npx hostc@next 3000 --server https://hostc.app`.
 
@@ -85,12 +86,14 @@ Switch (a few minutes):
    v4 tunnels.
 6. Change the build variable to `API_DOMAIN=hostc.dev` and retry the latest `hostc-tunnel` build.
    The new Worker takes `hostc.dev/api/*`; from now on 1.x CLIs get the upgrade prompt.
-7. `npm dist-tag add hostc@2.0.0 latest` (run locally while logged in to npm; trusted publishing
-   only covers `npm publish`).
-8. Connect Workers Builds for `hostc-web` and retry its build; the site documents the new CLI.
+7. `npm dist-tag add hostc@2.0.1 latest` (run locally while logged in to npm; trusted publishing
+   only covers `npm publish`). 2.0.0 was published without its executable; never tag it.
+8. Check it as a user would: `npx hostc@latest 3000` prints a `hostc.app` URL, and pages,
+   WebSockets and hot reload work through it.
 9. Delete the old `*.hostc.dev` DNS record, a DNS-only CNAME to a preferred Cloudflare host that
    served the v4 tunnels. Until step 5 it carries every 1.x tunnel, so never delete it earlier.
-   `cf dns records list --zone hostc.dev` shows its id; then `cf dns records delete <id> --zone hostc.dev`.
+   `cf dns records list --zone hostc.dev` shows its id; then `cf dns records delete <id> --zone hostc.dev --force`
+   (without `--force` it asks for confirmation, and in a script silently does nothing).
    Keep the apex `hostc.dev` record: the website and `/api/*` are served through it.
 
 Between steps 5 and 6, 1.x CLIs get errors for a minute.
