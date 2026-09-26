@@ -1,0 +1,7 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"useTabs": true,
+	"printWidth": 120,
+	"sortImports": true,
+	"ignorePatterns": ["pnpm-lock.yaml", "apps/server/worker-configuration.d.ts"]
+}

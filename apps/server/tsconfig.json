@@ -1,14 +1,7 @@
 {
+	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"target": "ES2022",
-		"lib": ["ES2022", "DOM"],
-		"module": "ES2022",
-		"moduleResolution": "Bundler",
-		"declaration": true,
-		"outDir": "dist",
-		"rootDir": "src",
-		"strict": true,
-		"skipLibCheck": true
+		"types": ["@cloudflare/vitest-plugin/types"]
 	},
-	"include": ["src/**/*.ts", "worker-configuration.d.ts"]
+	"include": ["src", "test", "worker-configuration.d.ts"]
 }

@@ -1,0 +1,33 @@
+name: Release CLI
+
+# Publishes apps/cli to npm with trusted publishing (OIDC): no npm token is stored anywhere.
+# One-time setup on npmjs.com → hostc → Settings → Trusted publishing:
+# GitHub Actions, repository akazwz/hostc, workflow file "release.yml".
+on:
+  workflow_dispatch:
+    inputs:
+      dist-tag:
+        description: npm dist-tag
+        type: choice
+        options: [latest, next]
+        default: latest
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      # pnpm resolves the workspace dependencies in the manifest; npm publishes with OIDC and provenance.
+      - run: pnpm -F hostc pack --pack-destination "$RUNNER_TEMP"
+      - run: npm publish "$RUNNER_TEMP"/hostc-*.tgz --tag "${{ inputs.dist-tag }}"

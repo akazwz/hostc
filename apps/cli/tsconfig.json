@@ -1,13 +1,7 @@
 {
+	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"target": "ES2022",
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
-		"rootDir": "src",
-		"strict": true,
-		"types": ["node"],
-		"esModuleInterop": true,
-		"skipLibCheck": true
+		"types": ["node"]
 	},
-	"include": ["src/**/*.ts"]
+	"include": ["src", "test", "tsdown.config.ts", "vitest.config.ts"]
 }

@@ -1,0 +1,44 @@
+# hostc
+
+> hostc gives a local HTTP or WebSocket server a public HTTPS URL. No account, nothing to install beyond Node.js 22+.
+
+## Start a tunnel
+
+Run it as a long-lived background process, pointing at the local server's port:
+
+    npx hostc@latest 3000
+
+Other targets: `127.0.0.1:8080` (host and port) or a full origin such as `https://localhost:5173`. Always use `@latest`; an outdated CLI exits with a message telling you to upgrade.
+
+The public URL is the first `https://` URL printed, on its own line:
+
+      https://k7m2xq9pa4dn.hostc.app  → http://localhost:3000
+
+Read it from the output; never guess it. Afterwards hostc logs one line per request: time, method, status, path, duration.
+
+## While it runs
+
+- The URL works only while hostc runs. Do not wait for the process to exit.
+- On a network drop or server restart hostc reconnects by itself and keeps the URL, for up to 10 minutes offline. After that it prints "The tunnel expired while offline. It has a new URL:" followed by the new URL; give the user the new one.
+- Local dev servers that check Host or Origin (Vite, Next.js) work without configuration. WebSockets, hot reload and Server-Sent Events work.
+- If hostc warns "Nothing is listening on …", start the local server first; hostc keeps running and forwards once it is up.
+
+## Stop it
+
+Send SIGINT (Ctrl+C) or SIGTERM. The URL stops working immediately. Starting hostc again always gives a new URL.
+
+Exit codes: 0 stopped or help/version, 1 could not create or keep the tunnel (read the printed error), 2 invalid arguments.
+
+## Errors a visitor can get
+
+- 404 Tunnel not found: wrong URL, or the tunnel was stopped or expired.
+- 502 Tunnel offline: hostc is reconnecting or was killed.
+- 502 Local server unavailable: the local server is not running on that port or crashed.
+- 504 Local server timed out: no response started within 120 seconds.
+- 503 Tunnel busy: 256 requests and WebSockets already in flight.
+
+## Safety
+
+Anyone with the URL reaches the local server. Only expose what the user asked to share; never databases, admin panels or anything holding secrets. Stop the tunnel when it is no longer needed.
+
+Source and self-hosting: https://github.com/akazwz/hostc
