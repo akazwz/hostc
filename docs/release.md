@@ -57,43 +57,21 @@ Bump `PROTOCOL_VERSION`, merge to `main` (the server deploys), then run "Release
 Between the two, CLIs see the upgrade prompt; that is expected. Never publish the CLI before the
 server is live: a new CLI against an old server fails with confusing errors.
 
-## First launch of protocol 5 (replacing the v4 `hostc-server` Worker)
+## Domains and DNS
 
-The old Worker `hostc-server` owns `hostc.dev/api/*`, `hostc.dev/health` and `*.hostc.dev/*`. The
-new Worker is `hostc-tunnel`, so both can exist side by side until the switch.
+Protocol 5 went live on 2026-09-27, replacing the v4 Worker `hostc-server`; 1.x CLIs now get the
+upgrade prompt.
 
-Prepare (no user impact):
+- `hostc.dev` and `hostc.app` use DNS-only CNAMEs to preferred Cloudflare hosts, which route
+  mainland China (most users) better than the default addresses: `hostc.dev` and `hostc.app` →
+  `akazwz.cf.090227.xyz`, `*.hostc.app` → `store.ubi.com`. Cloudflare still applies each zone's
+  Worker routes and rules, which match by Host. Self-hosters use proxied records instead (README).
+- A Redirect Rule on `hostc.app` sends the apex to `https://hostc.dev` (301).
+- `hostc.app` publishes `v=spf1 -all` and a `p=reject` DMARC record: it never sends mail, and a
+  tunnel domain is an obvious target for spoofing.
 
-1. Buy `hostc.app` and add it to Cloudflare. Like `hostc.dev`, its records are DNS-only CNAMEs to
-   preferred Cloudflare hosts, which give mainland China (most users) better routes: `*` →
-   `store.ubi.com`, `@` → `akazwz.cf.090227.xyz`. Cloudflare still applies the zone's Worker
-   routes and rules, which match by Host. (Self-hosters use proxied records to `192.0.2.1`
-   instead.) Tunnel routes (`*.hostc.app/*`) do not match the apex, so add a Redirect
-   Rule: `hostc.app/*` → `https://hostc.dev`, 301. Redirect Rules run before Workers, so exclude
-   `/api/` while the API lives on `hostc.app` (steps 2–6):
-   `(http.host eq "hostc.app" and not starts_with(http.request.uri.path, "/api/"))`.
-   Also publish `v=spf1 -all` and a `p=reject` DMARC record: the domain never sends mail.
-2. Create `hostc-tunnel`: from `apps/server`, run
-   `API_DOMAIN=hostc.app TUNNEL_DOMAIN=hostc.app pnpm run deploy` once, then set `TOKEN_SECRET`.
-3. Connect Workers Builds for `hostc-tunnel` and `hostc-web` as above, but with
-   `API_DOMAIN=hostc.app` for now.
-4. Set up trusted publishing, merge `rewrite` into `main`, run "Release CLI" with dist-tag `next`,
-   and test for real: `npx hostc@next 3000 --server https://hostc.app`.
+## npm dist-tags
 
-Switch (a few minutes):
-
-5. `pnpm -F @hostc/server exec wrangler delete hostc-server` — frees the old routes and ends the old
-   v4 tunnels.
-6. Change the build variable to `API_DOMAIN=hostc.dev` and retry the latest `hostc-tunnel` build.
-   The new Worker takes `hostc.dev/api/*`; from now on 1.x CLIs get the upgrade prompt.
-7. `npm dist-tag add hostc@2.0.1 latest` (run locally while logged in to npm; trusted publishing
-   only covers `npm publish`). 2.0.0 was published without its executable; never tag it.
-8. Check it as a user would: `npx hostc@latest 3000` prints a `hostc.app` URL, and pages,
-   WebSockets and hot reload work through it.
-9. Delete the old `*.hostc.dev` DNS record, a DNS-only CNAME to a preferred Cloudflare host that
-   served the v4 tunnels. Until step 5 it carries every 1.x tunnel, so never delete it earlier.
-   `cf dns records list --zone hostc.dev` shows its id; then `cf dns records delete <id> --zone hostc.dev --force`
-   (without `--force` it asks for confirmation, and in a script silently does nothing).
-   Keep the apex `hostc.dev` record: the website and `/api/*` are served through it.
-
-Between steps 5 and 6, 1.x CLIs get errors for a minute.
+Moving a dist-tag (`npm dist-tag add`) needs interactive two-factor authentication and is not
+covered by trusted publishing. To change what `latest` points to, publish a new version with
+"Release CLI" instead. Never tag 2.0.0: it was published without its executable.

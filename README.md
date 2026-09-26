@@ -43,8 +43,11 @@ Press Ctrl+C to stop; the URL is released immediately. Restarting hostc gives a 
 ## Updates
 
 hostc is free and has no accounts, so it moves fast: server updates can be incompatible with older
-CLIs. Always run `npx hostc@latest` and you get the matching version. If you run an older one, it
-fails at startup with a message telling you to upgrade.
+CLIs. Always run `npx hostc@latest` and you get the matching version.
+
+Don't install it globally (`npm i -g hostc`) or pin it in a project: an installed copy stays on its
+version and stops working when the server moves on. If you run an older one, it fails at startup
+with a message telling you to upgrade.
 
 ## How it works
 
