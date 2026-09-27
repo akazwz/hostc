@@ -2,11 +2,18 @@
   <img src="./apps/web/public/favicon.svg" alt="hostc logo" width="80" height="80" />
   <h1>hostc</h1>
   <p><strong>localhost，随处可达。</strong></p>
-  <p>给本地 HTTP 和 WebSocket 服务一个公网地址，运行在 Cloudflare Workers 和 Durable Objects 上。</p>
-  <p><a href="./README.md">English</a></p>
+  <p>一条命令，给你的开发服务器一个公网 HTTPS 地址，WebSocket 和热更新都能用。<br />免费、开源、不用注册。</p>
+  <p>
+    <a href="https://www.npmjs.com/package/hostc"><img src="https://img.shields.io/npm/v/hostc?color=ea580c&label=npm" alt="npm version" /></a>
+    <a href="./LICENSE"><img src="https://img.shields.io/github/license/akazwz/hostc?color=52525b" alt="Apache-2.0 license" /></a>
+    <a href="https://github.com/akazwz/hostc/stargazers"><img src="https://img.shields.io/github/stars/akazwz/hostc?style=flat&color=52525b" alt="GitHub stars" /></a>
+  </p>
+  <p><a href="https://hostc.dev">hostc.dev</a> · <a href="./README.md">English</a></p>
 </div>
 
----
+## 快速开始
+
+先启动你的应用，再让 hostc 指向它的端口：
 
 ```sh
 npx hostc@latest 3000
@@ -14,18 +21,34 @@ npx hostc@latest 3000
 
 ```text
   https://k7m2xq9pa4dn.hostc.app  → http://localhost:3000
+
+  Anyone with this URL can reach your local server. Press Ctrl+C to stop.
 ```
 
-分享开发中的页面、测试 webhook、在手机上打开本地应用。不用注册，不用安装。
+在任何设备上打开这个地址即可。每个请求到达时，终端里都会打印一行。
 
-## 特性
+如果 hostc 帮你省了时间，欢迎[在 GitHub 上点个 Star](https://github.com/akazwz/hostc)，让更多开发者发现它。
 
-- 支持 HTTP 和 WebSocket，包括带热更新的开发服务器（Vite、Next.js 等）和 Server-Sent Events。
-- 网络断开、服务端重启后 URL 不变：hostc 会重连回同一个隧道。
-- 请求体和响应体都是流式传输，带流控，按原样逐字节透传，压缩内容也不例外。
-- 空闲的隧道不花钱：没有流量时服务端会休眠。
+## 为什么用 hostc
 
-## CLI
+- **什么都不用配。** 不用注册，不用 token，不用下载二进制。装了 Node.js 就能用。
+- **访客直接看到你的应用。** 前面没有需要点击才能继续的警告页。
+- **热更新能用。** WebSocket 直接透传，Vite、Next.js 等开发服务器一保存，所有打开的设备都会跟着更新。
+  Server-Sent Events 也是边产生边送达。
+- **开发服务器不用改配置。** 请求到达时的地址就是 localhost，指向 localhost 的跳转也会改写回公网地址，
+  不需要去改 allowed hosts 之类的设置。
+- **链接不会失效。** 断网、服务端重启都不会改变 URL，hostc 会自己重连。
+- **免费、开源。** 服务端是一个 Cloudflare Worker，你也可以部署到自己的域名上。
+
+## 适合用来
+
+- 把开发中的页面给同事或客户看；
+- 用本机正在跑的代码测试 Stripe、GitHub、Slack 的 webhook；
+- 在真机上调试你的网站，热更新照样生效；
+- 让 AI 编程助手分享它做好的东西。把 [hostc.dev/llms.txt](https://hostc.dev/llms.txt) 发给它，
+  它就知道怎么运行 hostc、怎么读取地址。
+
+## 用法
 
 ```text
 hostc <target> [options]
@@ -36,53 +59,30 @@ hostc <target> [options]
 
   --server <url>   隧道服务器（环境变量 HOSTC_SERVER）
   --qr             打印公网地址的二维码
+  -h, --help       显示帮助
+  -v, --version    显示版本
 ```
 
 按 Ctrl+C 停止，URL 会立即释放。重新启动 hostc 会得到一个新的 URL。
 
-## 更新说明
+这个地址是公开的：拿到它的人都能访问你的本地服务。只分享你打算公开的东西。
 
-hostc 免费、不需要账号，所以会快速迭代：服务端更新可能与旧版 CLI 不兼容。始终使用
-`npx hostc@latest` 就能拿到配套的版本。
+### 始终使用 `@latest`
 
-不要全局安装（`npm i -g hostc`），也不要把它固定在项目依赖里：装好的那一份会停在当时的版本，
-服务端一更新就用不了。如果用的是旧版，启动时会失败，并提示你升级。
+hostc 免费，迭代很快，服务端更新可能与旧版 CLI 不兼容。用 `npx hostc@latest` 运行，拿到的永远是配套的版本。
+
+不要全局安装（`npm i -g hostc`），也不要加进项目依赖：装好的那一份会停在当时的版本，服务端一更新就用不了。
+用的是旧版的话，启动时会停下并提示你升级。
 
 ## 工作原理
 
 ```
-浏览器 ──▶ Worker ──▶ Durable Object（每个隧道一个）◀── 一条 WebSocket ── hostc ──▶ localhost
+浏览器 ──▶ Cloudflare Worker ──▶ Durable Object（每个隧道一个）◀── 一条 WebSocket ── hostc ──▶ localhost
 ```
 
-每个公网请求都是一个 stream，复用客户端的那条 WebSocket。协议每帧 5 字节头、7 种帧类型，
-HTTP body 按 stream 做窗口流控。详见 [docs/protocol.md](./docs/protocol.md)。
-
-| 路径                | 内容                                          |
-| ------------------- | --------------------------------------------- |
-| `packages/protocol` | 双方共用的帧格式、消息和常量                  |
-| `packages/client`   | Node.js 客户端：连接、stream、重连            |
-| `apps/server`       | Cloudflare Worker + Durable Object 隧道服务器 |
-| `apps/cli`          | `hostc` 命令                                  |
-| `apps/web`          | hostc.dev 官网（单个静态页面）和 llms.txt     |
-
-## 开发
-
-需要 Node.js 22.22+ 和 pnpm。
-
-```sh
-pnpm install
-cp apps/server/.dev.vars.example apps/server/.dev.vars
-pnpm dev                       # 隧道服务器运行在 http://localhost:8787
-pnpm build                     # 构建 CLI
-node apps/cli/dist/hostc.mjs 3000 --server http://localhost:8787
-```
-
-本地隧道地址是 `http://<id>.localhost:8787`，Chrome 和 Firefox 会把 `*.localhost` 解析到本机。
-
-```sh
-pnpm check      # 格式检查、lint、类型检查、单测和集成测试
-pnpm test:e2e   # wrangler dev + CLI + 本地源站的端到端测试
-```
+hostc 只向外建立一条 WebSocket 连接，所以你的电脑不需要能从公网访问。每个公网请求或 WebSocket
+都是这条连接上的一个 stream，请求体和响应体带流控。空闲的隧道会在服务端休眠，这也是 hostc 能免费的原因。
+协议细节见 [docs/protocol.md](./docs/protocol.md)。
 
 ## 自部署
 
@@ -101,6 +101,35 @@ pnpm test:e2e   # wrangler dev + CLI + 本地源站的端到端测试
 4. 使用：`npx hostc@latest 3000 --server https://example.com`，或者用
    `HOSTC_DEFAULT_SERVER=https://example.com pnpm build` 构建自己的 CLI。
 
+## 参与开发
+
+需要 Node.js 22.22+ 和 pnpm。
+
+```sh
+pnpm install
+cp apps/server/.dev.vars.example apps/server/.dev.vars
+pnpm dev                       # 隧道服务器运行在 http://localhost:8787
+pnpm build                     # 构建 CLI
+node apps/cli/dist/hostc.mjs 3000 --server http://localhost:8787
+```
+
+本地隧道地址是 `http://<id>.localhost:8787`，Chrome 和 Firefox 会把 `*.localhost` 解析到本机。
+
+```sh
+pnpm check      # 格式检查、lint、类型检查、单测和集成测试
+pnpm test:e2e   # wrangler dev + CLI + 本地源站的端到端测试
+```
+
+| 路径                | 内容                                          |
+| ------------------- | --------------------------------------------- |
+| `packages/protocol` | 双方共用的帧格式、消息和常量                  |
+| `packages/client`   | Node.js 客户端：连接、stream、重连            |
+| `apps/server`       | Cloudflare Worker + Durable Object 隧道服务器 |
+| `apps/cli`          | `hostc` 命令                                  |
+| `apps/web`          | hostc.dev 官网（单个静态页面）和 llms.txt     |
+
+欢迎提 Issue 和 Pull Request。
+
 ## License
 
-Apache-2.0
+[Apache-2.0](./LICENSE)
