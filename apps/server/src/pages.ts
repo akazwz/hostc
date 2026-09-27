@@ -24,27 +24,30 @@ export const pages = {
 	notFound: {
 		status: 404,
 		title: "Tunnel not found",
-		message: "This tunnel does not exist or has expired. Restart hostc to get a new URL.",
+		message:
+			"This link is not connected to anything right now: its tunnel was stopped or has expired. If it is yours, run hostc again for a new URL.",
 	},
 	offline: {
 		status: 502,
 		title: "Tunnel offline",
-		message: "The hostc client for this tunnel is not connected right now. It may be reconnecting; try again shortly.",
+		message:
+			"The computer behind this link is not connected right now. It is probably reconnecting; try again in a moment.",
 	},
 	upstreamFailed: {
 		status: 502,
 		title: "Local server unavailable",
-		message: "The tunnel is connected, but the local server did not respond. Make sure it is running.",
+		message:
+			"The tunnel is up, but the local server behind it did not answer. If it is yours, make sure it is running on the port you gave hostc.",
 	},
 	timeout: {
 		status: 504,
 		title: "Local server timed out",
-		message: "The local server did not start responding in time.",
+		message: "The local server behind this link took too long to start responding.",
 	},
 	busy: {
 		status: 503,
 		title: "Tunnel busy",
-		message: "This tunnel has too many requests in flight. Try again shortly.",
+		message: "This tunnel is handling too many requests at once. Try again in a moment.",
 	},
 } satisfies Record<string, PageOptions>;
 
@@ -68,9 +71,10 @@ main { max-width: 34rem; padding: 2rem; line-height: 1.6; }
 h1 { font-size: 1.5rem; margin: 0 0 1rem; }
 .code { font-family: ui-monospace, monospace; opacity: 0.6; margin: 0; }
 footer { margin-top: 2rem; font-size: 0.875rem; opacity: 0.6; }
+footer a { color: inherit; }
 </style>
 </head>
-<body><main>${body}<footer>Served by hostc</footer></main></body>
+<body><main>${body}<footer>Served by <a href="https://github.com/akazwz/hostc">hostc</a>, public URLs for local servers</footer></main></body>
 </html>`,
 		{ status, headers: { "content-type": "text/html; charset=utf-8", ...headers } },
 	);
