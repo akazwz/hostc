@@ -27,9 +27,8 @@ npx hostc@latest 3000
 
 Open the URL on any device. Every request shows up in your terminal as it arrives.
 
-I build hostc in my spare time. It's free and open source, not a business. If it helps you,
-[a star on GitHub](https://github.com/akazwz/hostc) helps other developers find it and is the best
-encouragement to keep going.
+hostc is free and open source. If it helps you, [a star on GitHub](https://github.com/akazwz/hostc) helps
+other developers find it, and it's the best encouragement for the project.
 
 ## Why hostc
 
