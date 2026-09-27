@@ -23,4 +23,5 @@ component library, no build step, no JavaScript, no web fonts.
   (it may not exit; stop it once the file exists). GitHub's social preview wants 1280×640: widen the
   `viewBox` and the background rectangles instead of padding the PNG, or the glow shows a seam.
 - `llms.txt` is the guide for coding agents; keep it in step with the CLI's behaviour and messages.
-- Deploy: `WEB_DOMAIN=hostc.dev pnpm deploy:web` from the repository root.
+- Merging to `main` deploys the site (Workers Builds). By hand: `WEB_DOMAIN=hostc.dev pnpm deploy:web`
+  from the repository root.

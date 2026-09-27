@@ -208,9 +208,11 @@ type Cli = {
 };
 
 function startCli(target: string): Cli {
+	// FORCE_COLOR would override NO_COLOR and wrap the printed URL in escape codes.
+	const { FORCE_COLOR: _forceColor, ...env } = process.env;
 	const child = spawn(process.execPath, ["dist/hostc.mjs", target, "--server", `http://127.0.0.1:${serverPort}`], {
 		cwd: CLI_DIR,
-		env: { ...process.env, NO_COLOR: "1" },
+		env: { ...env, NO_COLOR: "1" },
 	});
 	let output = "";
 	child.stdout.on("data", (chunk: Buffer) => {

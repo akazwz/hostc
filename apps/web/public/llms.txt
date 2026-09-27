@@ -2,6 +2,8 @@
 
 > hostc gives a local HTTP or WebSocket server a public HTTPS URL. No account, nothing to install beyond Node.js 22+.
 
+Use it when the user wants to open what you built on another device, show it to someone, or receive webhooks from an outside service. WebSockets and hot reload work through it, so the user sees each change as you make it.
+
 ## Start a tunnel
 
 Run it as a long-lived background process, pointing at the local server's port:
