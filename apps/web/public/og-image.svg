@@ -1,35 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
-	<!-- Source of og-image.png: the social card, in the site's dark colors. Render it at 1200x630. -->
-	<defs>
-		<linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="0%">
-			<stop offset="0%" stop-color="#ff7a18" />
-			<stop offset="100%" stop-color="#f0457f" />
-		</linearGradient>
-		<linearGradient id="word" gradientUnits="userSpaceOnUse" x1="96" y1="0" x2="620" y2="0">
-			<stop offset="0%" stop-color="#ff7a18" />
-			<stop offset="100%" stop-color="#f0457f" />
-		</linearGradient>
-	</defs>
-	<rect width="1200" height="630" fill="#1c1c1f" />
-
-	<g transform="translate(96 64) scale(0.56)">
-		<rect width="100" height="100" rx="22" fill="#09090b" />
-		<line x1="28" y1="20" x2="28" y2="80" stroke="#ffffff" stroke-width="14" stroke-linecap="round" />
-		<g stroke="url(#brand)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none">
-			<path d="M 28 60 C 28 36, 45 36, 60 36 L 76 36" />
-			<path d="M 60 20 L 76 36 L 60 52" />
-		</g>
-	</g>
-	<text x="168" y="106" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="38" font-weight="600" fill="#f4f4f5">hostc</text>
-
-	<g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="124" font-weight="700" letter-spacing="-5">
-		<text x="90" y="262" fill="#f4f4f5">Localhost,</text>
-		<text x="90" y="378" fill="url(#word)">anywhere.</text>
-	</g>
-	<text x="96" y="446" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="32" fill="#a1a1aa">
-		A public HTTPS URL for your dev server. Hot reload included.
-	</text>
-
-	<rect x="96" y="486" width="476" height="72" rx="14" fill="#26262a" stroke="#323237" stroke-width="2" />
-	<text x="126" y="533" font-family="ui-monospace, 'SF Mono', Menlo, monospace" font-size="30" fill="#f4f4f5" xml:space="preserve"><tspan fill="#a1a1aa">$</tspan> npx hostc@latest 3000</text>
+  <!-- Social card: og-image.png is this file rendered at 1200x630 (see apps/web/AGENTS.md). -->
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff7a18"/><stop offset="1" stop-color="#f0457f"/></linearGradient>
+    <linearGradient id="word" gradientUnits="userSpaceOnUse" x1="610" y1="0" x2="1060" y2="0"><stop offset="0" stop-color="#ff7a18"/><stop offset="1" stop-color="#f0457f"/></linearGradient>
+    <radialGradient id="glowA" cx="0.5" cy="0.28" r="0.55"><stop offset="0" stop-color="#ff7a18" stop-opacity="0.22"/><stop offset="0.5" stop-color="#f0457f" stop-opacity="0.08"/><stop offset="1" stop-color="#111113" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#ffffff" stroke-opacity="0.045"/></pattern>
+    <radialGradient id="fade" cx="0.5" cy="0.35" r="0.65"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <mask id="gridMask"><rect width="1200" height="630" fill="url(#fade)"/></mask>
+  </defs>
+  <rect width="1200" height="630" fill="#111113"/>
+  <rect width="1200" height="630" fill="url(#grid)" mask="url(#gridMask)"/>
+  <rect width="1200" height="630" fill="url(#glowA)"/>
+  <g transform="translate(544 70) scale(1.12)">
+    <rect width="100" height="100" rx="24" fill="#09090b" stroke="#ffffff" stroke-opacity="0.08"/>
+    <line x1="28" y1="20" x2="28" y2="80" stroke="#fff" stroke-width="14" stroke-linecap="round"/>
+    <g stroke="url(#brand)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M28 60C28 36 45 36 60 36L76 36"/><path d="M60 20L76 36 60 52"/></g>
+  </g>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" text-anchor="middle">
+    <text x="600" y="330" font-size="92" font-weight="700" letter-spacing="-3.5" fill="#f4f4f5">Localhost, <tspan fill="url(#word)">anywhere.</tspan></text>
+    <text x="600" y="398" font-size="30" fill="#a1a1aa">Share your dev server with one command. Hot reload included.</text>
+  </g>
+  <rect x="410" y="462" width="380" height="58" rx="29" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.1"/>
+  <text x="600" y="499" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, monospace" font-size="24" fill="#d4d4d8" xml:space="preserve"><tspan fill="#71717a">$</tspan> npx hostc@latest 3000</text>
 </svg>
