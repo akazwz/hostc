@@ -27,7 +27,8 @@ npx hostc@latest 3000
 
 Open the URL on any device. Every request shows up in your terminal as it arrives.
 
-If hostc saves you some time, [a star on GitHub](https://github.com/akazwz/hostc) helps other developers find it.
+hostc is free and not a business. If it helps you, [a star on GitHub](https://github.com/akazwz/hostc) is the best
+way to say thanks, and it helps other developers find it.
 
 ## Why hostc
 
@@ -44,6 +45,7 @@ If hostc saves you some time, [a star on GitHub](https://github.com/akazwz/hostc
 
 ## Use it to
 
+- share something you built with an AI coding tool before you deploy it anywhere,
 - show work in progress to a teammate or a client,
 - test webhooks from Stripe, GitHub or Slack against the code on your machine,
 - try your site on a real phone, with hot reload,
@@ -134,6 +136,8 @@ pnpm test:e2e   # wrangler dev + CLI + a local origin, end to end
 | `apps/web`          | hostc.dev website (one static page) and llms.txt          |
 
 Issues and pull requests are welcome.
+
+If hostc is useful to you, [star it on GitHub](https://github.com/akazwz/hostc).
 
 ## License
 
