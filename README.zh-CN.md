@@ -77,7 +77,7 @@ hostc 免费，迭代很快，服务端更新可能与旧版 CLI 不兼容。用
 ## 工作原理
 
 ```
-浏览器 ──▶ Cloudflare Worker ──▶ Durable Object（每个隧道一个）◀── 一条 WebSocket ── hostc ──▶ localhost
+浏览器 ──▶ Worker ──▶ Durable Object（每个隧道一个）◀── WebSocket ── hostc ──▶ localhost
 ```
 
 hostc 只向外建立一条 WebSocket 连接，所以你的电脑不需要能从公网访问。每个公网请求或 WebSocket
