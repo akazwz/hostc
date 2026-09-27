@@ -14,6 +14,9 @@ component library, no build step, no JavaScript, no web fonts.
 - `style.css` holds every color as a variable, with a `prefers-color-scheme: dark` block; check both
   schemes and a 390px-wide phone after changes.
 - Every statement about hostc must match the code; check the server, client and CLI before writing it.
+- The social card is brand first: the logo mark, the `hostc` wordmark in a bold serif, the slogan and
+  one small line, with color only in the mark. The user preferred it over busier redesigns (gradient
+  text, glows, a command box); keep it and change only its words.
 - The social card `og-image.png` (1200×630) is `og-image.svg` rendered by Chrome, which has the
   system font the SVG names:
   `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --user-data-dir=/tmp/og-profile --hide-scrollbars --window-size=1200,630 --screenshot=og-image.png "file://$PWD/og-image.svg"`
