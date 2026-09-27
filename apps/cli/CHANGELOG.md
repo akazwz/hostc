@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.4
+
+No code changes. The npm page shows the current description and README.
+
 ## 2.0.3
 
 - Reconnects back off properly when connections keep dropping right after they open, instead of

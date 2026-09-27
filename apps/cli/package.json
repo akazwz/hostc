@@ -1,6 +1,6 @@
 {
 	"name": "hostc",
-	"version": "2.0.3",
+	"version": "2.0.4",
 	"description": "Give your dev server a public HTTPS URL in one command. WebSockets and hot reload included.",
 	"keywords": [
 		"cli",
