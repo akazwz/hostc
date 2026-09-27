@@ -14,5 +14,10 @@ component library, no build step, no JavaScript, no web fonts.
 - `style.css` holds every color as a variable, with a `prefers-color-scheme: dark` block; check both
   schemes and a 390px-wide phone after changes.
 - Every statement about hostc must match the code; check the server, client and CLI before writing it.
+- The social card `og-image.png` (1200×630) is `og-image.svg` rendered by Chrome, which has the
+  system font the SVG names:
+  `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --user-data-dir=/tmp/og-profile --hide-scrollbars --window-size=1200,630 --screenshot=og-image.png "file://$PWD/og-image.svg"`
+  (it may not exit; stop it once the file exists). GitHub's social preview wants 1280×640: widen the
+  `viewBox` and the background rectangles instead of padding the PNG, or the glow shows a seam.
 - `llms.txt` is the guide for coding agents; keep it in step with the CLI's behaviour and messages.
 - Deploy: `WEB_DOMAIN=hostc.dev pnpm deploy:web` from the repository root.
