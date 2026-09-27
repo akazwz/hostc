@@ -81,7 +81,7 @@ you to upgrade.
 ## How it works
 
 ```
-browser ──▶ Cloudflare Worker ──▶ Durable Object, one per tunnel ◀── one WebSocket ── hostc ──▶ localhost
+browser ──▶ Worker ──▶ Durable Object (one per tunnel) ◀── WebSocket ── hostc ──▶ localhost
 ```
 
 hostc opens a single outgoing WebSocket, so nothing on your machine has to be reachable from the
