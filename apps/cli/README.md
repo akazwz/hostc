@@ -31,4 +31,7 @@ hostc is free and moves fast: server updates can break older CLIs. Always use `n
 rather than installing it globally or as a dependency, which would pin an old version; an outdated
 version stops at startup and tells you to upgrade.
 
-Docs: https://hostc.dev · Source: https://github.com/akazwz/hostc · Requires Node.js 22+.
+Docs: https://hostc.dev · Requires Node.js 22+.
+
+hostc is free and open source. If it helps you, a star on https://github.com/akazwz/hostc is the best way to
+say thanks.
