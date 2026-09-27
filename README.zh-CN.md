@@ -27,8 +27,8 @@ npx hostc@latest 3000
 
 在任何设备上打开这个地址即可。每个请求到达时，终端里都会打印一行。
 
-hostc 免费，也不是商业产品。如果它帮到了你，[在 GitHub 上点个 Star](https://github.com/akazwz/hostc) 就是最好的支持，
-也能让更多开发者发现它。
+hostc 是我业余做的免费开源项目，不是商业产品。如果它帮到了你，欢迎[在 GitHub 上点个 Star](https://github.com/akazwz/hostc)：
+能让更多开发者发现它，也是对我继续做下去最大的鼓励。
 
 ## 为什么用 hostc
 

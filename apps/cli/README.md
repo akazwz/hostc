@@ -33,5 +33,5 @@ version stops at startup and tells you to upgrade.
 
 Docs: https://hostc.dev · Requires Node.js 22+.
 
-hostc is free and open source. If it helps you, a star on https://github.com/akazwz/hostc is the best way to
-say thanks.
+hostc is free and open source, built in my spare time. If it helps you, a star on
+https://github.com/akazwz/hostc helps others find it and keeps me going.
