@@ -5,13 +5,26 @@ A tunnel that gives a local HTTP/WebSocket server a public URL. pnpm monorepo, N
 | Path                | Package           | What                                                                        |
 | ------------------- | ----------------- | --------------------------------------------------------------------------- |
 | `packages/protocol` | `@hostc/protocol` | wire format, messages, constants. Platform neutral: no Node or Workers APIs |
-| `packages/client`   | `@hostc/client`   | Node.js client (internal, not published)                                    |
+| `packages/client`   | `@hostc/client`   | Node.js client (internal for now; a public SDK will follow)                 |
 | `apps/server`       | `@hostc/server`   | Cloudflare Worker + Durable Object `Tunnel`                                 |
 | `apps/cli`          | `hostc`           | the published CLI, bundled with tsdown                                      |
 | `apps/web`          | `web`             | hostc.dev: one static HTML page and llms.txt                                |
 
-`docs/protocol.md` is the specification; `docs/release.md` describes deploying and publishing. Change it together with `@hostc/protocol` and bump
+`docs/protocol.md` is the specification: change it together with `@hostc/protocol`, and bump
 `PROTOCOL_VERSION` on any incompatible wire change; there is no backward compatibility.
+`docs/release.md` describes deploying and publishing.
+
+## How changes ship
+
+hostc is live: `hostc.dev` (site and API) and `*.hostc.app` (tunnels), used every day.
+
+- Work on a branch and open a pull request; CI runs on pull requests and on `main`.
+- Merging to `main` deploys to production: Workers Builds redeploys `hostc-tunnel` when
+  `apps/server`, `packages/protocol` or the lockfile change, and `hostc-web` when `apps/web` does.
+- The CLI ships by hand: bump `version` and `CHANGELOG.md` in `apps/cli`, merge, run "Release CLI"
+  with dist-tag `latest`, then create the GitHub release `v<version>`.
+- Users run `npx hostc@latest`; never suggest installing hostc globally or as a dependency.
+- Don't deprecate the old `@hostc/client` 1.3.0 on npm.
 
 ## Commands (repository root)
 
@@ -41,6 +54,9 @@ simulates hibernation.
 - Before using a library or platform API, read its docs, type definitions or source in
   `node_modules`, including defaults of options you do not set. Cloudflare APIs change often.
 - Every mechanism must prevent a concrete failure. Do not add ones that do not.
+- Idle tunnels must stay asleep: every wake, request and `setAlarm` of a Durable Object is billed.
+  No timer may outlive the request that set it, and alarms stay rare (one per 10 minutes while
+  connected).
 
 ## Lessons
 
@@ -58,3 +74,7 @@ simulates hibernation.
 - `@cloudflare/vitest-pool-workers` is superseded by `@cloudflare/vitest-plugin`.
 - `prepublishOnly` does not run for `pnpm pack` or for `npm publish <tarball>`, which the release
   workflow uses; the CLI builds in `prepack`. hostc 2.0.0 went out without `dist/` because of it.
+- `setWebSocketAutoResponse` answers on every WebSocket of the object, visitors' included, so the
+  heartbeat is `hostc:ping`/`hostc:pong`: a plain `ping` from an app would never reach it.
+- Moving an npm dist-tag needs interactive 2FA, which trusted publishing does not cover; publish a
+  new version instead. Never tag 2.0.0.
