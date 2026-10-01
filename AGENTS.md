@@ -30,7 +30,7 @@ hostc is live: `hostc.dev` (site and API) and `*.hostc.app` (tunnels), used ever
 
 | Command              | What                                                          |
 | -------------------- | ------------------------------------------------------------- |
-| `pnpm dev`           | tunnel server on http://localhost:8787 (`wrangler dev`)       |
+| `pnpm dev`           | tunnel server on http://localhost:8787 (`cf dev`)             |
 | `pnpm build`         | build the CLI to `apps/cli/dist/hostc.mjs`                    |
 | `pnpm check`         | `fmt:check`, `lint`, `typecheck`, `test`                      |
 | `pnpm test:e2e`      | real `wrangler dev` + built CLI + local origin                |
@@ -48,8 +48,10 @@ simulates hibernation.
   extensions; there is no build step except the CLI bundle.
 - The Durable Object must stay hibernation-safe: anything a WebSocket needs after waking goes into
   its attachment or tags. Only in-flight HTTP requests may live purely in memory.
-- Domains and deployment settings come from environment variables or deploy-time flags
-  (`apps/server/scripts/deploy.ts`), never hardcoded. `wrangler.jsonc` holds local defaults only.
+- Domains and deployment settings come from environment variables, never hardcoded.
+  `cloudflare.config.ts` defines Workers and bindings; `wrangler.config.ts` defines build settings.
+  Deploy scripts use `cf deploy --mode production`; other modes use local defaults.
+  Local development uses `cf dev`, with Wrangler as the underlying build tool.
 - `TOKEN_SECRET` is a Worker secret; locally it comes from `apps/server/.dev.vars` (not committed).
 - Before using a library or platform API, read its docs, type definitions or source in
   `node_modules`, including defaults of options you do not set. Cloudflare APIs change often.

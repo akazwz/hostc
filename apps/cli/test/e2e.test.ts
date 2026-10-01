@@ -245,6 +245,7 @@ async function startWrangler(): Promise<void> {
 			"exec",
 			"wrangler",
 			"dev",
+			"--experimental-new-config",
 			"--ip",
 			"127.0.0.1",
 			"--port",
