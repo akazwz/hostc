@@ -109,7 +109,7 @@ hostc 只向外建立一条 WebSocket 连接，所以你的电脑不需要能从
 
 ```sh
 pnpm install
-cp apps/server/.dev.vars.example apps/server/.dev.vars
+cp apps/server/.env.example apps/server/.env
 pnpm dev                       # 隧道服务器运行在 http://localhost:8787
 pnpm build                     # 构建 CLI
 node apps/cli/dist/hostc.mjs 3000 --server http://localhost:8787

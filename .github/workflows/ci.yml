@@ -19,5 +19,5 @@ jobs:
           node-version: 24
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
-      - run: cp apps/server/.dev.vars.example apps/server/.dev.vars
+      - run: cp apps/server/.env.example apps/server/.env
       - run: pnpm test:e2e

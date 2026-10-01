@@ -27,21 +27,39 @@ export class TunnelError extends Error {
 
 export const PROTOCOL_HEADERS = { [PROTOCOL_HEADER]: String(PROTOCOL_VERSION) };
 
+const CREATE_TIMEOUT_MS = 15_000;
+
 export async function createTunnel(server: string): Promise<CreateTunnelResponse> {
-	let response: Response;
+	// The deadline covers both response headers and the complete JSON body.
+	const signal = AbortSignal.timeout(CREATE_TIMEOUT_MS);
 	try {
-		response = await fetch(new URL(API_TUNNELS_PATH, server), { method: "POST", headers: PROTOCOL_HEADERS });
+		const response = await fetch(new URL(API_TUNNELS_PATH, server), {
+			method: "POST",
+			headers: PROTOCOL_HEADERS,
+			signal,
+		});
+		if (response.status !== 201) {
+			throw errorFromResponse(response.status, await response.text());
+		}
+		const body: unknown = await response.json();
+		if (!isCreateTunnelResponse(body)) {
+			throw new TunnelError("server_error", "The server returned an invalid tunnel");
+		}
+		return body;
 	} catch (error) {
+		if (error instanceof TunnelError) {
+			throw error;
+		}
+		if (signal.aborted) {
+			throw new TunnelError("network_error", `Creating a tunnel at ${server} timed out after 15 seconds. Try again.`, {
+				cause: error,
+			});
+		}
+		if (error instanceof SyntaxError) {
+			throw new TunnelError("server_error", "The server returned an invalid tunnel", { cause: error });
+		}
 		throw new TunnelError("network_error", `Could not reach ${server}`, { cause: error });
 	}
-	if (response.status !== 201) {
-		throw errorFromResponse(response.status, await response.text());
-	}
-	const body: unknown = await response.json();
-	if (!isCreateTunnelResponse(body)) {
-		throw new TunnelError("server_error", "The server returned an invalid tunnel");
-	}
-	return body;
 }
 
 export function errorFromResponse(status: number, text: string): TunnelError {
