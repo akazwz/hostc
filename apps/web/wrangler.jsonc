@@ -5,7 +5,7 @@
 	// Served only on the routes passed at deploy time.
 	"workers_dev": false,
 	"observability": {
-		"enabled": true,
+		"logs": { "enabled": false },
 	},
 	// Plain static files; there is no build step.
 	"assets": {

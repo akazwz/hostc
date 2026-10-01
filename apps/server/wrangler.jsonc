@@ -20,6 +20,9 @@
 			"simple": { "limit": 20, "period": 60 },
 		},
 	],
-	"observability": { "enabled": true },
+	"observability": {
+		"logs": { "enabled": false },
+		"issues": { "enabled": true },
+	},
 	"upload_source_maps": true,
 }
