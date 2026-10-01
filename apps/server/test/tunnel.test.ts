@@ -173,10 +173,11 @@ describe("public HTTP", () => {
 		const open = await client.next((frame) => frame.type === FrameType.Open);
 		client.head(open.stream);
 		const response = await pending;
+		const bodyFailed = expect(response.arrayBuffer()).rejects.toThrow("Tunnel offline");
 		client.send(FrameType.Data, open.stream, new Uint8Array(STREAM_WINDOW_BYTES + 1));
 		await client.waitUntil(() => client.closed !== null);
 		expect(client.closed?.code).toBe(CLOSE_PROTOCOL_ERROR);
-		await expect(response.arrayBuffer()).rejects.toThrow();
+		await bodyFailed;
 	});
 
 	it("fails only the affected request when a response head is invalid", async () => {

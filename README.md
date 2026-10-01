@@ -114,7 +114,7 @@ Requires Node.js 22.22+ and pnpm.
 
 ```sh
 pnpm install
-cp apps/server/.dev.vars.example apps/server/.dev.vars
+cp apps/server/.env.example apps/server/.env
 pnpm dev                       # tunnel server on http://localhost:8787
 pnpm build                     # build the CLI
 node apps/cli/dist/hostc.mjs 3000 --server http://localhost:8787

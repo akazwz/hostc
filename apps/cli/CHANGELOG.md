@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.5
+
+- Creating a tunnel now times out after 15 seconds if the API stops responding, including while
+  reading its response body. The same deadline applies when reconnecting needs a new tunnel.
+
 ## 2.0.4
 
 No code changes. The npm page shows the current description and README.

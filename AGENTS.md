@@ -52,7 +52,7 @@ simulates hibernation.
   `cloudflare.config.ts` defines Workers and bindings; `wrangler.config.ts` defines build settings.
   Deploy scripts use `cf deploy --mode production`; other modes use local defaults.
   Local development uses `cf dev`, with Wrangler as the underlying build tool.
-- `TOKEN_SECRET` is a Worker secret; locally it comes from `apps/server/.dev.vars` (not committed).
+- `TOKEN_SECRET` is a Worker secret; locally it comes from `apps/server/.env` (not committed).
 - Before using a library or platform API, read its docs, type definitions or source in
   `node_modules`, including defaults of options you do not set. Cloudflare APIs change often.
 - Every mechanism must prevent a concrete failure. Do not add ones that do not.
