@@ -3,10 +3,11 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "wrangler dev --port 8788",
+		"dev": "cf dev --port 8788",
 		"deploy": "node scripts/deploy.ts"
 	},
 	"devDependencies": {
+		"cf": "1.0.0-beta.7",
 		"wrangler": "^4.139.0"
 	}
 }

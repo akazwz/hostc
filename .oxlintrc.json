@@ -19,5 +19,5 @@
 	"env": {
 		"builtin": true
 	},
-	"ignorePatterns": ["apps/server/worker-configuration.d.ts"]
+	"ignorePatterns": ["**/.cloudflare/**"]
 }

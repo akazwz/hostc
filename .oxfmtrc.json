@@ -3,5 +3,5 @@
 	"useTabs": true,
 	"printWidth": 120,
 	"sortImports": true,
-	"ignorePatterns": ["pnpm-lock.yaml", "apps/server/worker-configuration.d.ts"]
+	"ignorePatterns": ["pnpm-lock.yaml", "**/.cloudflare/**"]
 }

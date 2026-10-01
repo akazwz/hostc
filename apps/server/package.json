@@ -3,10 +3,10 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "wrangler dev",
+		"dev": "cf dev",
 		"deploy": "node scripts/deploy.ts",
-		"types": "wrangler types --strict-vars=false",
-		"typecheck": "tsc --noEmit",
+		"types": "cf workers types",
+		"typecheck": "pnpm run types && tsc --noEmit",
 		"test": "vitest run"
 	},
 	"dependencies": {
@@ -14,6 +14,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-plugin": "^1.2.6",
+		"cf": "1.0.0-beta.7",
 		"wrangler": "^4.139.0"
 	}
 }

@@ -8,6 +8,7 @@ pnpm-debug.log*
 !**/.env.example
 !**/.env.*.example
 .wrangler
+.cloudflare
 dist
 dist-test
 coverage

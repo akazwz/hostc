@@ -97,7 +97,7 @@ for bodies. Idle tunnels sleep on the server, which is what keeps hostc free. Th
    and `example.app`. They can be the same domain, but a separate tunnel domain keeps tunnel cookies
    and abuse reports away from your main site. Add a proxied wildcard DNS record on the tunnel
    domain (`*` → `192.0.2.1`); Cloudflare's Universal SSL covers `*.example.app`.
-2. Set the token secret once: `pnpm -F @hostc/server exec wrangler secret put TOKEN_SECRET`
+2. Set the token secret once: `pnpm -F @hostc/server exec wrangler secret put TOKEN_SECRET --name hostc-tunnel`
    (at least 32 random bytes, e.g. `openssl rand -base64 48`).
 3. Deploy:
 
