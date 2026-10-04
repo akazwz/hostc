@@ -80,6 +80,9 @@ reliable, so there are no sequence numbers.
 - `OPEN.websocket` lists the offered subprotocols and marks the stream as a WebSocket upgrade.
   `HEAD` with status `101` accepts it (`protocol` must be one of the offered ones); any other status
   rejects it and is passed to the public client.
+- Successful WebSocket handshake response headers are forwarded, including `Set-Cookie` with its
+  `Domain` removed. Connection-specific handshake headers are generated independently on each side;
+  the selected subprotocol is carried in `HEAD.protocol`.
 - Frames for a stream the receiver does not know are ignored: the stream already ended.
 - A `HEAD` the server cannot accept (for example a status outside 100–599) fails only that stream.
 - Other malformed frames, `OPEN` from the client, or exceeding a window are protocol errors: the

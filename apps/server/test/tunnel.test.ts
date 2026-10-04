@@ -257,6 +257,43 @@ async function openWebSocket() {
 }
 
 describe("public WebSockets", () => {
+	it("forwards handshake cookies without copying connection-specific headers", async () => {
+		const tunnel = await createTunnel();
+		const client = await connect(tunnel);
+		const pending = SELF.fetch(publicUrl(tunnel, "/ws"), {
+			headers: { upgrade: "websocket", "sec-websocket-protocol": "chat" },
+		});
+		const open = await client.next((frame) => frame.type === FrameType.Open);
+		client.head(open.stream, {
+			status: 101,
+			body: false,
+			protocol: "chat",
+			headers: [
+				["set-cookie", "session=abc; Domain=localhost; Path=/; HttpOnly"],
+				["set-cookie", "theme=dark; Path=/"],
+				["x-app", "local"],
+				["connection", "Upgrade, x-private"],
+				["x-private", "hidden"],
+				["sec-websocket-accept", "local-accept"],
+				["sec-websocket-key", "local-key"],
+				["sec-websocket-extensions", "permessage-deflate"],
+				["sec-websocket-protocol", "wrong"],
+			],
+		});
+		const response = await pending;
+		expect(response.status).toBe(101);
+		expect(response.headers.getSetCookie()).toEqual(["session=abc; Path=/; HttpOnly", "theme=dark; Path=/"]);
+		expect(response.headers.get("x-app")).toBe("local");
+		expect(response.headers.get("x-private")).toBeNull();
+		expect(response.headers.get("sec-websocket-accept")).not.toBe("local-accept");
+		expect(response.headers.get("sec-websocket-key")).toBeNull();
+		expect(response.headers.get("sec-websocket-extensions")).toBeNull();
+		expect(response.headers.get("sec-websocket-protocol")).toBe("chat");
+		response.webSocket?.accept();
+		response.webSocket?.close();
+		client.ws.close(CLOSE_SHUTDOWN);
+	});
+
 	it("relays messages and closes in both directions", async () => {
 		const { client, socket, stream, received } = await openWebSocket();
 

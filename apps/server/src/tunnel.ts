@@ -634,7 +634,7 @@ export class Tunnel extends DurableObject<Env> {
 		const [client, server] = Object.values(new WebSocketPair()) as [WebSocket, WebSocket];
 		this.ctx.acceptWebSocket(server, ["public", `s:${id}`]);
 		server.serializeAttachment({ kind: "public", stream: id } satisfies PublicAttachment);
-		const headers = new Headers();
+		const headers = publicResponseHeaders(stripWebSocketHandshake(head.headers), false);
 		if (head.protocol) {
 			headers.set("sec-websocket-protocol", head.protocol);
 		}
