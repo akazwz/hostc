@@ -109,6 +109,31 @@ describe("HTTP", () => {
 });
 
 describe("WebSocket", () => {
+	it("preserves cookies from the local handshake", async () => {
+		const socket = new WebSocket(`ws://127.0.0.1:${serverPort}/ws-cookies`, {
+			headers: { host: tunnelHost() },
+			perMessageDeflate: false,
+		});
+		let headers: http.IncomingHttpHeaders | undefined;
+		socket.on("upgrade", (response) => {
+			headers = response.headers;
+		});
+		try {
+			await new Promise((resolve, reject) => {
+				socket.once("open", resolve);
+				socket.once("error", reject);
+			});
+			expect(headers?.["set-cookie"]).toEqual(["session=abc; Path=/; HttpOnly", "theme=dark; Path=/"]);
+			expect(headers?.["x-app"]).toBe("local");
+			expect(headers?.["sec-websocket-extensions"]).toBeUndefined();
+			const message = new Promise<string>((resolve) => socket.once("message", (data) => resolve(data.toString())));
+			socket.send("cookie-session");
+			expect(await message).toBe("echo:cookie-session");
+		} finally {
+			socket.terminate();
+		}
+	});
+
 	it("echoes text and binary messages and negotiates subprotocols", async () => {
 		const socket = new WebSocket(`ws://127.0.0.1:${serverPort}/ws`, ["chat", "other"], {
 			headers: { host: tunnelHost() },
@@ -317,7 +342,18 @@ function startOrigin(): Promise<http.Server> {
 	});
 	const sockets = new WebSocketServer({
 		server,
+		// Compression is negotiated with the CLI only; visitors must not see that handshake.
+		perMessageDeflate: true,
 		handleProtocols: (protocols) => (protocols.has("chat") ? "chat" : false),
+	});
+	sockets.on("headers", (headers, request) => {
+		if (request.url === "/ws-cookies") {
+			headers.push(
+				"Set-Cookie: session=abc; Domain=localhost; Path=/; HttpOnly",
+				"Set-Cookie: theme=dark; Path=/",
+				"X-App: local",
+			);
+		}
 	});
 	sockets.on("connection", (socket) => {
 		socket.on("message", (data, binary) => {

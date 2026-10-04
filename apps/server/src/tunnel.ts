@@ -53,7 +53,7 @@ type ClientAttachment = { kind: "client"; since: number; retired?: true };
 type PublicAttachment = { kind: "public"; stream: number };
 type Attachment = ClientAttachment | PublicAttachment;
 
-type HeadResult = { ok: true; head: HeadMessage } | { ok: false; page: PageOptions };
+type HeadResult = { ok: true; head: HeadMessage; headers: Headers } | { ok: false; page: PageOptions };
 
 /** In-flight public HTTP request. Lives only in memory: the object stays awake while it runs. */
 type HttpStream = {
@@ -259,8 +259,13 @@ export class Tunnel extends DurableObject<Env> {
 				throw new ProtocolError("OPEN is server-to-client only");
 			case FrameType.Head: {
 				let head: HeadMessage;
+				let headers: Headers;
 				try {
 					head = decodeHead(payload);
+					// Built here because the runtime rejects header names and values it cannot send.
+					headers = http
+						? publicResponseHeaders(head.headers, head.body)
+						: publicResponseHeaders(stripWebSocketHandshake(head.headers), false);
 				} catch {
 					// A bad response from one local request fails that request, not the whole tunnel.
 					this.sendFrame(FrameType.Reset, id, encodeText("invalid response head"));
@@ -276,9 +281,9 @@ export class Tunnel extends DurableObject<Env> {
 						throw new ProtocolError("duplicate HEAD");
 					}
 					http.headReceived = true;
-					http.settleHead({ ok: true, head });
+					http.settleHead({ ok: true, head, headers });
 				} else {
-					this.settleWebSocket(id, head);
+					this.settleWebSocket(id, head, headers);
 				}
 				return;
 			}
@@ -428,12 +433,11 @@ export class Tunnel extends DurableObject<Env> {
 			return errorResponse(request, result.page);
 		}
 
-		const { head } = result;
+		const { head, headers } = result;
 		if (head.status < 200) {
 			this.reset(stream, `unsupported status ${head.status}`);
 			return errorResponse(request, pages.upstreamFailed);
 		}
-		const headers = publicResponseHeaders(head.headers, head.body);
 		if (!head.body || NULL_BODY_STATUSES.has(head.status)) {
 			this.finish(stream);
 			return new Response(null, { status: head.status, headers });
@@ -613,7 +617,7 @@ export class Tunnel extends DurableObject<Env> {
 	 * Runs inside the HEAD frame handler, so the public socket is accepted before
 	 * any following DATA frame for this stream is processed.
 	 */
-	private settleWebSocket(id: number, head: HeadMessage): void {
+	private settleWebSocket(id: number, head: HeadMessage, headers: Headers): void {
 		const pending = this.pendingWebSockets.get(id);
 		if (!pending) {
 			return;
@@ -622,7 +626,7 @@ export class Tunnel extends DurableObject<Env> {
 
 		if (head.status !== 101) {
 			const status = head.status >= 200 && !NULL_BODY_STATUSES.has(head.status) ? head.status : 502;
-			pending.settle(new Response(null, { status, headers: publicResponseHeaders(head.headers, false) }));
+			pending.settle(new Response(null, { status, headers }));
 			return;
 		}
 		if (head.protocol !== undefined && !pending.offered.includes(head.protocol)) {
@@ -634,7 +638,6 @@ export class Tunnel extends DurableObject<Env> {
 		const [client, server] = Object.values(new WebSocketPair()) as [WebSocket, WebSocket];
 		this.ctx.acceptWebSocket(server, ["public", `s:${id}`]);
 		server.serializeAttachment({ kind: "public", stream: id } satisfies PublicAttachment);
-		const headers = new Headers();
 		if (head.protocol) {
 			headers.set("sec-websocket-protocol", head.protocol);
 		}

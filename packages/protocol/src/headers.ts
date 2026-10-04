@@ -13,7 +13,7 @@ const HOP_BY_HOP = new Set([
 	"upgrade",
 ]);
 
-/** Headers the WebSocket client library generates itself for the upstream handshake. */
+/** Headers each WebSocket connection negotiates for itself, so neither direction of a handshake forwards them. */
 const WEBSOCKET_HANDSHAKE = new Set([
 	"sec-websocket-accept",
 	"sec-websocket-extensions",

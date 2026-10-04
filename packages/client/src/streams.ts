@@ -10,6 +10,7 @@ import {
 	encodeWindow,
 	type Frame,
 	FrameType,
+	type HeaderList,
 	MAX_CHUNK_BYTES,
 	MAX_WEBSOCKET_MESSAGE_BYTES,
 	type OpenMessage,
@@ -19,6 +20,7 @@ import {
 	sendableCloseReason,
 	STREAM_WINDOW_BYTES,
 	stripHopByHop,
+	stripWebSocketHandshake,
 } from "@hostc/protocol";
 import { type RawData, WebSocket } from "ws";
 
@@ -242,9 +244,13 @@ class WebSocketStream implements Stream {
 		});
 		this.socket = socket;
 
+		let responseHeaders: HeaderList = [];
+		socket.on("upgrade", (response) => {
+			responseHeaders = stripWebSocketHandshake(fromRawHeaders(response.rawHeaders));
+		});
 		socket.on("open", () => {
 			const protocol = socket.protocol || undefined;
-			send(FrameType.Head, this.id, encodeHead({ status: 101, headers: [], body: false, protocol }));
+			send(FrameType.Head, this.id, encodeHead({ status: 101, headers: responseHeaders, body: false, protocol }));
 			this.settle(101);
 		});
 		socket.on("unexpected-response", (_request, response) => {
