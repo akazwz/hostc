@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.6
+
+- Headers the local server sends when it accepts a WebSocket, such as `Set-Cookie`, now reach the
+  visitor. They used to be dropped, so apps that set a session cookie on connect lost it.
+
 ## 2.0.5
 
 - Creating a tunnel now times out after 15 seconds if the API stops responding, including while
