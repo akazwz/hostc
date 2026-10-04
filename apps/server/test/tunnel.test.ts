@@ -15,7 +15,7 @@ import {
 	PONG,
 	STREAM_WINDOW_BYTES,
 } from "@hostc/protocol";
-import { env, evictDurableObject, runDurableObjectAlarm, SELF } from "cloudflare:test";
+import { env, evictDurableObject, runDurableObjectAlarm, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 import { API, connect, createTunnel, PROTOCOL, publicUrl, readAll } from "./helpers.ts";
@@ -191,6 +191,17 @@ describe("public HTTP", () => {
 		expect(client.closed).toBeNull();
 	});
 
+	it("fails only the affected request when a response header cannot be sent", async () => {
+		const tunnel = await createTunnel();
+		const client = await connect(tunnel);
+		const pending = SELF.fetch(publicUrl(tunnel));
+		const open = await client.next((frame) => frame.type === FrameType.Open);
+		client.head(open.stream, { headers: [["bad name", "x"]] });
+		expect((await pending).status).toBe(502);
+		expect((await client.next((f) => f.stream === open.stream)).type).toBe(FrameType.Reset);
+		expect(client.closed).toBeNull();
+	});
+
 	it("strips cookie domains however they are spelled", async () => {
 		const tunnel = await createTunnel();
 		const client = await connect(tunnel);
@@ -285,13 +296,46 @@ describe("public WebSockets", () => {
 		expect(response.headers.getSetCookie()).toEqual(["session=abc; Path=/; HttpOnly", "theme=dark; Path=/"]);
 		expect(response.headers.get("x-app")).toBe("local");
 		expect(response.headers.get("x-private")).toBeNull();
-		expect(response.headers.get("sec-websocket-accept")).not.toBe("local-accept");
+		expect(response.headers.get("sec-websocket-accept")).toBeNull();
 		expect(response.headers.get("sec-websocket-key")).toBeNull();
 		expect(response.headers.get("sec-websocket-extensions")).toBeNull();
 		expect(response.headers.get("sec-websocket-protocol")).toBe("chat");
 		response.webSocket?.accept();
 		response.webSocket?.close();
 		client.ws.close(CLOSE_SHUTDOWN);
+	});
+
+	it("does not forward a subprotocol the local server only named in its headers", async () => {
+		const tunnel = await createTunnel();
+		const client = await connect(tunnel);
+		const pending = SELF.fetch(publicUrl(tunnel, "/ws"), {
+			headers: { upgrade: "websocket", "sec-websocket-protocol": "chat" },
+		});
+		const open = await client.next((frame) => frame.type === FrameType.Open);
+		client.head(open.stream, { status: 101, body: false, headers: [["sec-websocket-protocol", "other"]] });
+		const response = await pending;
+		expect(response.status).toBe(101);
+		expect(response.headers.get("sec-websocket-protocol")).toBeNull();
+		response.webSocket?.accept();
+		response.webSocket?.close();
+		client.ws.close(CLOSE_SHUTDOWN);
+	});
+
+	it("fails only the upgrade when a handshake header cannot be sent", async () => {
+		const tunnel = await createTunnel();
+		const client = await connect(tunnel);
+		// Accepted and rejected upgrades alike.
+		for (const status of [101, 403]) {
+			const pending = SELF.fetch(publicUrl(tunnel, "/ws"), { headers: { upgrade: "websocket" } });
+			const open = await client.next((frame) => frame.type === FrameType.Open);
+			client.head(open.stream, { status, body: false, headers: [["x-app", "a\nb"]] });
+			expect((await pending).status).toBe(502);
+			expect((await client.next((f) => f.stream === open.stream)).type).toBe(FrameType.Reset);
+		}
+		expect(client.closed).toBeNull();
+		expect(
+			await runInDurableObject(env.TUNNEL.getByName(tunnel.id), (_, state) => state.getWebSockets("public")),
+		).toEqual([]);
 	});
 
 	it("relays messages and closes in both directions", async () => {

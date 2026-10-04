@@ -342,6 +342,8 @@ function startOrigin(): Promise<http.Server> {
 	});
 	const sockets = new WebSocketServer({
 		server,
+		// Compression is negotiated with the CLI only; visitors must not see that handshake.
+		perMessageDeflate: true,
 		handleProtocols: (protocols) => (protocols.has("chat") ? "chat" : false),
 	});
 	sockets.on("headers", (headers, request) => {
