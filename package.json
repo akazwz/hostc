@@ -16,9 +16,9 @@
 		"deploy:web": "pnpm -F web run deploy"
 	},
 	"devDependencies": {
-		"@types/node": "^26.6.2",
-		"oxfmt": "^0.70.0",
-		"oxlint": "^1.85.0",
+		"@types/node": "^26.6.4",
+		"oxfmt": "^0.72.0",
+		"oxlint": "^1.87.0",
 		"typescript": "^7.0.2",
 		"vitest": "^4.1.11"
 	},
