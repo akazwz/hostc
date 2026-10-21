@@ -13,8 +13,11 @@ export default defineConfig(({ mode }) => {
 			name: "hostc-web",
 			compatibilityDate: "2026-09-20",
 			workersDev: false,
+			// Every switch is explicit: an omitted one falls back to Cloudflare's default (logs on).
 			observability: {
-				logs: { enabled: false },
+				enabled: false,
+				logs: { enabled: false, invocationLogs: false },
+				traces: { enabled: false },
 			},
 			assets: {
 				htmlHandling: "drop-trailing-slash",
