@@ -16,11 +16,11 @@
 		"deploy:web": "pnpm -F web run deploy"
 	},
 	"devDependencies": {
-		"@types/node": "^26.6.4",
-		"oxfmt": "^0.72.0",
-		"oxlint": "^1.87.0",
+		"@types/node": "^26.6.5",
+		"oxfmt": "^0.74.0",
+		"oxlint": "^1.89.0",
 		"typescript": "^7.0.2",
-		"vitest": "^4.1.11"
+		"vitest": "^5.0.5"
 	},
 	"engines": {
 		"node": ">=22.22"
