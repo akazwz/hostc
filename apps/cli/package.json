@@ -46,7 +46,7 @@
 		"@hostc/client": "workspace:*",
 		"@hostc/protocol": "workspace:*",
 		"@types/ws": "^8.18.2",
-		"tsdown": "^0.23.0"
+		"tsdown": "^0.23.1"
 	},
 	"engines": {
 		"node": ">=22"
