@@ -22,15 +22,19 @@ Where things live: `hostc.dev` is the website (`hostc-web`), `hostc.dev/api/*` i
 (`hostc-tunnel`; the more specific route wins), `<id>.hostc.app` are the tunnels (`hostc-tunnel`),
 and the apex `hostc.app` redirects to `hostc.dev`.
 
-| Setting           | `hostc-tunnel`                                                          | `hostc-web`                                   |
-| ----------------- | ----------------------------------------------------------------------- | --------------------------------------------- |
-| Root directory    | `apps/server`                                                           | `apps/web`                                    |
-| Build command     | `pnpm install --frozen-lockfile`                                        | `pnpm install --frozen-lockfile`              |
-| Deploy command    | `pnpm run deploy`                                                       | `pnpm run deploy`                             |
-| Build variables   | `PNPM_VERSION=12.15.0` `API_DOMAIN=hostc.dev` `TUNNEL_DOMAIN=hostc.app` | `PNPM_VERSION=12.15.0` `WEB_DOMAIN=hostc.dev` |
-| Build watch paths | `apps/server/*`, `packages/protocol/*`, `pnpm-lock.yaml`                | `apps/web/*`, `pnpm-lock.yaml`                |
+| Setting           | `hostc-tunnel`                                                                            | `hostc-web`                                                     |
+| ----------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Root directory    | `apps/server`                                                                             | `apps/web`                                                      |
+| Build command     | `pnpm install --frozen-lockfile`                                                          | `pnpm install --frozen-lockfile`                                |
+| Deploy command    | `pnpm run deploy`                                                                         | `pnpm run deploy`                                               |
+| Build variables   | `NODE_VERSION=22` `PNPM_VERSION=12.15.0` `API_DOMAIN=hostc.dev` `TUNNEL_DOMAIN=hostc.app` | `NODE_VERSION=22` `PNPM_VERSION=12.15.0` `WEB_DOMAIN=hostc.dev` |
+| Build watch paths | `apps/server/*`, `packages/protocol/*`, `pnpm-lock.yaml`                                  | `apps/web/*`, `pnpm-lock.yaml`                                  |
 
 Workers Builds defaults to an older pnpm and does not read `packageManager`, hence `PNPM_VERSION`.
+`NODE_VERSION=22` builds on the Node.js major that CI tests; the image's default Node.js can be older
+than cf requires. Read and change these settings with the `cf builds` commands, for example
+`cf builds triggers environment-variables upsert <trigger-uuid>`; `cf builds get <build-uuid>` shows a
+build's trigger.
 The TypeScript configurations name each route's zone explicitly (this account has SSL for SaaS, which rejects
 inferred zones). The zone defaults to the domain; set `API_ZONE`, `TUNNEL_ZONE` or `WEB_ZONE` when a
 domain is a subdomain of its zone.
