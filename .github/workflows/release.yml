@@ -23,6 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
+      # Trusted publishing needs npm 11.5.1 or newer, which ships with Node.js 24.
       - uses: actions/setup-node@v7
         with:
           node-version: 24

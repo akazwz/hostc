@@ -110,7 +110,7 @@ for bodies. Idle tunnels sleep on the server, which is what keeps hostc free. Th
 
 ## Contributing
 
-Requires Node.js 22.22+ and pnpm.
+Requires Node.js 22.23+ and pnpm.
 
 ```sh
 pnpm install

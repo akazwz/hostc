@@ -4,11 +4,11 @@
 	"type": "module",
 	"scripts": {
 		"dev": "cf dev --port 8788",
-		"deploy": "node scripts/deploy.ts",
+		"deploy": "cf deploy --mode production",
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"cf": "1.0.0-beta.19",
-		"wrangler": "^4.151.2"
+		"cf": "1.0.0-beta.20",
+		"wrangler": "^4.152.0"
 	}
 }
