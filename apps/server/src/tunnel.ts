@@ -46,6 +46,17 @@ const STREAM_CEILING_KEY = "streamCeiling";
 const STREAM_ID_BLOCK = 1024;
 
 /**
+ * A stream moves at most one window per round trip, so 256 KiB caps it at about 1 MB/s over a
+ * 250 ms path. A response stream's window doubles up to this size whenever the visitor keeps up
+ * and a full window took less than WINDOW_GROWTH_MS. Clients accept any WINDOW grant, so this
+ * needs no protocol change.
+ */
+const MAX_STREAM_WINDOW_BYTES = 4 * 1024 * 1024;
+const WINDOW_GROWTH_MS = 1000;
+/** Window beyond STREAM_WINDOW_BYTES, shared by all streams of a tunnel. Bounds the extra memory. */
+export const WINDOW_BUDGET_BYTES = 16 * 1024 * 1024;
+
+/**
  * Everything needed to route WebSocket traffic lives in socket attachments and
  * tags, so the object can hibernate while a tunnel or a public WebSocket is idle.
  */
@@ -66,6 +77,11 @@ type HttpStream = {
 	uploading: boolean;
 	/** Response body bytes the client may still send to us. */
 	receiveCredit: number;
+	/** Response window granted to the client: STREAM_WINDOW_BYTES, grown while the stream is fast. */
+	window: number;
+	/** When the current window's worth of response bytes began, and how many have reached the visitor. */
+	windowStartedAt: number;
+	windowBytes: number;
 	queue: Uint8Array[];
 	pulling: boolean;
 	ended: boolean;
@@ -87,6 +103,7 @@ export class Tunnel extends DurableObject<Env> {
 	private streamCeiling = 0;
 	private readonly http = new Map<number, HttpStream>();
 	private readonly pendingWebSockets = new Map<number, PendingWebSocket>();
+	private windowBudget = WINDOW_BUDGET_BYTES;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
@@ -400,6 +417,9 @@ export class Tunnel extends DurableObject<Env> {
 			wakeUploader: null,
 			uploading: request.body !== null,
 			receiveCredit: STREAM_WINDOW_BYTES,
+			window: STREAM_WINDOW_BYTES,
+			windowStartedAt: 0,
+			windowBytes: 0,
 			queue: [],
 			pulling: false,
 			ended: false,
@@ -505,6 +525,7 @@ export class Tunnel extends DurableObject<Env> {
 			throw new ProtocolError("response body exceeded the flow control window");
 		}
 		stream.receiveCredit -= frame.payload.byteLength;
+		stream.windowStartedAt ||= Date.now();
 		// The frame buffer is reused by nothing else, so the payload view can be queued as is.
 		stream.queue.push(frame.payload);
 		this.flush(stream);
@@ -520,13 +541,37 @@ export class Tunnel extends DurableObject<Env> {
 			const chunk = stream.queue.shift() as Uint8Array;
 			stream.pulling = false;
 			controller.enqueue(chunk);
-			stream.receiveCredit += chunk.byteLength;
-			this.sendFrame(FrameType.Window, stream.id, encodeWindow(chunk.byteLength));
+			const grant = chunk.byteLength + this.growWindow(stream, chunk.byteLength);
+			stream.receiveCredit += grant;
+			this.sendFrame(FrameType.Window, stream.id, encodeWindow(grant));
 		}
 		if (stream.ended && stream.queue.length === 0) {
 			controller.close();
 			this.finish(stream);
 		}
+	}
+
+	/**
+	 * Counts bytes handed to the visitor. After each full window, doubles the window if it went through
+	 * in under WINDOW_GROWTH_MS and nothing is queued: then the window, not the visitor or the local
+	 * server, held the stream back. Returns the bytes to grant on top.
+	 */
+	private growWindow(stream: HttpStream, bytes: number): number {
+		stream.windowBytes += bytes;
+		if (stream.windowBytes < stream.window) {
+			return 0;
+		}
+		const now = Date.now();
+		const fast = now - stream.windowStartedAt < WINDOW_GROWTH_MS && stream.queue.length === 0;
+		stream.windowStartedAt = now;
+		stream.windowBytes = 0;
+		if (!fast) {
+			return 0;
+		}
+		const extra = Math.min(stream.window, MAX_STREAM_WINDOW_BYTES - stream.window, this.windowBudget);
+		stream.window += extra;
+		this.windowBudget -= extra;
+		return extra;
 	}
 
 	/** Normal completion of the response. */
@@ -568,6 +613,7 @@ export class Tunnel extends DurableObject<Env> {
 		stream.done = true;
 		stream.queue = [];
 		this.http.delete(stream.id);
+		this.windowBudget += stream.window - STREAM_WINDOW_BYTES;
 		stream.wakeUploader?.();
 	}
 
