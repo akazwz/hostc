@@ -93,14 +93,19 @@ reliable, so there are no sequence numbers.
 ## Flow control
 
 Only HTTP bodies are flow controlled, because only there can one side be slower than the other for
-long. Each stream has a 256 KiB window per direction. A sender may have at most the granted bytes in
-flight; the receiver grants them back with `WINDOW` once the next hop has accepted them (the public
-response stream pulled the chunk, or the local socket flushed it).
+long. Each stream starts with a 256 KiB window per direction. A sender may have at most the granted
+bytes in flight; the receiver grants them back with `WINDOW` once the next hop has accepted them (the
+public response stream pulled the chunk, or the local socket flushed it).
+
+A receiver may grant more than it got back, which widens the window. A stream moves at most one
+window per round trip, so the server widens response streams that are held back by their window:
+after each full window that reached the visitor in under a second with nothing left queued, it
+doubles the window, up to 4 MiB per stream and 16 MiB in total per tunnel.
 
 WebSocket messages are forwarded whole (up to 1 MiB, larger ones close the socket with `1009`) and
 without windows.
 
-Memory on the server is bounded by `256 streams × 256 KiB`.
+Memory on the server is bounded by `256 streams × 256 KiB` plus the 16 MiB of wider windows.
 
 ## Requests as the local server sees them
 
