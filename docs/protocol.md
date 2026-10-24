@@ -71,7 +71,7 @@ reliable, so there are no sequence numbers.
 | 2    | `HEAD`   | client → server | JSON `{ status, headers, body, protocol? }`            |
 | 3    | `DATA`   | both            | HTTP body chunk (≤ 64 KiB) or binary WebSocket message |
 | 4    | `TEXT`   | both            | text WebSocket message (UTF-8)                         |
-| 5    | `END`    | both            | HTTP: empty. WebSocket: `u16 code                      | UTF-8 reason` |
+| 5    | `END`    | both            | HTTP: empty. WebSocket: `u16 code \| UTF-8 reason`     |
 | 6    | `RESET`  | both            | UTF-8 reason; aborts the stream in both directions     |
 | 7    | `WINDOW` | both            | `u32` bytes granted                                    |
 

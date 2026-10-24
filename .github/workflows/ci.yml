@@ -14,9 +14,10 @@ jobs:
       - uses: pnpm/action-setup@v6
         with:
           cache: true
+      # The oldest Node.js the CLI supports ("engines" in apps/cli/package.json).
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 22
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: cp apps/server/.env.example apps/server/.env

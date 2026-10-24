@@ -4,7 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "cf dev",
-		"deploy": "node scripts/deploy.ts",
+		"deploy": "cf deploy --mode production",
 		"types": "cf workers types",
 		"typecheck": "pnpm run types && tsc --noEmit",
 		"test": "vitest run"
@@ -13,8 +13,8 @@
 		"@hostc/protocol": "workspace:*"
 	},
 	"devDependencies": {
-		"@cloudflare/vitest-plugin": "^1.4.5",
-		"cf": "1.0.0-beta.19",
-		"wrangler": "^4.151.2"
+		"@cloudflare/vitest-plugin": "^1.4.7",
+		"cf": "1.0.0-beta.20",
+		"wrangler": "^4.152.0"
 	}
 }

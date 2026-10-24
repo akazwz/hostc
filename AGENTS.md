@@ -1,6 +1,6 @@
 # hostc
 
-A tunnel that gives a local HTTP/WebSocket server a public URL. pnpm monorepo, Node.js 22.22+.
+A tunnel that gives a local HTTP/WebSocket server a public URL. pnpm monorepo, Node.js 22.23+.
 
 | Path                | Package           | What                                                                        |
 | ------------------- | ----------------- | --------------------------------------------------------------------------- |

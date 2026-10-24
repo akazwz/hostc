@@ -105,7 +105,7 @@ hostc 只向外建立一条 WebSocket 连接，所以你的电脑不需要能从
 
 ## 参与开发
 
-需要 Node.js 22.22+ 和 pnpm。
+需要 Node.js 22.23+ 和 pnpm。
 
 ```sh
 pnpm install
