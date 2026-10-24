@@ -98,9 +98,12 @@ bytes in flight; the receiver grants them back with `WINDOW` once the next hop h
 public response stream pulled the chunk, or the local socket flushed it).
 
 A receiver may grant more than it got back, which widens the window. A stream moves at most one
-window per round trip, so the server widens response streams that are held back by their window:
-after each full window that reached the visitor in under a second with nothing left queued, it
-doubles the window, up to 4 MiB per stream and 16 MiB in total per tunnel.
+window per round trip, so the server widens response streams that are held back by their window.
+After each full window that reached the visitor with nothing left queued, it doubles the window if
+that window took no longer than the fastest so far (plus half): a window that limits the stream
+takes one round trip whatever its size, while one wider than the link needs takes longer and only
+queues data ahead of other streams. Windows grow up to 4 MiB per stream and 16 MiB in total per
+tunnel; streams that take over a second per window keep 256 KiB.
 
 WebSocket messages are forwarded whole (up to 1 MiB, larger ones close the socket with `1009`) and
 without windows.
