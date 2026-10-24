@@ -25,6 +25,8 @@ hostc is live: `hostc.dev` (site and API) and `*.hostc.app` (tunnels), used ever
   with dist-tag `latest`, then create the GitHub release `v<version>`.
 - Users run `npx hostc@latest`; never suggest installing hostc globally or as a dependency.
 - Don't deprecate the old `@hostc/client` 1.3.0 on npm.
+- Change Cloudflare settings (Workers Builds variables, triggers, …) yourself with the `cf` CLI;
+  `cf cli search "<task>"` finds the command. Don't hand dashboard steps to the user.
 
 ## Commands (repository root)
 
