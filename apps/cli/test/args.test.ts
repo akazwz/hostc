@@ -37,6 +37,9 @@ describe("parseCommand", () => {
 		expect(parseCommand(["--version"], {}, DEFAULT).kind).toBe("version");
 		expect(parseCommand(["abc"], {}, DEFAULT).kind).toBe("error");
 		expect(parseCommand(["3000", "4000"], {}, DEFAULT).kind).toBe("error");
+		expect(parseCommand(["3000", "--here"], {}, DEFAULT).kind).toBe("error");
+		expect(parseCommand(["codex"], {}, DEFAULT)).toMatchObject({ kind: "codex", here: false });
+		expect(parseCommand(["codex", "--here"], {}, DEFAULT)).toMatchObject({ kind: "codex", here: true });
 		expect(parseCommand(["3000", "--nope"], {}, DEFAULT).kind).toBe("error");
 		expect(parseCommand(["3000", "--server", "nope"], {}, DEFAULT).kind).toBe("error");
 	});

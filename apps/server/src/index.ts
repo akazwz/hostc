@@ -2,10 +2,12 @@ import {
 	API_TUNNELS_PATH,
 	type CreateTunnelResponse,
 	isTunnelId,
+	isTunnelPrefix,
 	PROTOCOL_HEADER,
 	PROTOCOL_VERSION,
 	TUNNEL_ID_ALPHABET,
 	TUNNEL_ID_LENGTH,
+	tunnelIdFromLabel,
 } from "@hostc/protocol";
 
 import { errorResponse, pages } from "./pages.ts";
@@ -46,7 +48,7 @@ export default {
 
 /**
  * `undefined` when the host is not under the tunnel domain,
- * `null` when it is but the label is not a valid tunnel id.
+ * `null` when it is but the label does not name a tunnel.
  */
 export function tunnelIdFromHost(host: string, tunnelDomain: string): string | null | undefined {
 	const suffix = `.${tunnelDomain.toLowerCase()}`;
@@ -54,8 +56,7 @@ export function tunnelIdFromHost(host: string, tunnelDomain: string): string | n
 	if (!normalized.endsWith(suffix)) {
 		return undefined;
 	}
-	const label = normalized.slice(0, -suffix.length);
-	return isTunnelId(label) ? label : null;
+	return tunnelIdFromLabel(normalized.slice(0, -suffix.length));
 }
 
 function handleTunnelRequest(request: Request, env: Env, tunnelId: string | null): Promise<Response> | Response {
@@ -72,6 +73,8 @@ async function createTunnel(request: Request, env: Env, url: URL): Promise<Respo
 		return jsonError(429, "Too many tunnels created. Try again in a minute.");
 	}
 
+	// An unknown prefix gets a plain address: a newer client still works against this server.
+	const asked = ((await request.json().catch(() => null)) as { prefix?: unknown } | null)?.prefix;
 	const id = randomTunnelId();
 	await env.TUNNEL.getByName(id).init();
 
@@ -79,7 +82,7 @@ async function createTunnel(request: Request, env: Env, url: URL): Promise<Respo
 	connectUrl.protocol = url.protocol === "https:" ? "wss:" : "ws:";
 	const body: CreateTunnelResponse = {
 		id,
-		url: `${url.protocol}//${id}.${env.TUNNEL_DOMAIN}`,
+		url: `${url.protocol}//${isTunnelPrefix(asked) ? `${asked}-` : ""}${id}.${env.TUNNEL_DOMAIN}`,
 		connectUrl: connectUrl.toString(),
 		token: await signConnectToken(env.TOKEN_SECRET, id),
 	};

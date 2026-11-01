@@ -184,6 +184,66 @@ describe("WebSocket", () => {
 	});
 });
 
+describe("hostc codex", () => {
+	it("signs in through the tunnel, and only from its own origin", async () => {
+		const child = spawn(process.execPath, ["dist/hostc.mjs", "codex", "--server", `http://127.0.0.1:${serverPort}`], {
+			cwd: CLI_DIR,
+			env: { ...process.env, NO_COLOR: "1", HOSTC_CODEX_BIN: path.resolve(CLI_DIR, "test/fake-codex.mjs") },
+		});
+		try {
+			let output = "";
+			child.stdout.on("data", (chunk: Buffer) => {
+				output += chunk.toString();
+			});
+			await waitFor(() => /#[0-9a-f]{64}/.test(output), 15_000);
+			const link = new URL((output.match(/https?:\/\/\S+/) as RegExpMatchArray)[0]);
+			expect(link.hostname).toMatch(/^codex-/);
+			const token = link.hash.slice(1);
+			const own = link.origin;
+			const page = await publicRequest("/", {}, link.href);
+			expect(page.status).toBe(200);
+			expect(page.headers["content-security-policy"]).toContain("default-src 'none'");
+
+			const session = (from: string, body: string) =>
+				publicRequest(
+					"/api/session",
+					{ method: "POST", headers: { origin: from }, body: Buffer.from(body) },
+					link.href,
+				);
+			expect((await session(own, "wrong")).status).toBe(401);
+			expect((await session("https://other.example", token)).status).toBe(403);
+			const signedIn = await session(own, token);
+			expect(signedIn.status).toBe(204);
+			const cookie = signedIn.headers["set-cookie"]?.[0]?.split(";")[0] as string;
+
+			const connect = (from: string) =>
+				new Promise<WebSocket | number>((resolve, reject) => {
+					const socket = new WebSocket(`ws://127.0.0.1:${serverPort}/ws`, {
+						headers: { host: link.host, origin: from, cookie },
+						perMessageDeflate: false,
+					});
+					socket.once("open", () => resolve(socket));
+					socket.once("unexpected-response", (_request, response) => resolve(response.statusCode ?? 0));
+					socket.once("error", reject);
+				});
+			expect(await connect("https://other.example")).toBe(403);
+			const socket = (await connect(own)) as WebSocket;
+			const answered = new Promise<string>((resolve) => {
+				socket.on("message", (data) => {
+					if (data.toString().includes('"response"')) {
+						resolve(data.toString());
+					}
+				});
+			});
+			socket.send(JSON.stringify({ t: "request", id: 1, method: "thread/start", params: {} }));
+			expect(await answered).toContain("on-request");
+			socket.close();
+		} finally {
+			child.kill("SIGKILL");
+		}
+	});
+});
+
 describe("lifecycle", () => {
 	it("keeps the same URL when the server restarts", async () => {
 		const url = cli.url();

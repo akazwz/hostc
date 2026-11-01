@@ -31,6 +31,26 @@ or later.
 hostc is free and open source. If it helps you, [a star on GitHub](https://github.com/akazwz/hostc) helps
 other developers find it, and it's the best encouragement for the project.
 
+## hostc codex (experimental)
+
+Use the Codex CLI on your machine from any browser, including your phone:
+
+```sh
+npx hostc@latest codex --qr
+```
+
+This is experimental, and it depends on a Codex protocol that is also marked experimental. Read this first:
+
+- **The link controls your machine.** Anyone who has it can read any file and run any command as
+  you. Treat it like a password: don't paste it into chats or show the QR code on a shared screen.
+- **Asking for approval doesn't protect you from a leaked link.** New threads ask before acting, but
+  whoever has the link can approve. `--here` shows only the current directory, and commands can
+  still reach the whole machine.
+- **The link lasts until you stop it.** The token is random, kept in memory, and replaced on every
+  start. Press Ctrl+C to end access; there is no other way to revoke it.
+
+hostc is open source, so you can also [host it yourself](#self-hosting) and use `--server`.
+
 ## Why hostc
 
 - **Nothing to set up.** No sign-up, no auth token, no binary to download. If you have Node.js,

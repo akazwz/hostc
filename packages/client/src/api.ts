@@ -4,6 +4,7 @@ import {
 	isCreateTunnelResponse,
 	PROTOCOL_HEADER,
 	PROTOCOL_VERSION,
+	type TunnelPrefix,
 } from "@hostc/protocol";
 
 export type TunnelErrorCode =
@@ -29,13 +30,14 @@ export const PROTOCOL_HEADERS = { [PROTOCOL_HEADER]: String(PROTOCOL_VERSION) };
 
 const CREATE_TIMEOUT_MS = 15_000;
 
-export async function createTunnel(server: string): Promise<CreateTunnelResponse> {
+export async function createTunnel(server: string, prefix?: TunnelPrefix): Promise<CreateTunnelResponse> {
 	// The deadline covers both response headers and the complete JSON body.
 	const signal = AbortSignal.timeout(CREATE_TIMEOUT_MS);
 	try {
 		const response = await fetch(new URL(API_TUNNELS_PATH, server), {
 			method: "POST",
 			headers: PROTOCOL_HEADERS,
+			...(prefix ? { body: JSON.stringify({ prefix }) } : {}),
 			signal,
 		});
 		if (response.status !== 201) {

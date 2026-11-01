@@ -14,10 +14,12 @@ import {
 	PING,
 	PONG,
 	STREAM_WINDOW_BYTES,
+	type CreateTunnelResponse,
 } from "@hostc/protocol";
 import { env, evictDurableObject, runDurableObjectAlarm, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
+import { tunnelIdFromHost } from "../src/index.ts";
 import { WINDOW_BUDGET_BYTES } from "../src/tunnel.ts";
 import { API, connect, createTunnel, PROTOCOL, publicUrl, readAll } from "./helpers.ts";
 
@@ -27,6 +29,15 @@ function createFromSameClient(): Promise<Response> {
 		headers: { ...PROTOCOL, "cf-connecting-ip": "203.0.113.7" },
 	});
 }
+
+const createWith = async (body: unknown, ip: string): Promise<CreateTunnelResponse> =>
+	(
+		await SELF.fetch(`${API}/api/tunnels`, {
+			method: "POST",
+			headers: { ...PROTOCOL, "cf-connecting-ip": ip },
+			body: JSON.stringify(body),
+		})
+	).json();
 
 describe("tunnel API", () => {
 	it("requires the current protocol version", async () => {
@@ -47,6 +58,18 @@ describe("tunnel API", () => {
 		expect(tunnel.id).toMatch(/^[a-z2-9]{12}$/);
 		expect(tunnel.url).toBe(`https://${tunnel.id}.tunnel.test`);
 		expect(tunnel.connectUrl).toBe(`wss://api.test/api/tunnels/${tunnel.id}/connect`);
+	});
+
+	it("puts an allowed prefix in the URL, and the prefixed host reaches the same tunnel", async () => {
+		const named = await createWith({ prefix: "codex" }, "10.9.0.1");
+		expect(named.url).toBe(`https://codex-${named.id}.tunnel.test`);
+		expect(named.id).toMatch(/^[a-z2-9]{12}$/);
+		const other = await createWith({ prefix: "paypal" }, "10.9.0.2");
+		expect(other.url).toBe(`https://${other.id}.tunnel.test`);
+
+		expect(tunnelIdFromHost(`codex-${named.id}.tunnel.test`, "tunnel.test")).toBe(named.id);
+		expect(tunnelIdFromHost(`paypal-${named.id}.tunnel.test`, "tunnel.test")).toBeNull();
+		expect(tunnelIdFromHost("codex-.tunnel.test", "tunnel.test")).toBeNull();
 	});
 
 	it("rejects connects with a bad token", async () => {

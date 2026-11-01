@@ -6,6 +6,7 @@ import { type RequestLog, Tunnel, TunnelError } from "@hostc/client";
 import { renderUnicodeCompact } from "uqr";
 
 import { parseCommand, USAGE } from "./args.ts";
+import { type CodexSession, startCodex } from "./codex/run.ts";
 
 declare const __HOSTC_VERSION__: string;
 declare const __HOSTC_DEFAULT_SERVER__: string;
@@ -24,21 +25,42 @@ async function main(): Promise<number> {
 			return 2;
 	}
 
-	const { target, server, qr } = command;
-	if (!(await isListening(target))) {
-		console.log(styleText("yellow", `Nothing is listening on ${target.host} yet; requests will fail until it starts.`));
+	const { server, qr } = command;
+	let codex: CodexSession | undefined;
+	let target: URL;
+	if (command.kind === "codex") {
+		try {
+			codex = await startCodex(__HOSTC_VERSION__, command.here);
+		} catch (error) {
+			console.error(`${styleText("red", "error")} ${describe(error)}`);
+			return 1;
+		}
+		target = codex.target;
+	} else {
+		target = command.target;
+		if (!(await isListening(target))) {
+			console.log(
+				styleText("yellow", `Nothing is listening on ${target.host} yet; requests will fail until it starts.`),
+			);
+		}
 	}
+	const printLink = codex
+		? (url: string) => printCodexLink(`${url}/#${(codex as CodexSession).token}`, qr)
+		: (url: string) => printUrl(url, target, qr);
 
 	let tunnel: Tunnel;
 	try {
-		tunnel = await Tunnel.open({ server, target });
+		tunnel = await Tunnel.open({ server, target, ...(codex ? { prefix: "codex" as const } : {}) });
 	} catch (error) {
+		codex?.stop();
 		console.error(`${styleText("red", "error")} ${describe(error)}`);
 		return 1;
 	}
 
-	printUrl(tunnel.url, target, qr);
-	tunnel.on("request", printRequest);
+	printLink(tunnel.url);
+	if (!codex) {
+		tunnel.on("request", printRequest);
+	}
 	tunnel.on("disconnected", ({ reason }) => {
 		console.log(styleText("yellow", `Connection lost (${reason}). Reconnecting…`));
 	});
@@ -50,7 +72,7 @@ async function main(): Promise<number> {
 	tunnel.on("reconnected", ({ url, urlChanged }) => {
 		if (urlChanged) {
 			console.log(styleText("yellow", "The tunnel expired while offline. It has a new URL:"));
-			printUrl(url, target, qr);
+			printLink(url);
 		} else {
 			console.log(styleText("green", "Reconnected."));
 		}
@@ -58,20 +80,31 @@ async function main(): Promise<number> {
 
 	return new Promise((resolve) => {
 		tunnel.on("failed", (error) => {
+			codex?.stop();
 			console.error(`${styleText("red", "error")} ${describe(error)}`);
 			resolve(1);
 		});
 		let stopping = false;
+		void codex?.exited.then((message) => {
+			// Stopping it ourselves is not a failure.
+			if (stopping) {
+				return;
+			}
+			console.error(`${styleText("red", "error")} ${message}`);
+			void tunnel.close().then(() => resolve(1));
+		});
 		const stop = () => {
 			if (stopping) {
 				resolve(130);
 				return;
 			}
 			stopping = true;
+			codex?.stop();
 			void tunnel.close().then(() => resolve(0));
 		};
 		process.on("SIGINT", stop);
 		process.on("SIGTERM", stop);
+		process.on("SIGHUP", stop);
 	});
 }
 
@@ -87,6 +120,25 @@ function printUrl(url: string, target: URL, qr: boolean): void {
 		console.log();
 	}
 	console.log(styleText("dim", "  Anyone with this URL can reach your local server. Press Ctrl+C to stop.\n"));
+}
+
+function printCodexLink(link: string, qr: boolean): void {
+	console.log(`\n  ${styleText("bold", link)}\n`);
+	if (qr) {
+		console.log(
+			renderUnicodeCompact(link)
+				.split("\n")
+				.map((line) => `  ${line}`)
+				.join("\n"),
+		);
+		console.log();
+	}
+	console.log(
+		styleText(
+			"dim",
+			"  Experimental. Anyone with this link can read any file and run any command as you. Keep it private.\n  Press Ctrl+C to stop.",
+		),
+	);
 }
 
 function printRequest(entry: RequestLog): void {

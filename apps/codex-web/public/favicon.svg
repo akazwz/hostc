@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <!-- 极光橙渐变 (Cloudflare Edge) -->
+    <linearGradient id="edgeArrowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff7a18"/>
+      <stop offset="100%" stop-color="#e52e71"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 纯粹暗黑风格底板 -->
+  <rect width="100" height="100" rx="22" fill="#09090b"/>
+  
+  <!-- 字母 h 的左侧源泉：坚如磐石的 Localhost (纯白圆角柱) -->
+  <line x1="28" y1="20" x2="28" y2="80" stroke="#ffffff" stroke-width="14" stroke-linecap="round"/>
+  
+  <!-- 字母 h 的右侧隧道：由拱弧无缝过渡为向外突围的箭头 (Tunnel to Edge) -->
+  <g stroke="url(#edgeArrowGrad)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none">
+     <!-- 穿透隧道的抛物线与直连 -->
+     <path d="M 28 60 C 28 36, 45 36, 60 36 L 76 36" />
+     <!-- 部署到边缘网络 (Edge) 的终极箭头 -->
+     <path d="M 60 20 L 76 36 L 60 52" />
+  </g>
+</svg>

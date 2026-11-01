@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0
+
+- New, experimental: `hostc codex` uses the Codex CLI on your machine from any browser, including your
+  phone, through a private link. `--qr` prints a QR code, and `--here` shows only the current directory.
+  The link can read any file and run any command as you, so keep it private. Its address starts with `codex-`.
+
 ## 2.0.7
 
 - WebSockets can no longer grow the CLI's memory without limit. While the tunnel is congested the

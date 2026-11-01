@@ -2,13 +2,14 @@
 
 A tunnel that gives a local HTTP/WebSocket server a public URL. pnpm monorepo, Node.js 22.23+.
 
-| Path                | Package           | What                                                                        |
-| ------------------- | ----------------- | --------------------------------------------------------------------------- |
-| `packages/protocol` | `@hostc/protocol` | wire format, messages, constants. Platform neutral: no Node or Workers APIs |
-| `packages/client`   | `@hostc/client`   | Node.js client (internal for now; a public SDK will follow)                 |
-| `apps/server`       | `@hostc/server`   | Cloudflare Worker + Durable Object `Tunnel`                                 |
-| `apps/cli`          | `hostc`           | the published CLI, bundled with tsdown                                      |
-| `apps/web`          | `web`             | hostc.dev: one static HTML page and llms.txt                                |
+| Path                | Package            | What                                                                        |
+| ------------------- | ------------------ | --------------------------------------------------------------------------- |
+| `packages/protocol` | `@hostc/protocol`  | wire format, messages, constants. Platform neutral: no Node or Workers APIs |
+| `packages/client`   | `@hostc/client`    | Node.js client (internal for now; a public SDK will follow)                 |
+| `apps/server`       | `@hostc/server`    | Cloudflare Worker + Durable Object `Tunnel`                                 |
+| `apps/cli`          | `hostc`            | the published CLI, bundled with tsdown                                      |
+| `apps/web`          | `web`              | hostc.dev: one static HTML page and llms.txt                                |
+| `apps/codex-web`    | `@hostc/codex-web` | web client of `hostc codex`, shipped inside the CLI; see its own AGENTS.md  |
 
 `docs/protocol.md` is the specification: change it together with `@hostc/protocol`, and bump
 `PROTOCOL_VERSION` on any incompatible wire change; there is no backward compatibility.
@@ -61,6 +62,15 @@ simulates hibernation.
 - Idle tunnels must stay asleep: every wake, request and `setAlarm` of a Durable Object is billed.
   No timer may outlive the request that set it, and alarms stay rare (one per 10 minutes while
   connected).
+
+## `hostc codex`
+
+`apps/cli/src/codex` runs `codex app-server` over stdio and serves the web client on loopback; the
+ordinary tunnel points at that server, at an address starting with `codex-`. What it must keep doing, all tested
+in `apps/cli/test/codex-bridge.test.ts`: the token travels in the URL fragment and becomes a
+`__Host-` cookie; the WebSocket requires that cookie and an exact Origin (the tunnel rewrites the
+page's own Origin to the loopback origin); only allowlisted methods reach Codex; with `--here`, threads, files and images stay in the directory it was
+started in; a thread asks before acting unless the page chose another mode.
 
 ## Lessons
 
