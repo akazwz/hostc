@@ -106,9 +106,16 @@ queues data ahead of other streams. Windows grow up to 4 MiB per stream and 16 M
 tunnel; streams that take over a second per window keep 256 KiB.
 
 WebSocket messages are forwarded whole (up to 1 MiB, larger ones close the socket with `1009`) and
-without windows.
+without windows. The client bounds what it holds for them, without any wire format of its own:
 
-Memory on the server is bounded by `256 streams × 256 KiB` plus the 16 MiB of wider windows.
+- Towards the tunnel, it stops reading a local WebSocket until the messages it has read are written
+  to the connection, so a local server that sends too fast is held back by TCP. Nothing is lost.
+- Towards the local server, the public side cannot be held back. A stream with over 4 MiB queued on
+  a local socket is closed: the visitor gets `1013` and the other streams carry on.
+
+Memory on the server is bounded by `256 streams × 256 KiB` plus the 16 MiB of wider windows. That
+counts HTTP bodies only: Workers WebSockets expose no `bufferedAmount`, so the server cannot see or
+bound WebSocket messages on their way to a slow visitor.
 
 ## Requests as the local server sees them
 

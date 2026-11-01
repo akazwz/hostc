@@ -38,12 +38,20 @@ export type RequestLog = {
 export type StreamContext = {
 	target: URL;
 	publicOrigin: string;
-	send: (type: FrameType, stream: number, payload?: Uint8Array) => void;
+	/** Queues a frame for the tunnel; `flushed` runs once it is written. */
+	send: (type: FrameType, stream: number, payload?: Uint8Array, flushed?: () => void) => void;
 	/** Reports a request once its response status is known. */
 	log: (entry: RequestLog) => void;
 	/** Forgets a stream that has ended. */
 	remove: (stream: number) => void;
 };
+
+/**
+ * Bytes a WebSocket may have queued towards a local server that does not read. The public side cannot
+ * be paused (the Durable Object has no backpressure on hibernatable sockets, and pausing the shared
+ * connection would stall every stream and the heartbeat), so the stream closes instead.
+ */
+const MAX_LOCAL_QUEUE_BYTES = 4 * 1024 * 1024;
 
 export interface Stream {
 	start(): void;
@@ -215,6 +223,8 @@ class WebSocketStream implements Stream {
 	private socket: WebSocket | null = null;
 	private settled = false;
 	private ended = false;
+	/** Messages from the local server not yet written to the tunnel. */
+	private unflushed = 0;
 
 	constructor(context: StreamContext, id: number, open: OpenMessage) {
 		this.context = context;
@@ -263,7 +273,18 @@ class WebSocketStream implements Stream {
 			socket.terminate();
 		});
 		socket.on("message", (data, isBinary) => {
-			send(isBinary ? FrameType.Data : FrameType.Text, this.id, toBytes(data));
+			if (this.ended) {
+				return;
+			}
+			// One batch at a time: what the tunnel has not taken stays in TCP and holds back the local server.
+			socket.pause();
+			this.unflushed++;
+			send(isBinary ? FrameType.Data : FrameType.Text, this.id, toBytes(data), () => {
+				this.unflushed--;
+				if (this.unflushed === 0) {
+					socket.resume();
+				}
+			});
 		});
 		socket.on("close", (code, reason) => {
 			if (!this.ended) {
@@ -292,12 +313,23 @@ class WebSocketStream implements Stream {
 			case FrameType.Text:
 				if (this.socket?.readyState === WebSocket.OPEN) {
 					this.socket.send(frame.payload, { binary: frame.type === FrameType.Data });
+					if (this.socket.bufferedAmount > MAX_LOCAL_QUEUE_BYTES) {
+						this.context.send(
+							FrameType.End,
+							this.id,
+							encodeClose({ code: 1013, reason: "local server is not reading" }),
+						);
+						this.end();
+						this.socket.terminate();
+					}
 				}
 				return;
 			case FrameType.End: {
 				const { code, reason } = decodeClose(frame.payload);
 				this.end();
 				this.socket?.close(sendableCloseCode(code), sendableCloseReason(reason));
+				// The local server's close frame is behind whatever we stopped reading.
+				this.socket?.resume();
 				return;
 			}
 			case FrameType.Reset:
