@@ -1,10 +1,5 @@
 # Changelog
 
-## 2.0.8
-
-- The CLI now requires Node.js 22.23.4 or later. This release includes the updated Mozilla root
-  certificates in the oldest supported Node.js version.
-
 ## 2.0.7
 
 - WebSockets can no longer grow the CLI's memory without limit. While the tunnel is congested the
