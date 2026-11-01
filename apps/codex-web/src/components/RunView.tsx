@@ -162,11 +162,13 @@ const styles = stylex.create({
 		paddingInline: `calc((${control.sm} - 1rem) / 2)`,
 		fontVariantNumeric: "tabular-nums",
 	},
+	// As much room as the footer that replaces it, so that the text above stays where it is.
 	working: {
 		display: "flex",
 		alignItems: "center",
 		gap: space.sm,
 		minHeight: control.sm,
+		marginBlock: `calc((1rem - ${control.sm}) / 2)`,
 		color: color.muted,
 		fontSize: text.sm,
 	},
@@ -612,7 +614,16 @@ export function RunView(props: {
 				)}
 			</Show>
 			<Show when={rows().length > 0 || work().length > 0}>
-				<div {...stylex.attrs(styles.body)}>
+				<div
+					{...stylex.attrs(styles.body)}
+					onClick={(event) => {
+						// Opened a row while it works: they are reading it, so the end of the run leaves it in view.
+						const details = (event.target as Element).closest("summary")?.parentElement;
+						if (running() && details instanceof HTMLDetailsElement && !details.open) {
+							setChosen(true);
+						}
+					}}
+				>
 					{/* Finished: the work is one line until someone wants to look. */}
 					<Show when={!running() && work().length > 0}>
 						<DisclosureButton open={open()} onToggle={() => setChosen(!open())}>

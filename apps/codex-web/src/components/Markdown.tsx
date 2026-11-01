@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { createMemo, For, Match, Show, Switch } from "solid-js";
+import { createEffect, createMemo, For, Match, Show, Switch } from "solid-js";
 
 import { tokenize } from "../harness/highlight.ts";
 import { type Block, type Inline, parseMarkdown } from "../harness/markdown.ts";
@@ -110,21 +110,47 @@ const styles = stylex.create({
 	plain: {},
 });
 
+// Text that changes as it streams. Replacing all of a text node collapses any selection in it; changing
+// only what differs leaves a selection in the part before it alone, as when later words turn bold.
+function GrowingText(props: { text: string }) {
+	const node = document.createTextNode(props.text);
+	createEffect(
+		() => props.text,
+		(next) => {
+			const current = node.data;
+			let kept = 0;
+			while (kept < current.length && current[kept] === next[kept]) {
+				kept++;
+			}
+			if (kept < current.length || kept < next.length) {
+				node.replaceData(kept, current.length - kept, next.slice(kept));
+			}
+		},
+	);
+	return node;
+}
+
 function Inlines(props: { inline: Inline[] }) {
 	return (
-		<For each={props.inline}>
+		<For each={props.inline} keyed={false}>
 			{(part) => (
-				<Switch fallback={<>{part.text}</>}>
-					<Match when={part.kind === "code"}>
-						<code {...stylex.attrs(styles.inlineCode)}>{part.text}</code>
+				<Switch fallback={<GrowingText text={part().text} />}>
+					<Match when={part().kind === "code"}>
+						<code {...stylex.attrs(styles.inlineCode)}>
+							<GrowingText text={part().text} />
+						</code>
 					</Match>
-					<Match when={part.kind === "strong"}>
-						<strong>{part.text}</strong>
+					<Match when={part().kind === "strong"}>
+						<strong>
+							<GrowingText text={part().text} />
+						</strong>
 					</Match>
-					<Match when={part.kind === "emphasis"}>
-						<em>{part.text}</em>
+					<Match when={part().kind === "emphasis"}>
+						<em>
+							<GrowingText text={part().text} />
+						</em>
 					</Match>
-					<Match when={part.kind === "link" && part}>
+					<Match when={part().kind === "link" && (part() as Extract<Inline, { kind: "link" }>)}>
 						{(link) => (
 							<a
 								href={link().href}
@@ -132,7 +158,7 @@ function Inlines(props: { inline: Inline[] }) {
 								rel="noreferrer noopener"
 								{...stylex.attrs(styles.link, base.focusRing)}
 							>
-								{link().text}
+								<GrowingText text={link().text} />
 							</a>
 						)}
 					</Match>
@@ -147,7 +173,13 @@ export function Code(props: { text: string; language: string }) {
 	const tokens = createMemo(() => tokenize(props.text, props.language));
 	return (
 		<pre tabindex="0" {...stylex.attrs(styles.code, base.focusRing)}>
-			<For each={tokens()}>{(token) => <span {...stylex.attrs(styles[token.kind])}>{token.text}</span>}</For>
+			<For each={tokens()} keyed={false}>
+				{(token) => (
+					<span {...stylex.attrs(styles[token().kind])}>
+						<GrowingText text={token().text} />
+					</span>
+				)}
+			</For>
 		</pre>
 	);
 }

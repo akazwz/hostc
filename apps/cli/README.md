@@ -27,6 +27,10 @@ hostc <target> [options]
 
 Anyone with the URL can reach your local server, so don't expose anything sensitive.
 
+`hostc codex` (experimental) uses the Codex CLI on your machine from any browser. Its link can read
+any file and run any command as you. Read
+[the risks](https://github.com/akazwz/hostc#hostc-codex-experimental) before using it.
+
 hostc is free and moves fast: server updates can break older CLIs. Always use `npx hostc@latest`
 rather than installing it globally or as a dependency, which would pin an old version; an outdated
 version stops at startup and tells you to upgrade.

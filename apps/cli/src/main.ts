@@ -136,7 +136,7 @@ function printCodexLink(link: string, qr: boolean): void {
 	console.log(
 		styleText(
 			"dim",
-			"  Anyone with this link can read any file and run any command as you. Keep it private.\n  Traffic passes through the hostc relay. Press Ctrl+C to stop.",
+			"  Experimental. Anyone with this link can read any file and run any command as you. Keep it private.\n  Press Ctrl+C to stop.",
 		),
 	);
 }

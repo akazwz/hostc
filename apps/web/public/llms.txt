@@ -31,6 +31,14 @@ Send SIGINT (Ctrl+C) or SIGTERM. The URL stops working immediately. Starting hos
 
 Exit codes: 0 stopped or help/version, 1 could not create or keep the tunnel (read the printed error), 2 invalid arguments.
 
+## Codex from a browser (experimental)
+
+Only when the user asks to use Codex from their phone or another browser:
+
+    npx hostc@latest codex
+
+It needs the Codex CLI on the machine, and prints a private link. Anyone with that link can read any file and run any command as the user, so give it only to the user, never put it in a file, log or commit, and stop it when they are done. `--qr` also prints a QR code. `--here` shows only the current directory; commands can still reach the whole machine.
+
 ## Errors a visitor can get
 
 - 404 Tunnel not found: wrong URL, or the tunnel was stopped or expired.

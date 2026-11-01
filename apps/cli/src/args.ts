@@ -11,7 +11,7 @@ export const USAGE = `Usage: hostc <target> [options]
        hostc codex [options]
 
 Expose a local HTTP/WebSocket server through a public URL.
-"hostc codex" opens Codex from any browser, through a private link that can read\nany file and run any command as you.
+"hostc codex" (experimental) opens Codex from any browser, through a private link\nthat can read any file and run any command as you.
 
 Target:
   3000                     http://localhost:3000

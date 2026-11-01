@@ -1,6 +1,6 @@
 import type { JSX } from "@solidjs/web";
 import * as stylex from "@stylexjs/stylex";
-import { createEffect, createSignal, type ParentProps, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, type ParentProps, Show } from "solid-js";
 
 import { base } from "./base.ts";
 import { Icon } from "./Icon.tsx";
@@ -57,18 +57,17 @@ export function Disclosure(
 	const [open, setOpen] = createSignal(props.open ?? false);
 	const [opened, setOpened] = createSignal(open());
 	// A change of the prop means something happened, such as a command failing. Reading it this way
-	// leaves what the person chose alone until then.
-	createEffect(
-		() => props.open,
-		(next) => {
-			if (next !== undefined) {
-				setOpen(next);
-				if (next) {
-					setOpened(true);
-				}
+	// leaves what the person chose alone until then. Through a memo: an effect runs again whenever what
+	// the prop is made of changes, even when the answer is the same.
+	const wanted = createMemo(() => props.open);
+	createEffect(wanted, (next) => {
+		if (next !== undefined) {
+			setOpen(next);
+			if (next) {
+				setOpened(true);
 			}
-		},
-	);
+		}
+	});
 	return (
 		<details
 			open={open()}

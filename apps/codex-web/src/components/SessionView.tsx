@@ -229,15 +229,13 @@ export function SessionView(props: {
 	});
 
 	const busy = () => harness.activeRun(props.id) !== null;
+	// Stays once the run ends, until the next one starts: taking it away would move what is being read.
 	const checklist = createMemo(() => {
-		const active = harness.activeRun(props.id);
-		const list = runs()
-			.find((run) => run.id === active)
-			?.checklist();
+		const list = runs().at(-1)?.checklist();
 		return list?.length ? list : null;
 	});
 	const checklistDone = () => checklist()?.filter((item) => item.state === "done").length ?? 0;
-	const checklistNow = () => checklist()?.find((item) => item.state === "active")?.text ?? "";
+	const checklistNow = () => (busy() ? (checklist()?.find((item) => item.state === "active")?.text ?? "") : "");
 
 	const totals = createMemo(() => {
 		for (const run of runs().toReversed()) {
