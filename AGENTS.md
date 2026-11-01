@@ -35,7 +35,7 @@ hostc is live: `hostc.dev` (site and API) and `*.hostc.app` (tunnels), used ever
 | `pnpm dev`           | tunnel server on http://localhost:8787 (`cf dev`)             |
 | `pnpm build`         | build the CLI to `apps/cli/dist/hostc.mjs`                    |
 | `pnpm check`         | `fmt:check`, `lint`, `typecheck`, `test`                      |
-| `pnpm test:e2e`      | real `wrangler dev` + built CLI + local origin                |
+| `pnpm test:e2e`      | real `cf dev` + built CLI + local origin                      |
 | `pnpm fmt`           | format with oxfmt                                             |
 | `pnpm lint`          | lint with oxlint                                              |
 | `pnpm deploy:server` | deploy the tunnel server; needs `API_DOMAIN`, `TUNNEL_DOMAIN` |
@@ -76,6 +76,10 @@ simulates hibernation.
 - Hibernatable sockets are left in `CLOSING` in `webSocketClose`; call `ws.close()` there to finish
   the handshake.
 - `@cloudflare/vitest-pool-workers` is superseded by `@cloudflare/vitest-plugin`.
+- `cf dev` accepts only `--mode`, `--host` and `--port`; pass the rest through the environment.
+  `--host` is not the listen address: it changes the host the Worker sees and drops the port from
+  `request.url`, which breaks `connectUrl`. Local state goes to `.wrangler` beside the config. Wrangler stays installed as the
+  bundler `cf` delegates to, and for `secret put`, which `cf` cannot do yet.
 - `prepublishOnly` does not run for `pnpm pack` or for `npm publish <tarball>`, which the release
   workflow uses; the CLI builds in `prepack`. hostc 2.0.0 went out without `dist/` because of it.
 - `setWebSocketAutoResponse` answers on every WebSocket of the object, visitors' included, so the

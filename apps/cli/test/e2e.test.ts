@@ -1,13 +1,11 @@
 /**
- * End to end: a real `wrangler dev` tunnel server, the built CLI, and a local origin server.
+ * End to end: a real `cf dev` tunnel server, the built CLI, and a local origin server.
  * Run with `pnpm test:e2e` (builds the CLI first).
  */
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { gzipSync, gunzipSync } from "node:zlib";
 
@@ -16,12 +14,11 @@ import { WebSocket, WebSocketServer } from "ws";
 
 const CLI_DIR = path.resolve(import.meta.dirname, "..");
 const SERVER_DIR = path.resolve(CLI_DIR, "../server");
-const persistDir = mkdtempSync(path.join(tmpdir(), "hostc-e2e-"));
 
 let originPort: number;
 let serverPort: number;
 let origin: http.Server;
-let wrangler: ChildProcess | null = null;
+let server: ChildProcess | null = null;
 let cli: Cli;
 
 const download = randomBytes(8 * 1024 * 1024);
@@ -31,16 +28,15 @@ beforeAll(async () => {
 	origin = await startOrigin();
 	originPort = (origin.address() as AddressInfo).port;
 	serverPort = await freePort();
-	await startWrangler();
+	await startServer();
 	cli = startCli(String(originPort));
 	await cli.waitFor(/https?:\/\/\S+/);
 }, 120_000);
 
 afterAll(async () => {
 	cli?.process.kill("SIGKILL");
-	stopWrangler();
+	stopServer();
 	await new Promise<void>((resolve) => origin?.close(() => resolve()));
-	rmSync(persistDir, { recursive: true, force: true });
 });
 
 describe("HTTP", () => {
@@ -191,11 +187,11 @@ describe("WebSocket", () => {
 describe("lifecycle", () => {
 	it("keeps the same URL when the server restarts", async () => {
 		const url = cli.url();
-		const exited = new Promise((resolve) => wrangler?.once("exit", resolve));
-		stopWrangler();
+		const exited = new Promise((resolve) => server?.once("exit", resolve));
+		stopServer();
 		await exited;
 		await cli.waitFor(/Connection lost/);
-		await startWrangler();
+		await startServer();
 		await cli.waitFor(/Reconnected\./, 30_000);
 		expect(cli.url()).toBe(url);
 		expect((await publicRequest("/echo-headers")).status).toBe(200);
@@ -263,31 +259,14 @@ function startCli(target: string): Cli {
 	};
 }
 
-async function startWrangler(): Promise<void> {
-	wrangler = spawn(
-		"pnpm",
-		[
-			"exec",
-			"wrangler",
-			"dev",
-			"--experimental-new-config",
-			"--ip",
-			"127.0.0.1",
-			"--port",
-			String(serverPort),
-			"--inspector-port",
-			String(await freePort()),
-			"--persist-to",
-			persistDir,
-			"--var",
-			`TUNNEL_DOMAIN:localhost:${serverPort}`,
-			"--show-interactive-dev-session=false",
-			"--log-level",
-			"warn",
-		],
+async function startServer(): Promise<void> {
+	server = spawn("pnpm", ["exec", "cf", "dev", "--port", String(serverPort)], {
+		cwd: SERVER_DIR,
+		env: { ...process.env, TUNNEL_DOMAIN: `localhost:${serverPort}` },
+		stdio: "ignore",
 		// Own process group, so stopping it also stops workerd.
-		{ cwd: SERVER_DIR, stdio: "ignore", detached: true },
-	);
+		detached: true,
+	});
 	await waitFor(async () => {
 		try {
 			const response = await fetch(`http://127.0.0.1:${serverPort}/api/health`);
@@ -298,10 +277,10 @@ async function startWrangler(): Promise<void> {
 	}, 60_000);
 }
 
-function stopWrangler(): void {
-	if (wrangler?.pid) {
+function stopServer(): void {
+	if (server?.pid) {
 		try {
-			process.kill(-wrangler.pid, "SIGTERM");
+			process.kill(-server.pid, "SIGTERM");
 		} catch {
 			// Already gone.
 		}

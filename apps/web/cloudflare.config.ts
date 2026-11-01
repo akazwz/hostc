@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
 	return {
 		worker: {
 			name: "hostc-web",
-			compatibilityDate: "2026-09-20",
+			compatibilityDate: "2026-10-30",
 			workersDev: false,
 			// Every switch is explicit: an omitted one falls back to Cloudflare's default (logs on).
 			observability: {

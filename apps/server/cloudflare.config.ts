@@ -7,7 +7,7 @@ import * as entrypoint from "./src/index.ts" with { type: "cf-worker" };
 const worker = defineWorker({
 	name: "hostc-tunnel",
 	entrypoint,
-	compatibilityDate: "2026-09-20",
+	compatibilityDate: "2026-10-30",
 	// Without it request.signal never fires, and a visitor who gives up keeps the local request running.
 	compatibilityFlags: ["enable_request_signal"],
 	workersDev: false,

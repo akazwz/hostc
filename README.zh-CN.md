@@ -119,7 +119,7 @@ node apps/cli/dist/hostc.mjs 3000 --server http://localhost:8787
 
 ```sh
 pnpm check      # 格式检查、lint、类型检查、单测和集成测试
-pnpm test:e2e   # wrangler dev + CLI + 本地源站的端到端测试
+pnpm test:e2e   # cf dev + CLI + 本地源站的端到端测试
 ```
 
 | 路径                | 内容                                          |
