@@ -14,7 +14,7 @@ jobs:
       - uses: pnpm/action-setup@v6
         with:
           cache: true
-      # The oldest Node.js the CLI supports ("engines" in apps/cli/package.json).
+      # Use the latest patch in the oldest supported Node.js release line.
       - uses: actions/setup-node@v7
         with:
           node-version: 22
