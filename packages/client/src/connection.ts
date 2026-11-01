@@ -147,7 +147,7 @@ export class Connection {
 			{
 				target: this.options.target,
 				publicOrigin: new URL(this.options.tunnel.url).origin,
-				send: (type, id, payload) => this.send(type, id, payload),
+				send: (type, id, payload, flushed) => this.send(type, id, payload, flushed),
 				log: this.options.onRequest,
 				remove: (id) => this.streams.delete(id),
 			},
@@ -158,9 +158,9 @@ export class Connection {
 		stream.start();
 	}
 
-	private send(type: FrameType, stream: number, payload?: Uint8Array): void {
+	private send(type: FrameType, stream: number, payload?: Uint8Array, flushed?: () => void): void {
 		if (this.socket.readyState === WebSocket.OPEN) {
-			this.socket.send(encodeFrame(type, stream, payload));
+			this.socket.send(encodeFrame(type, stream, payload), flushed);
 		}
 	}
 }

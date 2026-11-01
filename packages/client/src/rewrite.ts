@@ -27,14 +27,18 @@ export function toPublicResponseHeaders(headers: HeaderList, publicOrigin: strin
 		if (name.toLowerCase() !== "location") {
 			return [name, value];
 		}
-		for (const origin of localOrigins) {
-			if (value === origin || value.startsWith(`${origin}/`) || value.startsWith(`${origin}?`)) {
-				return [name, publicOrigin + value.slice(origin.length)];
-			}
+		// Parsed as browsers do, so only the origin changes and `http://localhost:3000@evil.example` is not local.
+		const authority = LOCATION_AUTHORITY.exec(value)?.[0];
+		const origin = authority && URL.parse(value, target.href)?.origin;
+		if (authority && origin && localOrigins.includes(origin)) {
+			return [name, publicOrigin + value.slice(authority.length)];
 		}
 		return [name, value];
 	});
 }
+
+/** The start of a Location that names a host: `http://host`, `//host`. Browsers read `\\` as `/` here. */
+const LOCATION_AUTHORITY = /^(?:[a-z][a-z0-9+.-]*:)?[\\/]{2,}[^\\/?#]*/i;
 
 /** `http://localhost:3000` is also reachable as 127.0.0.1 and [::1]; apps redirect to any of them. */
 function localOriginsFor(target: URL): string[] {

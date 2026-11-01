@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.7
+
+- WebSockets can no longer grow the CLI's memory without limit. While the tunnel is congested the
+  CLI stops reading from local WebSockets, so a fast local server waits and no message is lost. A
+  local server that stops reading what visitors send has that stream closed with `1013` once 4 MiB
+  is queued.
+- Redirects to the local server are recognized in every form, including `http://localhost:3000#token`
+  and `//localhost:3000/login`. Those used to send visitors to their own machine.
+
 ## 2.0.6
 
 - Headers the local server sends when it accepts a WebSocket, such as `Set-Cookie`, now reach the
