@@ -25,7 +25,8 @@ npx hostc@latest 3000
   Anyone with this URL can reach your local server. Press Ctrl+C to stop.
 ```
 
-在任何设备上打开这个地址即可。每个请求到达时，终端里都会打印一行。需要 Node.js 22.23.4 或更高版本。
+在任何设备上打开这个地址即可。每个请求到达时，终端里都会打印一行。
+使用 Node.js 22.x 时需 22.23.4+，24.x 时需 24.22.1+，26.x 时需 26.12.1+。
 
 hostc 免费开源。如果它帮到了你，欢迎[在 GitHub 上点个 Star](https://github.com/akazwz/hostc)：
 能让更多开发者发现它，也是对这个项目最大的鼓励。
@@ -126,7 +127,7 @@ hostc 只向外建立一条 WebSocket 连接，所以你的电脑不需要能从
 
 ## 参与开发
 
-需要 Node.js 22.23.4+ 和 pnpm。
+需要 pnpm。Node.js 22.x 需 22.23.4+，24.x 需 24.22.1+，26.x 需 26.12.1+。
 
 ```sh
 pnpm install
