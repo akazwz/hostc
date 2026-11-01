@@ -16,8 +16,19 @@
 			}
 		]
 	},
+	"overrides": [
+		{
+			"files": ["apps/codex-web/**"],
+			"rules": {
+				"import/no-unassigned-import": "off",
+				"import/no-named-as-default-member": "off",
+				"no-unassigned-import": "off",
+				"no-named-as-default-member": "off"
+			}
+		}
+	],
 	"env": {
 		"builtin": true
 	},
-	"ignorePatterns": ["**/.cloudflare/**"]
+	"ignorePatterns": ["**/.cloudflare/**", "apps/codex-web/src/codex/protocol/**", "apps/codex-web/file-routes.d.ts"]
 }

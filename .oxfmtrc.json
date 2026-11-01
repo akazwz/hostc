@@ -3,5 +3,12 @@
 	"useTabs": true,
 	"printWidth": 120,
 	"sortImports": true,
-	"ignorePatterns": ["pnpm-lock.yaml", "**/.cloudflare/**"]
+	"ignorePatterns": [
+		"pnpm-lock.yaml",
+		"**/.cloudflare/**",
+		"apps/codex-web/src/codex/protocol/**",
+		"apps/codex-web/file-routes.d.ts",
+		"apps/codex-web/docs/**",
+		"apps/codex-web/AGENTS.md"
+	]
 }

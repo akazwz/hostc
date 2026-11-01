@@ -5,3 +5,14 @@ packages:
 allowBuilds:
   esbuild: true
   workerd: true
+
+# Solid 2 (apps/codex-web) is a release candidate whose packages are released together and often.
+minimumReleaseAgeExclude:
+  - solid-js
+  - "@solidjs/*"
+  - filesystem-routing
+
+# @stylexjs/unplugin 0.19.1 still declares unplugin ^2.3.11; unplugin 3 works with it.
+peerDependencyRules:
+  allowedVersions:
+    "@stylexjs/unplugin>unplugin": "3"
