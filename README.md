@@ -25,8 +25,8 @@ npx hostc@latest 3000
   Anyone with this URL can reach your local server. Press Ctrl+C to stop.
 ```
 
-Open the URL on any device. Every request shows up in your terminal as it arrives. Needs Node.js 22
-or later.
+Open the URL on any device. Every request shows up in your terminal as it arrives. Needs Node.js
+22.23.4 or later.
 
 hostc is free and open source. If it helps you, [a star on GitHub](https://github.com/akazwz/hostc) helps
 other developers find it, and it's the best encouragement for the project.
@@ -134,7 +134,7 @@ for bodies. Idle tunnels sleep on the server, which is what keeps hostc free. Th
 
 ## Contributing
 
-Requires Node.js 22.23+ and pnpm.
+Requires Node.js 22.23.4+ and pnpm.
 
 ```sh
 pnpm install
