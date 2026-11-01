@@ -18,7 +18,7 @@ const SERVER_DIR = path.resolve(CLI_DIR, "../server");
 let originPort: number;
 let serverPort: number;
 let origin: http.Server;
-let server: ChildProcess | null = null;
+let tunnelServer: ChildProcess | null = null;
 let cli: Cli;
 
 const download = randomBytes(8 * 1024 * 1024);
@@ -187,7 +187,7 @@ describe("WebSocket", () => {
 describe("lifecycle", () => {
 	it("keeps the same URL when the server restarts", async () => {
 		const url = cli.url();
-		const exited = new Promise((resolve) => server?.once("exit", resolve));
+		const exited = new Promise((resolve) => tunnelServer?.once("exit", resolve));
 		stopServer();
 		await exited;
 		await cli.waitFor(/Connection lost/);
@@ -260,7 +260,7 @@ function startCli(target: string): Cli {
 }
 
 async function startServer(): Promise<void> {
-	server = spawn("pnpm", ["exec", "cf", "dev", "--port", String(serverPort)], {
+	tunnelServer = spawn("pnpm", ["exec", "cf", "dev", "--port", String(serverPort)], {
 		cwd: SERVER_DIR,
 		env: { ...process.env, TUNNEL_DOMAIN: `localhost:${serverPort}` },
 		stdio: "ignore",
@@ -278,9 +278,9 @@ async function startServer(): Promise<void> {
 }
 
 function stopServer(): void {
-	if (server?.pid) {
+	if (tunnelServer?.pid) {
 		try {
-			process.kill(-server.pid, "SIGTERM");
+			process.kill(-tunnelServer.pid, "SIGTERM");
 		} catch {
 			// Already gone.
 		}

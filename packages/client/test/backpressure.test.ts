@@ -54,6 +54,8 @@ async function until(condition: () => boolean, what: string): Promise<void> {
 	}
 }
 
+const settled = () => new Promise((resolve) => setTimeout(resolve, 100));
+
 /** A real Connection between a fake tunnel server and a local WebSocket server, with one bridged stream. */
 async function bridge(): Promise<Setup> {
 	const tunnelServer = await listen();
@@ -140,7 +142,6 @@ describe("WebSocket backpressure", () => {
 		for (let index = 0; index < count; index++) {
 			local.send(Buffer.alloc(4 * 1024));
 		}
-		const settled = () => new Promise((resolve) => setTimeout(resolve, 100));
 		await until(() => flushes.length > 0, "the first message");
 		await settled();
 		const firstRead = flushes.length;
