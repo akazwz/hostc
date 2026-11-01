@@ -49,8 +49,7 @@
 				<div class="hero">
 					<h1>Localhost,<br /><span>anywhere.</span></h1>
 					<p class="lead">
-						One command gives your dev server a public HTTPS URL. WebSockets and hot reload work through it, so every
-						save shows up for whoever has the link. Free, with no account.
+						One command gives your dev server a public HTTPS URL, hot reload included. Free, with no account.
 					</p>
 					<p class="command"><span>$</span><code>npx hostc@latest 3000</code></p>
 					<p class="note">Needs Node.js 22 or later. Run it with <code>--help</code> to see every option.</p>
@@ -61,126 +60,39 @@
 					<dl>
 						<div>
 							<dt>Hot reload works</dt>
-							<dd>
-								WebSockets pass straight through, so Vite and Next.js hot reload update the page on every device the
-								moment you save.
-							</dd>
+							<dd>WebSockets pass straight through, so Vite and Next.js update on every device the moment you save.</dd>
 						</div>
 						<div>
 							<dt>Dev servers just work</dt>
 							<dd>Requests arrive addressed to localhost, so dev servers accept them without configuration.</dd>
 						</div>
 						<div>
-							<dt>Everything else gets through</dt>
-							<dd>Pages, APIs and forms, Server-Sent Events, streaming responses and streaming uploads.</dd>
+							<dt>Everything gets through</dt>
+							<dd>Pages, APIs and forms, Server-Sent Events, streaming responses and uploads.</dd>
 						</div>
 						<div>
 							<dt>The URL stays put</dt>
-							<dd>
-								After a network drop or a server restart, hostc reconnects to the same tunnel. The link you shared keeps
-								working.
-							</dd>
+							<dd>After a network drop or a server restart, hostc reconnects and the link you shared keeps working.</dd>
 						</div>
 						<div>
-							<dt>Visitors see your app</dt>
-							<dd>No warning page to click through before they reach it.</dd>
+							<dt>No warning page</dt>
+							<dd>Visitors go straight to your app, with nothing to click through.</dd>
 						</div>
 						<div>
 							<dt>Nothing to set up</dt>
-							<dd>
-								No sign-up, no auth token, no binary to download: if you have Node.js, you have hostc. Press Ctrl+C and
-								the URL is gone.
-							</dd>
+							<dd>No sign-up, no auth token, no binary to download. Press Ctrl+C and the URL is gone.</dd>
 						</div>
 					</dl>
 				</section>
 
 				<section>
 					<h2>Use it to</h2>
-					<dl>
-						<div>
-							<dt>Share what you built with AI</dt>
-							<dd>Built something with an AI coding tool? Send the link before you deploy anything.</dd>
-						</div>
-						<div>
-							<dt>Show work in progress</dt>
-							<dd>Let a teammate or a client click through your app while you keep working on it.</dd>
-						</div>
-						<div>
-							<dt>Test webhooks</dt>
-							<dd>Point Stripe, GitHub or Slack at the URL and debug them against the code on your machine.</dd>
-						</div>
-						<div>
-							<dt>Try it on your phone</dt>
-							<dd>Open the URL on a real device; hot reload keeps it in step with every save.</dd>
-						</div>
-					</dl>
-				</section>
-
-				<section id="compare">
-					<h2>vs Cloudflare Tunnel</h2>
-					<div>
-						<p>
-							hostc runs on Cloudflare too. It does one narrower job than Cloudflare's own tunnels: sharing a dev server
-							for a while.
-						</p>
-						<div class="table">
-							<table>
-								<thead>
-									<tr>
-										<td></td>
-										<th scope="col">hostc</th>
-										<th scope="col">Quick Tunnel</th>
-										<th scope="col">Cloudflare Tunnel</th>
-									</tr>
-								</thead>
-								<tbody>
-									<tr>
-										<th scope="row">Install</th>
-										<td>Node.js only</td>
-										<td><code>cloudflared</code></td>
-										<td><code>cloudflared</code></td>
-									</tr>
-									<tr>
-										<th scope="row">Account</th>
-										<td>None</td>
-										<td>None</td>
-										<td>Required</td>
-									</tr>
-									<tr>
-										<th scope="row">URL</th>
-										<td>Random</td>
-										<td>Random</td>
-										<td>Your hostname</td>
-									</tr>
-									<tr>
-										<th scope="row">Server-Sent Events</th>
-										<td>Yes</td>
-										<td>No</td>
-										<td>Yes</td>
-									</tr>
-									<tr>
-										<th scope="row">Dev servers</th>
-										<td>Work as is</td>
-										<td>May need the host allowed</td>
-										<td>Configurable</td>
-									</tr>
-									<tr>
-										<th scope="row">Access control</th>
-										<td>None</td>
-										<td>Email allowlist</td>
-										<td>Cloudflare Access</td>
-									</tr>
-									<tr>
-										<th scope="row">Made for</th>
-										<td>Sharing a dev server</td>
-										<td>Quick tests</td>
-										<td>Production</td>
-									</tr>
-								</tbody>
-							</table>
-						</div>
-					</div>
+					<ul>
+						<li>Share what you built with AI before you deploy it</li>
+						<li>Let a teammate or a client click through work in progress</li>
+						<li>Debug Stripe, GitHub or Slack webhooks against your machine</li>
+						<li>Try your app on a real phone, in step with every save</li>
+					</ul>
 				</section>
 
 				<section>
@@ -193,25 +105,11 @@
 							</dd>
 						</div>
 						<div>
-							<dt>Always @latest</dt>
-							<dd>
-								hostc is free and moves fast. Run it with <code>npx</code> instead of installing it globally; an
-								outdated CLI exits at startup and tells you to upgrade.
-							</dd>
-						</div>
-						<div>
-							<dt>Coding agents</dt>
-							<dd>
-								They run the same command and read the URL from its output. <a href="/llms.txt">llms.txt</a> tells them
-								how.
-							</dd>
-						</div>
-						<div>
 							<dt>Free and open source</dt>
 							<dd>
 								Down to the server, which you can
-								<a href="https://github.com/akazwz/hostc#self-hosting">deploy to your own domain</a>. If hostc helps
-								you, <a href="https://github.com/akazwz/hostc">a star on GitHub</a> helps other developers find it.
+								<a href="https://github.com/akazwz/hostc#self-hosting">deploy yourself</a>. If hostc helps you,
+								<a href="https://github.com/akazwz/hostc">a star on GitHub</a> helps others find it.
 							</dd>
 						</div>
 					</dl>
@@ -222,6 +120,7 @@
 				<span>© 2026 hostc · Apache-2.0</span>
 				<nav aria-label="Footer">
 					<a href="/llms.txt">llms.txt</a>
+					<a href="https://github.com/akazwz/hostc#hostc-vs-cloudflare-tunnel">vs Cloudflare Tunnel</a>
 					<a href="https://github.com/akazwz/hostc">Star on GitHub</a>
 				</nav>
 			</footer>

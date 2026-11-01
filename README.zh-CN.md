@@ -50,6 +50,20 @@ hostc 免费开源。如果它帮到了你，欢迎[在 GitHub 上点个 Star](h
 - 让 AI 编程助手分享它做好的东西。把 [hostc.dev/llms.txt](https://hostc.dev/llms.txt) 发给它，
   它就知道怎么运行 hostc、怎么读取地址。
 
+## hostc 与 Cloudflare Tunnel 对比
+
+hostc 同样运行在 Cloudflare 上，但只做 Cloudflare 自家隧道中更窄的一件事：临时分享开发服务器。
+
+|                    | hostc          | Quick Tunnel    | Cloudflare Tunnel |
+| ------------------ | -------------- | --------------- | ----------------- |
+| 安装               | 只需 Node.js   | `cloudflared`   | `cloudflared`     |
+| 账号               | 不需要         | 不需要          | 需要              |
+| URL                | 随机           | 随机            | 你自己的域名      |
+| Server-Sent Events | 支持           | 不支持          | 支持              |
+| 开发服务器         | 直接可用       | 可能要放行 host | 可配置            |
+| 访问控制           | 无             | 邮箱白名单      | Cloudflare Access |
+| 适合               | 分享开发服务器 | 快速测试        | 生产环境          |
+
 ## 用法
 
 ```text

@@ -395,10 +395,10 @@ async function waitFor(check: () => boolean | Promise<boolean>, timeoutMs = 10_0
 
 function freePort(): Promise<number> {
 	return new Promise((resolve) => {
-		const server = http.createServer();
-		server.listen(0, "127.0.0.1", () => {
-			const { port } = server.address() as AddressInfo;
-			server.close(() => resolve(port));
+		const probe = http.createServer();
+		probe.listen(0, "127.0.0.1", () => {
+			const { port } = probe.address() as AddressInfo;
+			probe.close(() => resolve(port));
 		});
 	});
 }

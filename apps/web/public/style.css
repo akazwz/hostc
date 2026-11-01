@@ -1,6 +1,6 @@
 /*
  * hostc.dev: one stylesheet for every page. System fonts only, no JavaScript.
- * Colors come from the logo: zinc neutrals, white, and the orange-to-pink arrow.
+ * Colors come from the logo: zinc neutrals and white, with orange as the one accent.
  */
 
 :root {
@@ -10,8 +10,6 @@
 	--muted: #5f5f68;
 	--line: #e4e4e7;
 	--link: #c2410c;
-	--from: #ea580c;
-	--to: #db2777;
 	--mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 	color-scheme: light;
 }
@@ -24,8 +22,6 @@
 		--muted: #a1a1aa;
 		--line: #323237;
 		--link: #ff8a3d;
-		--from: #ff7a18;
-		--to: #f0457f;
 		color-scheme: dark;
 	}
 }
@@ -39,7 +35,7 @@ body {
 	background: var(--bg);
 	color: var(--ink);
 	font:
-		17px/1.6 -apple-system,
+		16px/1.6 -apple-system,
 		BlinkMacSystemFont,
 		"Segoe UI",
 		"PingFang SC",
@@ -63,11 +59,12 @@ a:hover {
 
 code {
 	font-family: var(--mono);
-	font-size: 0.9em;
+	font-size: 0.92em;
 }
 
+/* One narrow column for the whole page. */
 .wrap {
-	max-width: 880px;
+	max-width: 688px;
 	margin: 0 auto;
 	padding-inline: 24px;
 }
@@ -77,7 +74,7 @@ code {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding-block: 24px;
+	padding-block: 28px;
 }
 .brand {
 	display: flex;
@@ -85,70 +82,78 @@ code {
 	gap: 10px;
 	color: var(--ink);
 	font-weight: 600;
+	letter-spacing: -0.01em;
 }
 .brand:hover {
 	text-decoration: none;
 }
 .brand img {
-	width: 28px;
-	height: 28px;
+	width: 26px;
+	height: 26px;
+	border-radius: 6px;
+	/* Keeps the mark's near-black tile from melting into the dark background. */
+	box-shadow: 0 0 0 1px var(--line);
 }
 .top nav {
 	display: flex;
 	align-items: center;
 	gap: 24px;
-	font-size: 15px;
+	font-size: 14px;
 }
 .top nav a {
 	display: flex;
 	color: var(--muted);
+	transition: color 0.15s;
 }
 .top nav a:hover {
 	color: var(--ink);
 	text-decoration: none;
 }
 .top nav svg {
-	width: 20px;
-	height: 20px;
+	width: 18px;
+	height: 18px;
 }
 
 /* Hero */
 .hero {
-	padding-block: 88px 96px;
+	padding-block: 104px 120px;
 }
 .hero h1 {
 	margin: 0;
-	font-size: clamp(44px, 9vw, 76px);
-	line-height: 1.02;
-	letter-spacing: -0.04em;
+	font-size: clamp(44px, 9vw, 68px);
+	font-weight: 600;
+	line-height: 1.06;
+	letter-spacing: -0.03em;
 }
-/* The one place the logo's gradient appears outside the logo. */
+/* The second half of the slogan recedes; color stays in the logo and the prompt. */
 .hero h1 span {
-	background: linear-gradient(90deg, var(--from), var(--to));
-	-webkit-background-clip: text;
-	background-clip: text;
-	color: transparent;
+	color: var(--muted);
 }
 .hero .lead {
-	max-width: 30em;
-	margin: 24px 0 40px;
+	max-width: 26em;
+	margin: 28px 0 44px;
 	color: var(--muted);
-	font-size: 20px;
+	font-size: 19px;
 	line-height: 1.5;
+	letter-spacing: -0.005em;
 }
 .command {
-	display: inline-flex;
+	display: flex;
+	width: fit-content;
+	max-width: 100%;
 	gap: 14px;
 	margin: 0;
-	padding: 16px 22px;
+	padding: 18px 20px;
 	border: 1px solid var(--line);
-	border-radius: 12px;
+	border-radius: 10px;
 	background: var(--subtle);
 	font-family: var(--mono);
-	font-size: 18px;
+	font-size: 16px;
+	overflow-x: auto;
+	white-space: nowrap;
 }
 .command span {
-	color: var(--muted);
+	color: var(--link);
 	user-select: none;
 }
 /* One click selects the whole command, ready to copy. */
@@ -157,78 +162,53 @@ code {
 	user-select: all;
 }
 .note {
-	margin: 16px 0 0;
+	margin: 14px 0 0;
 	color: var(--muted);
-	font-size: 15px;
+	font-size: 14px;
 }
 .note code {
 	color: var(--ink);
 }
 
-/* Sections: a label on the left, content on the right, hairlines between. */
+/* Sections: a quiet label above the content, separated by space alone. */
 section {
-	display: grid;
-	grid-template-columns: 200px minmax(0, 1fr);
-	gap: 24px;
-	padding-block: 48px;
-	border-top: 1px solid var(--line);
+	padding-block: 0 96px;
 }
-/* A quiet label, below the item titles beside it in weight. */
 section h2 {
-	margin: 0;
+	margin: 0 0 28px;
 	color: var(--muted);
-	font-size: 15px;
+	font-size: 14px;
 	font-weight: 500;
 	line-height: 1.6;
 }
-section p {
-	margin: 0 0 16px;
-	color: var(--muted);
-}
-
 dl {
 	display: grid;
-	gap: 24px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 36px 48px;
 	margin: 0;
 }
 dt {
+	font-size: 15px;
 	font-weight: 600;
+	letter-spacing: -0.005em;
 }
 dd {
-	margin: 4px 0 0;
+	margin: 6px 0 0;
 	color: var(--muted);
+	font-size: 15px;
+	line-height: 1.55;
 }
 
-.table {
-	overflow-x: auto;
+ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	border-top: 1px solid var(--line);
 }
-table {
-	width: 100%;
-	min-width: 520px;
-	border-collapse: collapse;
-	font-size: 15px;
-}
-th,
-td {
-	padding: 10px 12px 10px 0;
+li {
+	padding-block: 14px;
 	border-bottom: 1px solid var(--line);
-	text-align: left;
-	vertical-align: top;
-}
-thead th {
-	padding-top: 0;
-	white-space: nowrap;
-	font-weight: 600;
-}
-tbody th {
-	font-weight: 500;
-	white-space: nowrap;
-}
-td {
-	color: var(--muted);
-}
-tbody tr:last-child > * {
-	border-bottom: 0;
+	font-size: 15px;
 }
 
 footer {
@@ -236,10 +216,10 @@ footer {
 	flex-wrap: wrap;
 	justify-content: space-between;
 	gap: 16px;
-	padding-block: 28px 48px;
+	padding-block: 24px 48px;
 	border-top: 1px solid var(--line);
 	color: var(--muted);
-	font-size: 14px;
+	font-size: 13px;
 }
 footer nav {
 	display: flex;
@@ -247,18 +227,21 @@ footer nav {
 }
 footer a {
 	color: inherit;
+	transition: color 0.15s;
 }
 footer a:hover {
 	color: var(--ink);
+	text-decoration: none;
 }
 
 /* 404 */
 .missing {
-	padding-block: 88px 120px;
+	padding-block: 104px 120px;
 }
 .missing h1 {
 	margin: 0 0 16px;
 	font-size: 44px;
+	font-weight: 600;
 	letter-spacing: -0.03em;
 }
 .missing p {
@@ -267,21 +250,20 @@ footer a:hover {
 }
 
 @media (max-width: 720px) {
-	body {
-		font-size: 16px;
-	}
 	.hero {
-		padding-block: 48px 64px;
+		padding-block: 56px 80px;
 	}
 	.hero .lead {
-		font-size: 18px;
+		font-size: 17px;
 	}
 	.command {
-		font-size: 16px;
+		font-size: 15px;
 	}
 	section {
+		padding-block: 0 72px;
+	}
+	dl {
 		grid-template-columns: minmax(0, 1fr);
-		gap: 16px;
-		padding-block: 40px;
+		gap: 28px;
 	}
 }

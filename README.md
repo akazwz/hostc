@@ -52,6 +52,21 @@ other developers find it, and it's the best encouragement for the project.
 - let a coding agent share what it built. Point the agent at
   [hostc.dev/llms.txt](https://hostc.dev/llms.txt) and it knows how to run hostc and read the URL.
 
+## hostc vs Cloudflare Tunnel
+
+hostc runs on Cloudflare too. It does one narrower job than Cloudflare's own tunnels: sharing a dev
+server for a while.
+
+|                    | hostc                | Quick Tunnel              | Cloudflare Tunnel |
+| ------------------ | -------------------- | ------------------------- | ----------------- |
+| Install            | Node.js only         | `cloudflared`             | `cloudflared`     |
+| Account            | None                 | None                      | Required          |
+| URL                | Random               | Random                    | Your hostname     |
+| Server-Sent Events | Yes                  | No                        | Yes               |
+| Dev servers        | Work as is           | May need the host allowed | Configurable      |
+| Access control     | None                 | Email allowlist           | Cloudflare Access |
+| Made for           | Sharing a dev server | Quick tests               | Production        |
+
 ## Usage
 
 ```text
