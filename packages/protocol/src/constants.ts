@@ -55,6 +55,24 @@ export const API_TUNNELS_PATH = "/api/tunnels";
 export const TUNNEL_ID_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
 export const TUNNEL_ID_LENGTH = 12;
 
+/**
+ * What a client may ask to have in front of the id, so that the address says what it opens. A fixed list:
+ * free text would let a link pose as another site. Never part of the id, and `-` is not in its alphabet.
+ */
+export const TUNNEL_PREFIXES = ["codex"] as const;
+export type TunnelPrefix = (typeof TUNNEL_PREFIXES)[number];
+
+export function isTunnelPrefix(value: unknown): value is TunnelPrefix {
+	return TUNNEL_PREFIXES.some((prefix) => prefix === value);
+}
+
+/** The tunnel id in a host label, with or without a prefix; `null` when the label is not a tunnel's. */
+export function tunnelIdFromLabel(label: string): string | null {
+	const prefix = TUNNEL_PREFIXES.find((own) => label.startsWith(`${own}-`));
+	const id = prefix ? label.slice(prefix.length + 1) : label;
+	return isTunnelId(id) ? id : null;
+}
+
 export function isTunnelId(value: string): boolean {
 	if (value.length !== TUNNEL_ID_LENGTH) {
 		return false;

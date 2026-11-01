@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-import { CLOSE_REPLACED, CLOSE_SHUTDOWN, type CreateTunnelResponse } from "@hostc/protocol";
+import { CLOSE_REPLACED, CLOSE_SHUTDOWN, type CreateTunnelResponse, type TunnelPrefix } from "@hostc/protocol";
 
 import { createTunnel, TunnelError } from "./api.ts";
 import { Connection } from "./connection.ts";
@@ -11,6 +11,8 @@ export type TunnelOptions = {
 	server: string;
 	/** Local server origin, for example `http://localhost:3000`. */
 	target: string | URL;
+	/** Put in front of the id in the public URL, to say what it opens. */
+	prefix?: TunnelPrefix;
 };
 
 export type TunnelEvents = {
@@ -31,6 +33,7 @@ export type TunnelEvents = {
 export class Tunnel extends EventEmitter<TunnelEvents> {
 	private readonly server: string;
 	private readonly target: URL;
+	private readonly prefix: TunnelPrefix | undefined;
 	private info: CreateTunnelResponse;
 	private connection: Connection | null = null;
 	private closing = false;
@@ -40,7 +43,7 @@ export class Tunnel extends EventEmitter<TunnelEvents> {
 	private urlChanged = false;
 
 	static async open(options: TunnelOptions): Promise<Tunnel> {
-		const info = await createTunnel(options.server);
+		const info = await createTunnel(options.server, options.prefix);
 		const tunnel = new Tunnel(options, info);
 		tunnel.connection = await tunnel.connect();
 		tunnel.backoff.connected();
@@ -125,7 +128,7 @@ export class Tunnel extends EventEmitter<TunnelEvents> {
 						throw caught;
 					}
 					// The tunnel expired while we were away: start a new one.
-					this.info = await createTunnel(this.server);
+					this.info = await createTunnel(this.server, this.prefix);
 					this.urlChanged = true;
 					this.connection = await this.connect();
 				}

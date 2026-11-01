@@ -26,6 +26,11 @@ upgrade; there is no fallback to older versions.
 | `GET /api/tunnels/:id/connect` (upgrade) | `101`; `401` bad token; `404` tunnel expired                  |
 | `GET /api/health`                        | `200 { ok: true }`                                            |
 
+`POST /api/tunnels` may carry the JSON body `{ "prefix": "codex" }`: `url` then starts with the prefix
+(`https://codex-<id>.<domain>`), and that host reaches the same tunnel as the plain one. Prefixes are a
+fixed list in `@hostc/protocol`, so that a link cannot pose as another site. An unknown one is ignored,
+and the id never includes it.
+
 The token is `HMAC-SHA256(TOKEN_SECRET, "connect:<id>")`, sent as `Authorization: Bearer <token>`.
 It never expires on its own; it stops working when the tunnel expires. The client keeps it in memory
 only, so restarting the CLI creates a new tunnel.
