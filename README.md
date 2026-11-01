@@ -124,7 +124,7 @@ Tunnels are served on `http://<id>.localhost:8787`; Chrome and Firefox resolve `
 
 ```sh
 pnpm check      # format check, lint, typecheck, unit and integration tests
-pnpm test:e2e   # wrangler dev + CLI + a local origin, end to end
+pnpm test:e2e   # cf dev + CLI + a local origin, end to end
 ```
 
 | Path                | What                                                      |

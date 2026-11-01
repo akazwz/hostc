@@ -13,8 +13,8 @@
 		"@hostc/protocol": "workspace:*"
 	},
 	"devDependencies": {
-		"@cloudflare/vitest-plugin": "^1.4.7",
-		"cf": "1.0.0-beta.20",
-		"wrangler": "^4.152.0"
+		"@cloudflare/vitest-plugin": "^1.4.11",
+		"cf": "1.0.0-beta.26",
+		"wrangler": "^4.156.0"
 	}
 }
