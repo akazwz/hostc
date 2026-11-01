@@ -25,7 +25,7 @@ npx hostc@latest 3000
   Anyone with this URL can reach your local server. Press Ctrl+C to stop.
 ```
 
-在任何设备上打开这个地址即可。每个请求到达时，终端里都会打印一行。
+在任何设备上打开这个地址即可。每个请求到达时，终端里都会打印一行。需要 Node.js 22 或更高版本。
 
 hostc 免费开源。如果它帮到了你，欢迎[在 GitHub 上点个 Star](https://github.com/akazwz/hostc)：
 能让更多开发者发现它，也是对这个项目最大的鼓励。
@@ -38,7 +38,7 @@ hostc 免费开源。如果它帮到了你，欢迎[在 GitHub 上点个 Star](h
   Server-Sent Events 也是边产生边送达。
 - **开发服务器不用改配置。** 请求到达时的地址就是 localhost，指向 localhost 的跳转也会改写回公网地址，
   不需要去改 allowed hosts 之类的设置。
-- **链接不会失效。** 断网、服务端重启都不会改变 URL，hostc 会自己重连。
+- **链接不会失效。** 断网或服务端重启后，hostc 会自己重连，只要在 10 分钟内连回来，URL 就不变。
 - **免费、开源。** 服务端是一个 Cloudflare Worker，你也可以部署到自己的域名上。
 
 ## 适合用来
@@ -46,7 +46,7 @@ hostc 免费开源。如果它帮到了你，欢迎[在 GitHub 上点个 Star](h
 - 用 AI 写了个东西，还没部署就想先分享给别人看；
 - 把开发中的页面给同事或客户看；
 - 用本机正在跑的代码测试 Stripe、GitHub、Slack 的 webhook；
-- 在真机上调试你的网站，热更新照样生效；
+- 在真机上调试你的网站，热更新照样生效（`--qr` 会打印二维码，扫一下就能打开）；
 - 让 AI 编程助手分享它做好的东西。把 [hostc.dev/llms.txt](https://hostc.dev/llms.txt) 发给它，
   它就知道怎么运行 hostc、怎么读取地址。
 
@@ -69,12 +69,32 @@ hostc <target> [options]
 
 这个地址是公开的：拿到它的人都能访问你的本地服务。只分享你打算公开的东西。
 
+### 限制
+
+- 每个隧道最多同时处理 256 个请求和 WebSocket。
+- WebSocket 单条消息最大 1 MiB。如果本地服务不再读取，积压超过 4 MiB 时这条连接也会被关闭。
+- 本地服务需要在 2 分钟内开始响应请求。
+
 ### 始终使用 `@latest`
 
 hostc 免费，迭代很快，服务端更新可能与旧版 CLI 不兼容。用 `npx hostc@latest` 运行，拿到的永远是配套的版本。
 
 不要全局安装（`npm i -g hostc`），也不要加进项目依赖：装好的那一份会停在当时的版本，服务端一更新就用不了。
 用的是旧版的话，启动时会停下并提示你升级。
+
+## hostc 与 Cloudflare Tunnel 对比
+
+hostc 同样运行在 Cloudflare 上，但只做 Cloudflare 自家隧道中更窄的一件事：临时分享开发服务器。
+
+|                    | hostc          | Quick Tunnel    | Cloudflare Tunnel |
+| ------------------ | -------------- | --------------- | ----------------- |
+| 安装               | 只需 Node.js   | `cloudflared`   | `cloudflared`     |
+| 账号               | 不需要         | 不需要          | 需要              |
+| URL                | 随机           | 随机            | 你自己的域名      |
+| Server-Sent Events | 支持           | 不支持          | 支持              |
+| 开发服务器         | 直接可用       | 可能要放行 host | 可配置            |
+| 访问控制           | 无             | 邮箱白名单      | Cloudflare Access |
+| 适合               | 分享开发服务器 | 快速测试        | 生产环境          |
 
 ## 工作原理
 
@@ -88,19 +108,20 @@ hostc 只向外建立一条 WebSocket 连接，所以你的电脑不需要能从
 
 ## 自部署
 
-1. 把域名加到 Cloudflare：一个给 API，一个给隧道，例如 `example.com` 和 `example.app`。
+1. 克隆这个仓库并运行 `pnpm install`。
+2. 把域名加到 Cloudflare：一个给 API，一个给隧道，例如 `example.com` 和 `example.app`。
    两者也可以是同一个域名，但隧道单独用一个域名，可以让隧道的 cookie 和滥用举报不牵连主站。
    给隧道域名加一条开启代理的通配符 DNS 记录（`*` → `192.0.2.1`）；Cloudflare 的 Universal SSL
    会覆盖 `*.example.app`。
-2. 设置一次 token 密钥：`pnpm -F @hostc/server exec wrangler secret put TOKEN_SECRET --name hostc-tunnel`
+3. 设置一次 token 密钥：`pnpm -F @hostc/server exec wrangler secret put TOKEN_SECRET --name hostc-tunnel`
    （至少 32 字节随机值，例如 `openssl rand -base64 48`）。
-3. 部署：
+4. 部署：
 
    ```sh
    API_DOMAIN=example.com TUNNEL_DOMAIN=example.app pnpm deploy:server
    ```
 
-4. 使用：`npx hostc@latest 3000 --server https://example.com`，或者用
+5. 使用：`npx hostc@latest 3000 --server https://example.com`，或者用
    `HOSTC_DEFAULT_SERVER=https://example.com pnpm build` 构建自己的 CLI。
 
 ## 参与开发

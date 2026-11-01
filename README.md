@@ -25,7 +25,8 @@ npx hostc@latest 3000
   Anyone with this URL can reach your local server. Press Ctrl+C to stop.
 ```
 
-Open the URL on any device. Every request shows up in your terminal as it arrives.
+Open the URL on any device. Every request shows up in your terminal as it arrives. Needs Node.js 22
+or later.
 
 hostc is free and open source. If it helps you, [a star on GitHub](https://github.com/akazwz/hostc) helps
 other developers find it, and it's the best encouragement for the project.
@@ -39,8 +40,8 @@ other developers find it, and it's the best encouragement for the project.
   every open device the moment you save. Server-Sent Events stream as they are produced.
 - **Dev servers accept it as is.** Requests arrive addressed to localhost and redirects point back
   to the public URL, so there is no allowed-hosts setting to change.
-- **The link survives.** Network drops and server restarts don't change the URL; hostc reconnects
-  on its own.
+- **The link survives.** After a network drop or a server restart, hostc reconnects on its own and
+  the URL stays the same, as long as it gets back within 10 minutes.
 - **Free and open source.** The server is a Cloudflare Worker you can also run on your own domain.
 
 ## Use it to
@@ -48,7 +49,7 @@ other developers find it, and it's the best encouragement for the project.
 - share something you built with an AI coding tool before you deploy it anywhere,
 - show work in progress to a teammate or a client,
 - test webhooks from Stripe, GitHub or Slack against the code on your machine,
-- try your site on a real phone, with hot reload,
+- try your site on a real phone, with hot reload (`--qr` prints a QR code to scan),
 - let a coding agent share what it built. Point the agent at
   [hostc.dev/llms.txt](https://hostc.dev/llms.txt) and it knows how to run hostc and read the URL.
 
@@ -71,6 +72,13 @@ Press Ctrl+C to stop; the URL is released immediately. Restarting hostc gives a 
 
 The URL is public: anyone who has it reaches your server. Only expose what you mean to share.
 
+### Limits
+
+- 256 requests and WebSockets at once per tunnel.
+- WebSocket messages up to 1 MiB. A stream also closes if your local server stops reading and over
+  4 MiB is waiting for it.
+- Your local server has 2 minutes to start responding to a request.
+
 ### Always run `@latest`
 
 hostc is free and moves fast, so server updates can be incompatible with older CLIs. Run it with
@@ -79,6 +87,21 @@ hostc is free and moves fast, so server updates can be incompatible with older C
 Don't install it globally (`npm i -g hostc`) or add it to a project: an installed copy stays on its
 version and stops working when the server moves on. An outdated CLI stops at startup and tells
 you to upgrade.
+
+## hostc vs Cloudflare Tunnel
+
+hostc runs on Cloudflare too. It does one narrower job than Cloudflare's own tunnels: sharing a dev
+server for a while.
+
+|                    | hostc                | Quick Tunnel              | Cloudflare Tunnel |
+| ------------------ | -------------------- | ------------------------- | ----------------- |
+| Install            | Node.js only         | `cloudflared`             | `cloudflared`     |
+| Account            | None                 | None                      | Required          |
+| URL                | Random               | Random                    | Your hostname     |
+| Server-Sent Events | Yes                  | No                        | Yes               |
+| Dev servers        | Work as is           | May need the host allowed | Configurable      |
+| Access control     | None                 | Email allowlist           | Cloudflare Access |
+| Made for           | Sharing a dev server | Quick tests               | Production        |
 
 ## How it works
 
@@ -93,19 +116,20 @@ for bodies. Idle tunnels sleep on the server, which is what keeps hostc free. Th
 
 ## Self-hosting
 
-1. Add your domains to Cloudflare: one for the API and one for tunnels, for example `example.com`
+1. Clone this repository and run `pnpm install`.
+2. Add your domains to Cloudflare: one for the API and one for tunnels, for example `example.com`
    and `example.app`. They can be the same domain, but a separate tunnel domain keeps tunnel cookies
    and abuse reports away from your main site. Add a proxied wildcard DNS record on the tunnel
    domain (`*` → `192.0.2.1`); Cloudflare's Universal SSL covers `*.example.app`.
-2. Set the token secret once: `pnpm -F @hostc/server exec wrangler secret put TOKEN_SECRET --name hostc-tunnel`
+3. Set the token secret once: `pnpm -F @hostc/server exec wrangler secret put TOKEN_SECRET --name hostc-tunnel`
    (at least 32 random bytes, e.g. `openssl rand -base64 48`).
-3. Deploy:
+4. Deploy:
 
    ```sh
    API_DOMAIN=example.com TUNNEL_DOMAIN=example.app pnpm deploy:server
    ```
 
-4. Use it: `npx hostc@latest 3000 --server https://example.com`, or build the CLI with
+5. Use it: `npx hostc@latest 3000 --server https://example.com`, or build the CLI with
    `HOSTC_DEFAULT_SERVER=https://example.com pnpm build`.
 
 ## Contributing
