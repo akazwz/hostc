@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.2
+
+- A tunnel no longer drops during an upload when the link slows down. 2.1.1 lets an upload have up to
+  4 MiB in flight; the heartbeat's reply waits behind it, and when the link slowed down it came too late
+  and the CLI reconnected, failing the upload. Any data that arrives now shows the connection is alive.
+- Upload windows widen as intended on long paths. A window stopped growing whenever its end fell
+  in the middle of a clump of arrivals, which is common once windows are wide, so uploads took many
+  round trips to speed up. Downloads had the same problem on the server, fixed there for every
+  version. Over a simulated 270 ms round trip, a 32 MB download went from 3.4 to 9.0 MB/s.
+
 ## 2.1.1
 
 - Uploads are no longer capped at one 256 KiB window per round trip, about 1.3 MB/s over a 200 ms

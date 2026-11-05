@@ -1,13 +1,20 @@
 import { once } from "node:events";
 import type { AddressInfo } from "node:net";
 
-import { decodeClose, decodeFrame, encodeFrame, encodeOpen, type Frame, FrameType } from "@hostc/protocol";
+import {
+	decodeClose,
+	decodeFrame,
+	encodeFrame,
+	encodeOpen,
+	type Frame,
+	FrameType,
+	WindowBudget,
+} from "@hostc/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { type RawData, WebSocket, WebSocketServer } from "ws";
 
 import { Connection } from "../src/connection.ts";
 import { createStream } from "../src/streams.ts";
-import { WindowBudget } from "../src/window.ts";
 
 const MESSAGE_BYTES = 512 * 1024;
 const STREAM = 1;

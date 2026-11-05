@@ -16,13 +16,15 @@ import {
 	PING,
 	PONG,
 	STREAM_WINDOW_BYTES,
+	WINDOW_BUDGET_BYTES,
+	type WindowBudget,
 	type CreateTunnelResponse,
 } from "@hostc/protocol";
 import { env, evictDurableObject, runDurableObjectAlarm, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 import { tunnelIdFromHost } from "../src/index.ts";
-import { MAX_WAITING, WINDOW_BUDGET_BYTES } from "../src/tunnel.ts";
+import { MAX_WAITING } from "../src/tunnel.ts";
 import { API, connect, createTunnel, PROTOCOL, publicUrl, readAll } from "./helpers.ts";
 
 function createFromSameClient(): Promise<Response> {
@@ -208,8 +210,9 @@ describe("public HTTP", () => {
 		expect(largestGrant).toBeGreaterThan(MAX_CHUNK_BYTES);
 		expect(client.closed).toBeNull();
 
-		const budget = await runInDurableObject(env.TUNNEL.getByName(tunnel.id), (instance) =>
-			Reflect.get(instance, "windowBudget"),
+		const budget = await runInDurableObject(
+			env.TUNNEL.getByName(tunnel.id),
+			(instance) => (Reflect.get(instance, "windowBudget") as WindowBudget).available,
 		);
 		expect(budget).toBe(WINDOW_BUDGET_BYTES);
 	});
@@ -231,8 +234,8 @@ describe("public HTTP", () => {
 			client.send(FrameType.Data, open.stream, chunk);
 		}
 		const window = await runInDurableObject(env.TUNNEL.getByName(tunnel.id), (instance) => {
-			const streams = Reflect.get(instance, "http") as Map<number, { window: number }>;
-			return streams.get(open.stream)?.window;
+			const streams = Reflect.get(instance, "http") as Map<number, { window: { size: number } }>;
+			return streams.get(open.stream)?.window.size;
 		});
 		client.send(FrameType.End, open.stream);
 		expect((await body).byteLength).toBe(chunks * MAX_CHUNK_BYTES);

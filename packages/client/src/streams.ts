@@ -10,6 +10,7 @@ import {
 	encodeWindow,
 	type Frame,
 	FrameType,
+	GrowingWindow,
 	type HeaderList,
 	MAX_CHUNK_BYTES,
 	MAX_WEBSOCKET_MESSAGE_BYTES,
@@ -21,11 +22,11 @@ import {
 	STREAM_WINDOW_BYTES,
 	stripHopByHop,
 	stripWebSocketHandshake,
+	type WindowBudget,
 } from "@hostc/protocol";
 import { type RawData, WebSocket } from "ws";
 
 import { fromRawHeaders, toLocalRequestHeaders, toPublicResponseHeaders, toRawHeaders } from "./rewrite.ts";
-import { GrowingWindow, type WindowBudget } from "./window.ts";
 
 export type RequestLog = {
 	method: string;
