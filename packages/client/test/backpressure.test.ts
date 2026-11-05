@@ -7,6 +7,7 @@ import { type RawData, WebSocket, WebSocketServer } from "ws";
 
 import { Connection } from "../src/connection.ts";
 import { createStream } from "../src/streams.ts";
+import { WindowBudget } from "../src/window.ts";
 
 const MESSAGE_BYTES = 512 * 1024;
 const STREAM = 1;
@@ -130,6 +131,7 @@ describe("WebSocket backpressure", () => {
 				},
 				log: () => {},
 				remove: () => {},
+				windowBudget: new WindowBudget(),
 			},
 			STREAM,
 			{ method: "GET", path: "/", headers: [], body: false, websocket: [] },
