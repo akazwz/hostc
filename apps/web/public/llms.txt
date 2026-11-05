@@ -45,7 +45,7 @@ It needs the Codex CLI on the machine, and prints a private link. Anyone with th
 - 502 Tunnel offline: hostc is reconnecting or was killed.
 - 502 Local server unavailable: the local server is not running on that port or crashed.
 - 504 Local server timed out: no response started within 120 seconds.
-- 503 Tunnel busy: 256 requests and WebSockets already in flight.
+- 503 Tunnel busy: 256 requests and WebSockets in flight and 1024 more waiting for a free one.
 
 ## Safety
 
