@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.1
+
+- Uploads are no longer capped at one 256 KiB window per round trip, about 1.3 MB/s over a 200 ms
+  path. Like downloads, a request body's window now doubles while it holds the upload back, up to
+  4 MiB per request and 16 MiB per tunnel, and stops growing once the link is the limit.
+
 ## 2.1.0
 
 - New, experimental: `hostc codex` uses the Codex CLI on your machine from any browser, including your

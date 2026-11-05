@@ -18,6 +18,7 @@ import { type RawData, WebSocket } from "ws";
 
 import { errorFromResponse, PROTOCOL_HEADERS, TunnelError } from "./api.ts";
 import { createStream, type RequestLog, type Stream } from "./streams.ts";
+import { WindowBudget } from "./window.ts";
 
 export type ConnectionOptions = {
 	tunnel: CreateTunnelResponse;
@@ -33,6 +34,7 @@ export class Connection {
 	private readonly socket: WebSocket;
 	private readonly options: ConnectionOptions;
 	private readonly streams = new Map<number, Stream>();
+	private readonly windowBudget = new WindowBudget();
 	private readonly heartbeat: NodeJS.Timeout;
 	private pongTimeout: NodeJS.Timeout | undefined;
 
@@ -150,6 +152,7 @@ export class Connection {
 				send: (type, id, payload, flushed) => this.send(type, id, payload, flushed),
 				log: this.options.onRequest,
 				remove: (id) => this.streams.delete(id),
+				windowBudget: this.windowBudget,
 			},
 			frame.stream,
 			decodeOpen(frame.payload),

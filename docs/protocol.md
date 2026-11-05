@@ -103,12 +103,13 @@ bytes in flight; the receiver grants them back with `WINDOW` once the next hop h
 public response stream pulled the chunk, or the local socket flushed it).
 
 A receiver may grant more than it got back, which widens the window. A stream moves at most one
-window per round trip, so the server widens response streams that are held back by their window.
-After each full window that reached the visitor with nothing left queued, it doubles the window if
-that window took no longer than the fastest so far (plus half): a window that limits the stream
-takes one round trip whatever its size, while one wider than the link needs takes longer and only
-queues data ahead of other streams. Windows grow up to 4 MiB per stream and 16 MiB in total per
-tunnel; streams that take over a second per window keep 256 KiB.
+window per round trip, so each receiver widens streams that are held back by their window: the
+server response bodies, the client request bodies. After each full window that reached the next hop
+with nothing left queued (the visitor, or the local socket), the receiver doubles the window if that
+window took no longer than the fastest so far (plus half): a window that limits the stream takes one
+round trip whatever its size, while one wider than the link needs takes longer and only queues data
+ahead of other streams. Windows grow up to 4 MiB per stream and 16 MiB in total per tunnel on each
+side; streams that take over a second per window keep 256 KiB.
 
 WebSocket messages are forwarded whole (up to 1 MiB, larger ones close the socket with `1009`) and
 without windows. The client bounds what it holds for them, without any wire format of its own:
@@ -118,8 +119,8 @@ without windows. The client bounds what it holds for them, without any wire form
 - Towards the local server, the public side cannot be held back. A stream with over 4 MiB queued on
   a local socket is closed: the visitor gets `1013` and the other streams carry on.
 
-Memory on the server is bounded by `256 streams × 256 KiB` plus the 16 MiB of wider windows. That
-counts HTTP bodies only: Workers WebSockets expose no `bufferedAmount`, so the server cannot see or
+Memory on the server is bounded by `256 streams × 256 KiB` plus the 16 MiB of wider windows in each
+direction. That counts HTTP bodies only: Workers WebSockets expose no `bufferedAmount`, so the server cannot see or
 bound WebSocket messages on their way to a slow visitor.
 
 ## Requests as the local server sees them
