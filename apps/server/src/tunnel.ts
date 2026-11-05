@@ -57,6 +57,12 @@ const WINDOW_GROWTH_MS = 1000;
 const WINDOW_JITTER_MS = 5;
 /** Window beyond STREAM_WINDOW_BYTES, shared by all streams of a tunnel. Bounds the extra memory. */
 export const WINDOW_BUDGET_BYTES = 16 * 1024 * 1024;
+/**
+ * Requests that may wait for a free stream; beyond this they get 503. Browsers send up to 256
+ * requests at once over one HTTP/2 connection, and a page's own WebSocket (Vite's HMR) or a second
+ * device already takes the tunnel past MAX_STREAMS, which used to fail module loads and the page.
+ */
+export const MAX_WAITING = 4 * MAX_STREAMS;
 
 /**
  * Everything needed to route WebSocket traffic lives in socket attachments and
@@ -107,6 +113,8 @@ export class Tunnel extends DurableObject<Env> {
 	private streamCeiling = 0;
 	private readonly http = new Map<number, HttpStream>();
 	private readonly pendingWebSockets = new Map<number, PendingWebSocket>();
+	/** Requests waiting for a free stream, oldest first. Called with false when they should stop waiting. */
+	private readonly waiting: ((free: boolean) => void)[] = [];
 	private windowBudget = WINDOW_BUDGET_BYTES;
 
 	constructor(ctx: DurableObjectState, env: Env) {
@@ -187,6 +195,7 @@ export class Tunnel extends DurableObject<Env> {
 		const attachment = attachmentOf(ws);
 		if (attachment?.kind === "public") {
 			this.sendFrame(FrameType.End, attachment.stream, encodeClose({ code, reason }));
+			this.wakeWaiting();
 			return;
 		}
 		if (attachment?.kind === "client" && !attachment.retired) {
@@ -264,7 +273,7 @@ export class Tunnel extends DurableObject<Env> {
 			this.fail(stream, pages.offline);
 		}
 		for (const [id, pending] of this.pendingWebSockets) {
-			this.pendingWebSockets.delete(id);
+			this.forgetPending(id);
 			pending.settle(new Response("Tunnel offline", { status: 502 }));
 		}
 		for (const ws of this.ctx.getWebSockets("public")) {
@@ -294,7 +303,7 @@ export class Tunnel extends DurableObject<Env> {
 						this.fail(http, pages.upstreamFailed);
 					}
 					this.pendingWebSockets.get(id)?.settle(new Response("Invalid response from local server", { status: 502 }));
-					this.pendingWebSockets.delete(id);
+					this.forgetPending(id);
 					return;
 				}
 				if (http) {
@@ -340,7 +349,7 @@ export class Tunnel extends DurableObject<Env> {
 				}
 				const pending = this.pendingWebSockets.get(id);
 				if (pending) {
-					this.pendingWebSockets.delete(id);
+					this.forgetPending(id);
 					pending.settle(new Response("Local WebSocket unavailable", { status: 502 }));
 					return;
 				}
@@ -389,7 +398,72 @@ export class Tunnel extends DurableObject<Env> {
 	}
 
 	private streamCount(): number {
-		return this.http.size + this.pendingWebSockets.size + this.ctx.getWebSockets("public").length;
+		// A public socket we are closing no longer carries a stream, and its waiters were already woken.
+		const sockets = this.ctx.getWebSockets("public").filter((ws) => ws.readyState === WebSocket.OPEN);
+		return this.http.size + this.pendingWebSockets.size + sockets.length;
+	}
+
+	/**
+	 * Waits until the tunnel has a free stream. False when too many requests already wait, none frees
+	 * up in time, or the visitor leaves. Bursts of module requests then wait instead of failing a page.
+	 */
+	private async freeStream(signal: AbortSignal): Promise<boolean> {
+		// Requests already waiting go first; this one goes too if a stream is left over.
+		const leftOver = MAX_STREAMS - this.streamCount() - this.waiting.length;
+		this.wakeWaiting();
+		if (leftOver > 0) {
+			return true;
+		}
+		if (this.waiting.length >= MAX_WAITING) {
+			return false;
+		}
+		const deadline = Date.now() + RESPONSE_TIMEOUT_MS;
+		let first = false;
+		for (;;) {
+			const free = await new Promise<boolean>((resolve) => {
+				const timer = setTimeout(() => settle(false), deadline - Date.now());
+				const onAbort = () => settle(false);
+				const settle = (value: boolean) => {
+					clearTimeout(timer);
+					signal.removeEventListener("abort", onAbort);
+					const index = this.waiting.indexOf(settle);
+					if (index >= 0) {
+						this.waiting.splice(index, 1);
+					}
+					resolve(value);
+				};
+				signal.addEventListener("abort", onAbort);
+				// Woken but still full: keep its place at the front.
+				if (first) {
+					this.waiting.unshift(settle);
+				} else {
+					this.waiting.push(settle);
+				}
+			});
+			if (!free) {
+				return false;
+			}
+			if (this.streamCount() < MAX_STREAMS) {
+				return true;
+			}
+			first = true;
+		}
+	}
+
+	/** Lets as many waiting requests go as there are free streams. They check again when they run. */
+	private wakeWaiting(): void {
+		const free = MAX_STREAMS - this.streamCount();
+		if (free > 0 && this.waiting.length > 0) {
+			for (const settle of this.waiting.slice(0, free)) {
+				settle(true);
+			}
+		}
+	}
+
+	private forgetPending(id: number): void {
+		if (this.pendingWebSockets.delete(id)) {
+			this.wakeWaiting();
+		}
 	}
 
 	private async isAlive(): Promise<boolean> {
@@ -404,8 +478,12 @@ export class Tunnel extends DurableObject<Env> {
 		if (!(await this.liveClient())) {
 			return errorResponse(request, pages.offline);
 		}
-		if (this.streamCount() >= MAX_STREAMS) {
+		if (!(await this.freeStream(request.signal))) {
 			return errorResponse(request, pages.busy);
+		}
+		// The client may have gone while the request waited.
+		if (!this.client()) {
+			return errorResponse(request, pages.offline);
 		}
 
 		const id = await this.allocateStream();
@@ -631,6 +709,7 @@ export class Tunnel extends DurableObject<Env> {
 		this.http.delete(stream.id);
 		this.windowBudget += stream.window - STREAM_WINDOW_BYTES;
 		stream.wakeUploader?.();
+		this.wakeWaiting();
 	}
 
 	// ---------------------------------------------------------------------------
@@ -640,8 +719,11 @@ export class Tunnel extends DurableObject<Env> {
 		if (!(await this.liveClient())) {
 			return new Response("Tunnel offline", { status: 502 });
 		}
-		if (this.streamCount() >= MAX_STREAMS) {
+		if (!(await this.freeStream(request.signal))) {
 			return new Response("Tunnel busy", { status: 503 });
+		}
+		if (!this.client()) {
+			return new Response("Tunnel offline", { status: 502 });
 		}
 
 		const offered = parseSubprotocols(request.headers.get("sec-websocket-protocol"));
@@ -670,7 +752,7 @@ export class Tunnel extends DurableObject<Env> {
 		if (response) {
 			return response;
 		}
-		this.pendingWebSockets.delete(id);
+		this.forgetPending(id);
 		this.sendFrame(FrameType.Reset, id, encodeText("response timeout"));
 		return new Response("Local server timed out", { status: 504 });
 	}
@@ -684,7 +766,8 @@ export class Tunnel extends DurableObject<Env> {
 		if (!pending) {
 			return;
 		}
-		this.pendingWebSockets.delete(id);
+		// Becomes a public socket, or frees its stream.
+		this.forgetPending(id);
 
 		if (head.status !== 101) {
 			const status = head.status >= 200 && !NULL_BODY_STATUSES.has(head.status) ? head.status : 502;

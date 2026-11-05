@@ -94,7 +94,8 @@ The URL is public: anyone who has it reaches your server. Only expose what you m
 
 ### Limits
 
-- 256 requests and WebSockets at once per tunnel.
+- 256 requests and WebSockets at once per tunnel. Up to 1024 more wait for a free one; beyond
+  that, requests get `503`.
 - WebSocket messages up to 1 MiB. A stream also closes if your local server stops reading and over
   4 MiB is waiting for it.
 - Your local server has 2 minutes to start responding to a request.
