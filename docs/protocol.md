@@ -51,7 +51,9 @@ close with `1001`. Streams never survive a reconnect.
 ## Heartbeat
 
 The client sends the text message `hostc:ping` every 15 s. The runtime answers `hostc:pong` without
-waking the Durable Object. The client reconnects if a pong does not arrive within 10 s. The server
+waking the Durable Object. The client reconnects if nothing arrives within 10 s of a ping. Any message counts, not only
+the pong: behind a wide upload window the pong can wait seconds for the data ahead of it when the
+link slows down. The server
 treats a client whose last ping is older than 45 s as gone. `hostc:ping` and `hostc:pong` are the
 only text messages; everything else is a binary frame.
 
@@ -104,11 +106,13 @@ public response stream pulled the chunk, or the local socket flushed it).
 
 A receiver may grant more than it got back, which widens the window. A stream moves at most one
 window per round trip, so each receiver widens streams that are held back by their window: the
-server response bodies, the client request bodies. After each full window that reached the next hop
-with nothing left queued (the visitor, or the local socket), the receiver doubles the window if that
-window took no longer than the fastest so far (plus half): a window that limits the stream takes one
+server response bodies, the client request bodies (both use `GrowingWindow` from
+`@hostc/protocol`). After each full window, the receiver doubles the window if that window took no
+longer than the fastest so far (plus half) and the next hop (the visitor, or the local socket) had
+taken everything that arrived at some point during it. A window that limits the stream takes one
 round trip whatever its size, while one wider than the link needs takes longer and only queues data
-ahead of other streams. Windows grow up to 4 MiB per stream and 16 MiB in total per tunnel on each
+ahead of other streams. The next hop is judged over the whole window, not when it ends: a wide
+window arrives in clumps, and its end often falls inside one, with chunks still queued. Windows grow up to 4 MiB per stream and 16 MiB in total per tunnel on each
 side; streams that take over a second per window keep 256 KiB.
 
 WebSocket messages are forwarded whole (up to 1 MiB, larger ones close the socket with `1009`) and
