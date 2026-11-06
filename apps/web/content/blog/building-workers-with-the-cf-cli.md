@@ -1,6 +1,6 @@
 ---
 title: Deploying Cloudflare Workers with the cf CLI
-description: What we learned running a production Worker and Durable Object on Cloudflare's new cf CLI and TypeScript config, including the traps.
+description: What we learned running a production Worker and Durable Object on Cloudflare's cf CLI and TypeScript config, and the problems we hit.
 date: 2026-11-06
 ---
 
@@ -49,10 +49,10 @@ Our deploy command is `cf deploy --mode production`. If a domain is missing it t
 
 An option you leave out gets Cloudflare's default, and logging, for example, is on by default. So we write the observability switches in the config. Before moving the compatibility date forward, check what it turns on. For example: after 2026-03, WebSocket `binaryType` defaults to `"blob"`.
 
-## Traps we hit
+## Problems we hit
 
 - `cf dev --host` is not the listen address. It changes the host your Worker sees and drops the port from `request.url`, which broke the URLs we generate. `cf dev` takes only `--mode`, `--host` and `--port`, so pass everything else through the environment.
-- `cf` delegates some work to it, and `wrangler secret put` is how you set a secret today.
+- `cf` still hands some work to Wrangler, and secrets are set with `wrangler secret put`.
 - `pnpm deploy` is a built-in pnpm command, so a package script called `deploy` has to run as `pnpm run deploy`.
 - Workers Builds doesn't read `packageManager`, so set `PNPM_VERSION` and `NODE_VERSION` as build variables, or it uses older ones.
 

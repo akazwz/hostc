@@ -1,6 +1,6 @@
 ---
 title: Why a Vite page with 2,000 modules failed through our tunnel
-description: Dev servers serve every file separately, so one page can open thousands of requests. Why a stream limit broke big apps, and why queueing beat returning 503.
+description: Dev servers serve every file separately, so one page can open thousands of requests. Why a stream limit stopped pages from loading, and how a queue fixed it.
 date: 2026-11-06
 ---
 

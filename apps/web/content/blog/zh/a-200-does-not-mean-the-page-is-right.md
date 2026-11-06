@@ -1,6 +1,6 @@
 ---
 title: 把静态站迁到 Solid 时踩的三个坑
-description: 我们如何把 hostc.dev 迁到 Solid 而浏览器里没有框架 JS，那些通过了所有检查的 bug，以及最后抓住它们的对比方法。
+description: 把 hostc.dev 迁到 Solid 预渲染时遇到的三个 bug，以及我们是怎么发现的。
 date: 2026-11-06
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: "内网穿透工具对比：ngrok、Cloudflare Tunnel、frp 怎么选"
-description: 内网穿透工具到底有什么区别，该问哪些问题，分享开发服务、Webhook、自建和生产环境分别适合用哪个。
+description: 内网穿透工具有什么区别，分享开发服务、Webhook、自建和生产环境分别适合用哪个。
 date: 2026-11-06
 ---
 

@@ -52,7 +52,7 @@ export default defineConfig(({ mode }) => {
 ## 踩过的坑
 
 - `cf dev --host` 不是监听地址。它改变的是 Worker 看到的 host，还会去掉 `request.url` 里的端口，弄坏了我们生成的地址。`cf dev` 只接受 `--mode`、`--host` 和 `--port`，其他都要通过环境变量传。
-- `cf` 把部分工作交给它，目前设置密钥也要用 `wrangler secret put`。
+- `cf` 还有部分工作交给 Wrangler，设置密钥要用 `wrangler secret put`。
 - `pnpm deploy` 是 pnpm 内置命令，名为 `deploy` 的脚本要用 `pnpm run deploy` 运行。
 - Workers Builds 不读 `packageManager`，要把 `PNPM_VERSION` 和 `NODE_VERSION` 设为构建变量，否则用的是旧版本。
 

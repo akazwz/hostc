@@ -33,8 +33,8 @@ export const WEBHOOKS: GuideContent = {
 						Signature checks work: the body and headers such as Stripe-Signature reach your server as they were sent.
 					</li>
 					<li>
-						Every start of hostc gives a new URL, so update the provider when you restart it. Network drops keep the URL
-						for up to 10 minutes.
+						Every start of hostc gives a new URL, so update the provider when you restart it. After a network drop, the
+						URL stays for up to 10 minutes.
 					</li>
 					<li>hostc waits up to 2 minutes for your server, but providers often give up sooner and retry.</li>
 					<li>Anyone with the URL can call it, so verify signatures as you would in production.</li>
@@ -154,7 +154,7 @@ export const DEV_SERVERS: GuideContent = {
 				<h2>Why it needs no configuration</h2>
 				<p>
 					Dev servers refuse requests from names they don't know. Vite has <code>server.allowedHosts</code> and Next.js
-					has <code>allowedDevOrigins</code>, and most tunnels make you add their domain to one of them.
+					has <code>allowedDevOrigins</code>, and many tunnels make you add their domain to one of them.
 				</p>
 				<p>
 					hostc rewrites the <code>Host</code>, <code>Origin</code> and <code>Referer</code> headers on the way in, so
@@ -184,7 +184,7 @@ export const DEV_SERVERS: GuideContent = {
 				<h2>为什么不用配置</h2>
 				<p>
 					开发服务会拒绝来自陌生域名的请求。Vite 有 <code>server.allowedHosts</code>，Next.js 有{" "}
-					<code>allowedDevOrigins</code>，大多数隧道都要你把它们的域名加进去。
+					<code>allowedDevOrigins</code>，很多隧道都要你把它们的域名加进去。
 				</p>
 				<p>
 					hostc 会改写进来的 <code>Host</code>、<code>Origin</code> 和 <code>Referer</code>

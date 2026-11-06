@@ -1,6 +1,6 @@
 ---
 title: Three bugs we hit moving a static site to Solid
-description: How we moved hostc.dev to Solid with no JavaScript in the browser, the bugs that passed every check, and the comparisons that caught them.
+description: Three bugs we hit moving hostc.dev to prerendered Solid, and how we found them.
 date: 2026-11-06
 ---
 
