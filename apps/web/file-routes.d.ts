@@ -2,78 +2,126 @@
 // Regenerated whenever a route file is added, changed or removed.
 
 declare module "virtual:file-routes" {
-	/** A code-split ref: the delivery adapter emits it as a dynamic import. */
-	export interface FileRouteLazyRef<M = Record<string, unknown>> {
-		src: string;
-		import(): Promise<M>;
-	}
+  /** A code-split ref: the delivery adapter emits it as a dynamic import. */
+  export interface FileRouteLazyRef<M = Record<string, unknown>> {
+    src: string;
+    import(): Promise<M>;
+  }
 
-	/** An eager ref: its picked exports are imported statically. */
-	export interface FileRouteEagerRef<M = Record<string, unknown>> {
-		/** The source module path — present when the convention emitted the ref lazy and `codeSplitting: false` delivered it eagerly. */
-		src?: string;
-		require(): M;
-	}
+  /** An eager ref: its picked exports are imported statically. */
+  export interface FileRouteEagerRef<M = Record<string, unknown>> {
+    /** The source module path — present when the convention emitted the ref lazy and `codeSplitting: false` delivered it eagerly. */
+    src?: string;
+    require(): M;
+  }
 
-	/** A flat entry of the route manifest. */
-	export interface FileRouteEntry {
-		path: string;
-		page?: boolean;
-		/** The page component is a server function; its `$component` is delivered eagerly. */
-		server?: boolean;
-		$component?: FileRouteLazyRef<any> | FileRouteEagerRef<any>;
-		$$route?: FileRouteEagerRef<any>;
-		[key: string]: unknown;
-	}
+  /** A flat entry of the route manifest. */
+  export interface FileRouteEntry {
+    path: string;
+    page?: boolean;
+    /** The page component is a server function; its `$component` is delivered eagerly. */
+    server?: boolean;
+    $component?: FileRouteLazyRef<any> | FileRouteEagerRef<any>;
+    $$route?: FileRouteEagerRef<any>;
+    [key: string]: unknown;
+  }
 
-	/** An entry of the nested `pageRoutes` view. */
-	export interface FileRouteTreeEntry extends FileRouteEntry {
-		id: string;
-		children?: readonly FileRouteTreeEntry[];
-	}
+  /** An entry of the nested `pageRoutes` view. */
+  export interface FileRouteTreeEntry extends FileRouteEntry {
+    id: string;
+    children?: readonly FileRouteTreeEntry[];
+  }
 
-	/** The flat route manifest, in scan order. */
-	const routes: readonly [
-		{
-			path: "/*404";
-			page: true;
-			$component: FileRouteEagerRef<
-				Pick<typeof import("./src/routes/[...404]"), Extract<"default", keyof typeof import("./src/routes/[...404]")>>
-			>;
-			$$route?: undefined;
-		},
-		{
-			path: "/";
-			page: true;
-			$component: FileRouteEagerRef<
-				Pick<typeof import("./src/routes/index"), Extract<"default", keyof typeof import("./src/routes/index")>>
-			>;
-			$$route?: undefined;
-		},
-	];
-	export default routes;
+  /** The flat route manifest, in scan order. */
+  const routes: readonly [
+    {
+      path: "/*404";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[...404]"), Extract<"default", keyof typeof import("./src/routes/[...404]")>>>;
+      $$route?: undefined;
+    },
+    {
+      path: "/:lang?/";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/index"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/index")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/index"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/index")>>>;
+    },
+    {
+      path: "/:lang?/ngrok-alternative";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/ngrok-alternative"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/ngrok-alternative")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/ngrok-alternative"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/ngrok-alternative")>>>;
+    },
+    {
+      path: "/:lang?/share-vite-nextjs-dev-server";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/share-vite-nextjs-dev-server"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/share-vite-nextjs-dev-server")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/share-vite-nextjs-dev-server"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/share-vite-nextjs-dev-server")>>>;
+    },
+    {
+      path: "/:lang?/test-localhost-on-phone";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/test-localhost-on-phone"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/test-localhost-on-phone")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/test-localhost-on-phone"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/test-localhost-on-phone")>>>;
+    },
+    {
+      path: "/:lang?/test-webhooks-locally";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/test-webhooks-locally"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/test-webhooks-locally")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/test-webhooks-locally"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/test-webhooks-locally")>>>;
+    }
+  ];
+  export default routes;
 
-	/** The page entries, nested by path with grouping segments stripped. */
-	export const pageRoutes: readonly [
-		{
-			path: "/";
-			id: "/";
-			page: true;
-			$component: FileRouteEagerRef<
-				Pick<typeof import("./src/routes/index"), Extract<"default", keyof typeof import("./src/routes/index")>>
-			>;
-			$$route?: undefined;
-			children?: undefined;
-		},
-		{
-			path: "/*404";
-			id: "/*404";
-			page: true;
-			$component: FileRouteEagerRef<
-				Pick<typeof import("./src/routes/[...404]"), Extract<"default", keyof typeof import("./src/routes/[...404]")>>
-			>;
-			$$route?: undefined;
-			children?: undefined;
-		},
-	];
+  /** The page entries, nested by path with grouping segments stripped. */
+  export const pageRoutes: readonly [
+    {
+      path: "/*404";
+      id: "/*404";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[...404]"), Extract<"default", keyof typeof import("./src/routes/[...404]")>>>;
+      $$route?: undefined;
+      children?: undefined;
+    },
+    {
+      path: "/:lang?/";
+      id: "/:lang?/";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/index"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/index")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/index"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/index")>>>;
+      children?: undefined;
+    },
+    {
+      path: "/:lang?/ngrok-alternative";
+      id: "/:lang?/ngrok-alternative";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/ngrok-alternative"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/ngrok-alternative")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/ngrok-alternative"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/ngrok-alternative")>>>;
+      children?: undefined;
+    },
+    {
+      path: "/:lang?/test-webhooks-locally";
+      id: "/:lang?/test-webhooks-locally";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/test-webhooks-locally"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/test-webhooks-locally")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/test-webhooks-locally"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/test-webhooks-locally")>>>;
+      children?: undefined;
+    },
+    {
+      path: "/:lang?/test-localhost-on-phone";
+      id: "/:lang?/test-localhost-on-phone";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/test-localhost-on-phone"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/test-localhost-on-phone")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/test-localhost-on-phone"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/test-localhost-on-phone")>>>;
+      children?: undefined;
+    },
+    {
+      path: "/:lang?/share-vite-nextjs-dev-server";
+      id: "/:lang?/share-vite-nextjs-dev-server";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/share-vite-nextjs-dev-server"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/share-vite-nextjs-dev-server")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/share-vite-nextjs-dev-server"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/share-vite-nextjs-dev-server")>>>;
+      children?: undefined;
+    }
+  ];
 }

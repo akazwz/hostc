@@ -234,6 +234,83 @@ footer a:hover {
 	text-decoration: none;
 }
 
+/* Guides */
+.guide {
+	padding-block: 72px 96px;
+}
+.guide h1 {
+	margin: 0;
+	font-size: clamp(32px, 6vw, 44px);
+	font-weight: 600;
+	line-height: 1.15;
+	letter-spacing: -0.02em;
+}
+.guide .lead {
+	margin: 20px 0 0;
+	color: var(--muted);
+	font-size: 18px;
+	line-height: 1.55;
+}
+.guide h2 {
+	margin: 56px 0 16px;
+	font-size: 18px;
+	font-weight: 600;
+}
+.guide p {
+	margin: 0 0 14px;
+	font-size: 15px;
+}
+.guide .lead {
+	font-size: 18px;
+}
+.guide .note {
+	margin-top: 14px;
+	font-size: 14px;
+}
+.guide li code {
+	overflow-wrap: anywhere;
+}
+.guide ol {
+	margin: 0;
+	padding-inline-start: 20px;
+	font-size: 15px;
+}
+.guide ol li {
+	padding-block: 6px;
+	border-bottom: 0;
+}
+.guide .command {
+	margin-block: 12px;
+	padding: 14px 16px;
+	font-size: 14px;
+}
+.guide .more {
+	margin-top: 56px;
+}
+.table {
+	margin-top: 40px;
+	overflow-x: auto;
+}
+table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 14px;
+}
+th,
+td {
+	padding: 10px 12px 10px 0;
+	border-bottom: 1px solid var(--line);
+	text-align: left;
+	vertical-align: top;
+}
+thead th {
+	font-weight: 600;
+}
+tbody th {
+	color: var(--muted);
+	font-weight: 400;
+}
+
 /* 404 */
 .missing {
 	padding-block: 104px 120px;
@@ -258,6 +335,9 @@ footer a:hover {
 	}
 	.command {
 		font-size: 15px;
+	}
+	.guide {
+		padding-block: 40px 72px;
 	}
 	section {
 		padding-block: 0 72px;

@@ -1,14 +1,20 @@
 import { Head } from "../components/Head.tsx";
+import { currentLocale, localized, UI } from "../i18n.ts";
 
-/** Built as 404.html, which Cloudflare serves with a 404 status for any address with no file. */
+/**
+ * Built as 404.html and zh/404.html. Cloudflare serves the nearest one with a 404 status for any
+ * address with no file.
+ */
 export default function NotFound() {
+	const locale = currentLocale();
+	const ui = UI[locale];
 	return (
 		<main class="missing">
-			<Head title="Page not found · hostc" description="This page doesn't exist." />
-			<h1>Page not found</h1>
-			<p>This page doesn't exist.</p>
+			<Head title={`${ui.notFoundTitle} · hostc`} description={ui.notFoundBody} />
+			<h1>{ui.notFoundTitle}</h1>
+			<p>{ui.notFoundBody}</p>
 			<p>
-				<a href="/">Go to the home page</a>
+				<a href={localized(locale, "/")}>{ui.notFoundLink}</a>
 			</p>
 		</main>
 	);

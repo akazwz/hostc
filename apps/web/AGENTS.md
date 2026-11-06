@@ -18,11 +18,14 @@ library, no web fonts. Solid 2 is a release candidate and is not React or Solid 
   (headline, one lead sentence, the command in a plain box, a note pointing at `--help`), then
   sections separated by space, each a small label above its content (a two-column `dl` of title and
   sentence, or a hairline list). Keep the copy short; the page should read in a minute. Longer
-  material, such as the comparison with Cloudflare Tunnel, lives in the README. New content fits that pattern; no cards, icons, bands, demos or second actions.
+  material lives in the README. New content fits that pattern; no cards, icons, bands, demos or second actions.
 - `src/global.css` holds every color as a variable, with a `prefers-color-scheme: dark` block; check both
   schemes and a 390px-wide phone after changes.
 - After a change, run `WEB_DOMAIN=hostc.dev pnpm -F web build` and open the built pages in a browser. A build can succeed with
   pages that look wrong.
+- Statements about other products come from their documentation. Date them, as `COMPARED_ON` does in
+  `src/content/guides.tsx`, and write that a thing is not stated rather than guess.
+- English and Chinese pages say the same thing: change both.
 - Every statement about hostc must match the code; check the server, client and CLI before writing it.
 - The social card is brand first: the logo mark, the `hostc` wordmark in a bold serif, the slogan and
   one small line, with color only in the mark. The user preferred it over busier redesigns (gradient

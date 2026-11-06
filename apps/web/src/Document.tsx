@@ -1,11 +1,12 @@
 import type { ParentProps } from "solid-js";
 
+import { currentLocale, LANGUAGE_TAGS } from "./i18n.ts";
 import { site } from "./site.ts";
 
 /** The document around every page. Each page sets its own head tags through components/Head.tsx. */
 export default function Document(props: ParentProps) {
 	return (
-		<html lang="en">
+		<html lang={LANGUAGE_TAGS[currentLocale()]}>
 			<head>
 				<meta charset="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
