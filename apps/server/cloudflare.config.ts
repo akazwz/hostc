@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => {
 				TUNNEL_DOMAIN: bindings.text(tunnelDomain),
 				TOKEN_SECRET: bindings.secret(),
 				TUNNEL: bindings.durableObject({ worker, exportName: "Tunnel" }),
+				ERRORS: bindings.analyticsEngineDataset({ name: "hostc_errors" }),
 				CREATE_LIMIT: bindings.rateLimit({
 					namespace: "1001",
 					simple: { limit: 20, period: 60 },

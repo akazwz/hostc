@@ -61,6 +61,20 @@ workflow `release.yml`. No npm token is stored in GitHub.
   The workflow packs the CLI, installs that tarball in an empty directory, runs the end-to-end
   tests against it and publishes the same file.
 
+## Errors in production
+
+The tunnel server counts each request it could not serve in the Analytics Engine dataset
+`hostc_errors`: the error's title and nothing else, so no URL, address or tunnel. To see the last
+week:
+
+```sh
+echo "SELECT blob1 AS error, SUM(_sample_interval) AS count FROM hostc_errors
+WHERE timestamp > NOW() - INTERVAL '7' DAY GROUP BY error ORDER BY count DESC" \
+  | pnpm -F @hostc/server exec cf analytics-engine sql query
+```
+
+`Tunnel offline`, `Tunnel busy` come from hostc; `Local server …` mean a user's own server failed.
+
 ## Protocol changes
 
 Bump `PROTOCOL_VERSION`, merge to `main` (the server deploys), then run "Release CLI" right away.
