@@ -1,0 +1,65 @@
+---
+title: 不用 token 发布 npm 包，并测试你真正发布的东西
+description: hostc 如何用 npm 可信发布和 OIDC 发版，2.0.0 为什么发布时没有可执行文件，以及如何在发布前测试打好的包。
+date: 2026-11-06
+---
+
+每个运行 `npx hostc@latest` 的人，执行的都是我们最新发布的东西。所以发版流程是整个项目最敏感的部分之一。它建立在两个想法上：不留长期密钥，没运行过的东西不发布。
+
+## 没有 token 可偷
+
+放在 CI 密钥里的传统 npm token，在被吊销之前一直有效。用[可信发布](https://docs.npmjs.com/trusted-publishers)时，npm 信任的是某个仓库里的某个工作流。GitHub Actions 用短期的 OIDC 令牌证明身份，任何地方都不存 npm token。
+
+在 npm 上填写仓库和工作流文件名，再在工作流里允许身份令牌：
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+```
+
+有三点要知道：
+
+- 需要 npm 11.5.1 或更高版本，比 Node.js 22 自带的 npm 新。我们用 Node.js 24 发版。
+- 公开仓库的公开包，npm 默认会附上[来源证明](https://docs.npmjs.com/generating-provenance-statements)，任何人都能看到版本是哪个提交构建的。
+- npm 保存设置时不做校验。工作流文件名写错，要到发布时才暴露。
+
+## 固定 Action 版本
+
+`id-token: write` 意味着这个 job 里的每一步都能拿到发布包的身份。`uses: some/action@v6` 跟随一个所有者可以移动的标签。一旦这个 Action 被攻破，攻击者的代码就带着你的发布权限运行。
+
+所以每个 Action 都固定到完整的提交：
+
+```yaml
+- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  with:
+    persist-credentials: false
+```
+
+`persist-credentials: false` 让后续步骤拿不到 checkout 的 Git 令牌，反正这里不推送代码。
+
+## 那个里面没有程序的版本
+
+hostc 2.0.0 发布时没有可执行文件，包里缺了 `dist` 目录。
+
+我们用 pnpm 打包，再用 npm 发布打好的文件，而 `pnpm pack` 和 `npm publish <tarball>` 都不会运行 `prepublishOnly`。于是没有东西构建 CLI。源码树上的测试抓不到这个问题，因为那里什么都有。
+
+构建挪到了确实会运行的 `prepack`。但真正的教训是：源码树上的测试，说明不了你的包是好的。
+
+## 测试打好的包
+
+现在发版时会像用户一样安装打好的文件，再用这份副本跑端到端测试：
+
+```sh
+pnpm -F hostc pack --pack-destination "$RUNNER_TEMP"
+pnpm -F hostc test:package "$RUNNER_TEMP"/hostc-*.tgz
+npm publish "$RUNNER_TEMP"/hostc-*.tgz --tag latest
+```
+
+`test:package` 新建一个空目录，用 `npm install` 安装这个文件，检查安装后的 CLI 打印的版本对不对，再让端到端测试指向它。这些测试会启动真实的服务端和本地源站，让流量真正穿过隧道。
+
+这样既能发现缺文件，也能发现只在工作区内才能解析的依赖。发布的文件就是测试过的文件。CI 在每个 PR 上都跑同样的步骤，所以包坏了，早在发版之前就会失败。
+
+## 犯错的代价
+
+npm 上的版本是永久的。2.0.0 修不了，只能往后发。我们把同样的代码正确打包，发成 2.0.1。而移动 dist-tag 需要交互式 2FA，可信发布管不到这一步。所以发版出问题时，出路就是再发一个新版本。在 CI 里多花几分钟，就是为了不需要这样做。
