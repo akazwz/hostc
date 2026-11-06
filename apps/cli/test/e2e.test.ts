@@ -1,6 +1,7 @@
 /**
  * End to end: a real `cf dev` tunnel server, the built CLI, and a local origin server.
- * Run with `pnpm test:e2e` (builds the CLI first).
+ * Run with `pnpm test:e2e` (builds the CLI first), or `pnpm test:package <tarball>` to run them
+ * against a packed CLI.
  */
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -14,6 +15,7 @@ import { WebSocket, WebSocketServer } from "ws";
 
 const CLI_DIR = path.resolve(import.meta.dirname, "..");
 const SERVER_DIR = path.resolve(CLI_DIR, "../server");
+const CLI_ENTRY = process.env.HOSTC_E2E_CLI;
 
 let originPort: number;
 let serverPort: number;
@@ -24,7 +26,9 @@ let cli: Cli;
 const download = randomBytes(8 * 1024 * 1024);
 
 beforeAll(async () => {
-	execFileSync("pnpm", ["build"], { cwd: CLI_DIR, stdio: "ignore" });
+	if (!CLI_ENTRY) {
+		execFileSync("pnpm", ["build"], { cwd: CLI_DIR, stdio: "ignore" });
+	}
 	origin = await startOrigin();
 	originPort = (origin.address() as AddressInfo).port;
 	serverPort = await freePort();
@@ -186,10 +190,14 @@ describe("WebSocket", () => {
 
 describe("hostc codex", () => {
 	it("signs in through the tunnel, and only from its own origin", async () => {
-		const child = spawn(process.execPath, ["dist/hostc.mjs", "codex", "--server", `http://127.0.0.1:${serverPort}`], {
-			cwd: CLI_DIR,
-			env: { ...process.env, NO_COLOR: "1", HOSTC_CODEX_BIN: path.resolve(CLI_DIR, "test/fake-codex.mjs") },
-		});
+		const child = spawn(
+			process.execPath,
+			[CLI_ENTRY ?? "dist/hostc.mjs", "codex", "--server", `http://127.0.0.1:${serverPort}`],
+			{
+				cwd: CLI_DIR,
+				env: { ...process.env, NO_COLOR: "1", HOSTC_CODEX_BIN: path.resolve(CLI_DIR, "test/fake-codex.mjs") },
+			},
+		);
 		try {
 			let output = "";
 			child.stdout.on("data", (chunk: Buffer) => {
@@ -291,10 +299,14 @@ type Cli = {
 function startCli(target: string): Cli {
 	// FORCE_COLOR would override NO_COLOR and wrap the printed URL in escape codes.
 	const { FORCE_COLOR: _forceColor, ...env } = process.env;
-	const child = spawn(process.execPath, ["dist/hostc.mjs", target, "--server", `http://127.0.0.1:${serverPort}`], {
-		cwd: CLI_DIR,
-		env: { ...env, NO_COLOR: "1" },
-	});
+	const child = spawn(
+		process.execPath,
+		[CLI_ENTRY ?? "dist/hostc.mjs", target, "--server", `http://127.0.0.1:${serverPort}`],
+		{
+			cwd: CLI_DIR,
+			env: { ...env, NO_COLOR: "1" },
+		},
+	);
 	let output = "";
 	child.stdout.on("data", (chunk: Buffer) => {
 		output += chunk.toString();

@@ -58,6 +58,8 @@ workflow `release.yml`. No npm token is stored in GitHub.
   `pnpm -F @hostc/server exec wrangler rollback --name hostc-tunnel`.
 - **CLI**: bump `version` in `apps/cli/package.json` (and `CHANGELOG.md`), merge, then run
   "Release CLI" with dist-tag `latest`.
+  The workflow packs the CLI, installs that tarball in an empty directory, runs the end-to-end
+  tests against it and publishes the same file.
 
 ## Protocol changes
 
