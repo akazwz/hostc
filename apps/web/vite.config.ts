@@ -4,8 +4,11 @@ import { join, resolve } from "node:path";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import solid from "@solidjs/vite-plugin";
 import { fileRoutes } from "filesystem-routing/vite";
+import { sitemap } from "prerender-crawler";
 import { prerender } from "prerender-crawler/vite";
 import { defineConfig, type Plugin } from "vite";
+
+import { site } from "./src/site.ts";
 
 /**
  * Every page is plain text and links, so the site needs no script in the browser. Solid renders
@@ -57,8 +60,10 @@ export default defineConfig({
 		// One page at a time: concurrent renders have mixed pages up on earlier Solid releases.
 		prerender({
 			mode: "static",
-			pages: ["/", { path: "/404", filename: "404.html" }],
+			pages: ["/", "/zh", { path: "/404", filename: "404.html" }, { path: "/zh/404", filename: "zh/404.html" }],
 			concurrency: 1,
+			// Pages marked noindex, like the 404 pages, stay out of it.
+			integrations: [sitemap({ hostname: site.origin })],
 		}),
 		staticOutput(),
 		cloudflare(),

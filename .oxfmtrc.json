@@ -8,6 +8,7 @@
 		"**/.cloudflare/**",
 		"apps/codex-web/src/codex/protocol/**",
 		"apps/codex-web/file-routes.d.ts",
+		"apps/web/file-routes.d.ts",
 		"apps/codex-web/docs/**",
 		"apps/codex-web/AGENTS.md"
 	]
