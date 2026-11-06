@@ -30,7 +30,13 @@ function staticOutput(): Plugin {
 					return;
 				}
 				const output = resolve(builder.config.root, client.config.build.outDir);
+				const publicDir = resolve(builder.config.root, builder.config.publicDir);
 				rmSync(join(output, ".vite"), { recursive: true, force: true });
+				for (const file of readdirSync(publicDir)) {
+					if (!readFileSync(join(output, file)).equals(readFileSync(join(publicDir, file)))) {
+						throw new Error(`The build changed public/${file}.`);
+					}
+				}
 				for (const entry of readdirSync(output, { recursive: true, encoding: "utf8" })) {
 					const file = join(output, entry);
 					if (entry.startsWith("assets") && entry.endsWith(".js")) {
@@ -65,6 +71,8 @@ export default defineConfig({
 			mode: "static",
 			pages: ["/", "/zh", { path: "/404", filename: "404.html" }, { path: "/zh/404", filename: "zh/404.html" }],
 			concurrency: 1,
+			// Only pages: a crawled /llms.txt would render the 404 page and overwrite the real file.
+			filter: (path) => !path.includes("."),
 			// Pages marked noindex, like the 404 pages, stay out of it.
 			integrations: [sitemap({ hostname: site.origin })],
 		}),
