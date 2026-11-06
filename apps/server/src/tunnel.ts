@@ -260,7 +260,7 @@ export class Tunnel extends DurableObject<Env> {
 		}
 		for (const [id, pending] of this.pendingWebSockets) {
 			this.forgetPending(id);
-			pending.settle(new Response("Tunnel offline", { status: 502 }));
+			pending.settle(this.refuseWebSocket(pages.offline));
 		}
 		for (const ws of this.ctx.getWebSockets("public")) {
 			safeClose(ws, 1001, "tunnel disconnected");
@@ -462,14 +462,14 @@ export class Tunnel extends DurableObject<Env> {
 
 	private async proxyHttp(request: Request): Promise<Response> {
 		if (!(await this.liveClient())) {
-			return errorResponse(request, pages.offline);
+			return this.refuse(request, pages.offline);
 		}
 		if (!(await this.freeStream(request.signal))) {
-			return errorResponse(request, pages.busy);
+			return this.refuse(request, pages.busy);
 		}
 		// The client may have gone while the request waited.
 		if (!this.client()) {
-			return errorResponse(request, pages.offline);
+			return this.refuse(request, pages.offline);
 		}
 
 		const id = await this.allocateStream();
@@ -513,16 +513,16 @@ export class Tunnel extends DurableObject<Env> {
 		const result = await withTimeout(headResult, RESPONSE_TIMEOUT_MS);
 		if (!result) {
 			this.reset(stream, "response timeout");
-			return errorResponse(request, pages.timeout);
+			return this.refuse(request, pages.timeout);
 		}
 		if (!result.ok) {
-			return errorResponse(request, result.page);
+			return this.refuse(request, result.page);
 		}
 
 		const { head, headers } = result;
 		if (head.status < 200) {
 			this.reset(stream, `unsupported status ${head.status}`);
-			return errorResponse(request, pages.upstreamFailed);
+			return this.refuse(request, pages.upstreamFailed);
 		}
 		if (!head.body || NULL_BODY_STATUSES.has(head.status)) {
 			this.finish(stream);
@@ -639,9 +639,29 @@ export class Tunnel extends DurableObject<Env> {
 	}
 
 	/** Aborts a stream without telling the client (it reset it, or it is gone). */
+	/** Answers a request hostc could not serve. */
+	private refuse(request: Request, page: PageOptions): Response {
+		this.countError(page);
+		return errorResponse(request, page);
+	}
+
+	private refuseWebSocket(page: PageOptions): Response {
+		this.countError(page);
+		return new Response(page.title, { status: page.status });
+	}
+
+	/** Without this, nobody learns that visitors get errors. Only the kind is kept: no URL, address or tunnel. */
+	private countError(page: PageOptions): void {
+		this.env.ERRORS.writeDataPoint({ blobs: [page.title], indexes: [page.title] });
+	}
+
 	private fail(stream: HttpStream, page: PageOptions): void {
 		if (stream.done) {
 			return;
+		}
+		// Before the head, the response to the request counts it.
+		if (stream.headReceived) {
+			this.countError(page);
 		}
 		stream.settleHead({ ok: false, page });
 		try {
@@ -666,13 +686,13 @@ export class Tunnel extends DurableObject<Env> {
 
 	private async proxyWebSocket(request: Request): Promise<Response> {
 		if (!(await this.liveClient())) {
-			return new Response("Tunnel offline", { status: 502 });
+			return this.refuseWebSocket(pages.offline);
 		}
 		if (!(await this.freeStream(request.signal))) {
-			return new Response("Tunnel busy", { status: 503 });
+			return this.refuseWebSocket(pages.busy);
 		}
 		if (!this.client()) {
-			return new Response("Tunnel offline", { status: 502 });
+			return this.refuseWebSocket(pages.offline);
 		}
 
 		const offered = parseSubprotocols(request.headers.get("sec-websocket-protocol"));
@@ -703,7 +723,7 @@ export class Tunnel extends DurableObject<Env> {
 		}
 		this.forgetPending(id);
 		this.sendFrame(FrameType.Reset, id, encodeText("response timeout"));
-		return new Response("Local server timed out", { status: 504 });
+		return this.refuseWebSocket(pages.timeout);
 	}
 
 	/**
