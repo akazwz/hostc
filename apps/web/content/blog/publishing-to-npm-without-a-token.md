@@ -4,7 +4,7 @@ description: How hostc publishes with npm trusted publishing and OIDC, why 2.0.0
 date: 2026-11-06
 ---
 
-Everyone who runs `npx hostc@latest` executes whatever we published last. So the release workflow has two rules: no long-lived secret, and run the package before publishing it.
+`npx hostc@latest` runs whatever we published last. So the release workflow has two rules: store no long-lived secret, and test the packed tarball before publishing it.
 
 ## Publishing without a token
 
@@ -36,7 +36,7 @@ So every action is pinned to a full commit:
     persist-credentials: false
 ```
 
-`persist-credentials: false` keeps the checkout's Git token out of later steps, since nothing here pushes code.
+`persist-credentials: false` keeps the checkout's Git token out of later steps, because this workflow doesn't push code.
 
 ## Why 2.0.0 had no executable
 
@@ -58,7 +58,7 @@ npm publish "$RUNNER_TEMP"/hostc-*.tgz --tag latest
 
 `test:package` creates an empty directory, runs `npm install` on the tarball, checks that the installed CLI prints the right version, and points the end-to-end tests at it. Those start a real server, a real local origin, and traffic through the tunnel.
 
-That catches a missing file, and a dependency that only resolves inside the workspace. The file that gets published is the file that was tested. CI runs the same step on every pull request, so a broken package fails long before release day.
+That catches a missing file, and a dependency that only resolves inside the workspace. CI runs the same step on every pull request.
 
 ## If a release goes wrong
 

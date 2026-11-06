@@ -4,7 +4,7 @@ description: What actually differs between tunnel tools, which questions to ask,
 date: 2026-11-06
 ---
 
-There are many tunnel tools, and at the core they do the same thing. What separates them is what they ask of you and what they give you on top. Four questions narrow it down quickly.
+There are many tunnel tools, and the basics are similar. These four questions cover most of the choice.
 
 ## 1. Who needs to open the link?
 
@@ -35,4 +35,4 @@ A hosted tool works right away, and you trust its operator with the traffic pass
 | Stay inside your existing tailnet             | [Tailscale Funnel](/alternatives/tailscale-funnel)           |
 | Keep links private to your organization       | [Microsoft dev tunnels](/alternatives/dev-tunnels)           |
 
-hostc is one of these tools, so read the [full comparisons](/alternatives), which also say when another tool is the better choice.
+We make hostc, so take this with that in mind. See the [detailed comparisons](/alternatives) for each tool.

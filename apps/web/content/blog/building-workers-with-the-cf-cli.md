@@ -4,9 +4,9 @@ description: What we learned running a production Worker and Durable Object on C
 date: 2026-11-06
 ---
 
-hostc's server runs on Cloudflare Workers and Durable Objects. We deploy it with `cf`, Cloudflare's newer command line tool, and describe it in a TypeScript config instead of `wrangler.toml`. `cf` is still in beta, so pin its version. Here is what works, and where it surprised us.
+hostc's server runs on Cloudflare Workers and Durable Objects. We deploy it with `cf`, Cloudflare's newer command line tool, and describe it in a TypeScript config instead of `wrangler.toml`. `cf` is still in beta, so pin its version. These are our notes on the setup and the problems we hit.
 
-## A config that is a program
+## Writing the config in TypeScript
 
 `cloudflare.config.ts` is TypeScript, so a Worker's types come from its config, and a mistake fails at build time:
 
@@ -29,7 +29,7 @@ export default defineConfig({
 
 `cf workers types` generates the `Env` type from this file, so a binding you declare is typed everywhere.
 
-Read the option types rather than guessing. We wrote `dataset:` for that binding from memory of the Wrangler format, and the right key is `name`.
+Check option names in the type definitions. We wrote `dataset:` for that binding out of habit from Wrangler, and the right key is `name`.
 
 ## Configuration that depends on the mode
 
@@ -43,25 +43,25 @@ export default defineConfig(({ mode }) => {
 });
 ```
 
-Our deploy command is `cf deploy --mode production`. Failing fast when a domain is missing beats deploying a Worker with no routes.
+Our deploy command is `cf deploy --mode production`. If a domain is missing it throws, so we never deploy a Worker with no routes.
 
-## Set every switch explicitly
+## Writing out the switches
 
-An option you leave out gets Cloudflare's default, and that default can change or surprise you. Logging is on unless you turn it off. We write every observability switch out, so reading the config tells you what happens. A compatibility date moves forward on purpose, after reading what it turns on. One such change: after 2026-03, WebSocket `binaryType` defaults to `"blob"`.
+An option you leave out gets Cloudflare's default, and logging, for example, is on by default. So we write the observability switches in the config. Before moving the compatibility date forward, check what it turns on. For example: after 2026-03, WebSocket `binaryType` defaults to `"blob"`.
 
 ## Traps we hit
 
-- **`cf dev --host` is not the listen address.** It changes the host your Worker sees and drops the port from `request.url`, which broke the URLs we generate. `cf dev` takes only `--mode`, `--host` and `--port`, so pass everything else through the environment.
-- **Wrangler is still around.** `cf` delegates some work to it, and `wrangler secret put` is how you set a secret today.
-- **`pnpm deploy` is a built-in pnpm command.** A package script called `deploy` has to run as `pnpm run deploy`.
-- **Workers Builds doesn't read `packageManager`.** Set `PNPM_VERSION` and `NODE_VERSION` as build variables, or it uses older ones.
+- `cf dev --host` is not the listen address. It changes the host your Worker sees and drops the port from `request.url`, which broke the URLs we generate. `cf dev` takes only `--mode`, `--host` and `--port`, so pass everything else through the environment.
+- `cf` delegates some work to it, and `wrangler secret put` is how you set a secret today.
+- `pnpm deploy` is a built-in pnpm command, so a package script called `deploy` has to run as `pnpm run deploy`.
+- Workers Builds doesn't read `packageManager`, so set `PNPM_VERSION` and `NODE_VERSION` as build variables, or it uses older ones.
 
 ## Discovering commands
 
-`cf` has a search built in, and it is better than guessing at subcommands:
+`cf` has a built-in command search:
 
 ```sh
 cf cli search "update a build trigger"
 ```
 
-We change all our Cloudflare settings this way, so nothing depends on someone remembering a dashboard click.
+We change Cloudflare settings from the command line rather than the dashboard.

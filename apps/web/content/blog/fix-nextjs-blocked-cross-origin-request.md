@@ -4,7 +4,7 @@ description: Why Next.js blocks dev resources when you open it through a tunnel 
 date: 2026-11-06
 ---
 
-You open your Next.js dev server through a tunnel or a LAN address. The page may load, but updates stop working, and the terminal shows something like:
+When you open a Next.js dev server through a tunnel or a LAN address, the page may load but stop updating, and the terminal shows something like:
 
 ```text
 Blocked cross-origin request to Next.js dev resource /_next/...
@@ -28,11 +28,11 @@ module.exports = {
 };
 ```
 
-Three details trip people up:
+Three details to get right:
 
-- **Write the hostname only.** No `https://` and no port. Next.js matches the hostname of the `Origin` header, or of `Referer` for requests that send no `Origin`.
-- **A `*` matches exactly one label.** `*.example.dev` matches `team.example.dev`, but not `example.dev` and not `team.eu.example.dev`. Use `**.example.dev` for any depth.
-- **Restart the dev server** after changing the config.
+- Write the hostname only, with no `https://` and no port. Next.js matches the hostname of the `Origin` header, or of `Referer` for requests that send no `Origin`.
+- A `*` matches exactly one label: `*.example.dev` matches `team.example.dev`, but not `example.dev` and not `team.eu.example.dev`. Use `**.example.dev` for any depth.
+- Restart the dev server after changing the config.
 
 For a tunnel whose subdomain changes on every run, use a wildcard:
 
@@ -42,7 +42,7 @@ module.exports = {
 };
 ```
 
-## Or send requests that already look local
+## Use a tunnel that rewrites the headers
 
 The check reads `Origin` and `Referer`. [hostc](/share-vite-nextjs-dev-server) rewrites both, plus `Host`, to your local address, so to Next.js the request comes from localhost and there is nothing to configure:
 
@@ -52,4 +52,4 @@ npx hostc@latest 3000
 
 WebSockets pass straight through as well, so the page keeps updating as you save.
 
-One thing to watch: your app sees `localhost` as its host, so URLs it builds from the request, like an OAuth callback, point at localhost. Set those from an environment variable while you share.
+Your app sees `localhost` as its host, so URLs it builds from the request, like an OAuth callback, point at localhost. Set those from an environment variable while you share.

@@ -19,18 +19,18 @@ date: 2026-11-06
 
 ## 什么时候需要
 
-- **Webhook。** Stripe、GitHub、Slack 只能调用公网地址。见[在本地调试 Webhook](/zh/test-webhooks-locally)。
-- **真机调试。** 走 HTTPS，不限网络。见[在手机上调试 localhost](/zh/test-localhost-on-phone)。
-- **展示开发中的功能。** 部署之前先给同事或客户看。
-- **OAuth 回调。** 以及其他需要外部服务访问你的流程。
+- Webhook：Stripe、GitHub、Slack 只能调用公网地址。见[在本地调试 Webhook](/zh/test-webhooks-locally)。
+- 真机调试：走 HTTPS，不限网络。见[在手机上调试 localhost](/zh/test-localhost-on-phone)。
+- 展示开发中的功能：部署之前先给同事或客户看。
+- OAuth 回调，以及其他需要外部服务访问你的流程。
 
 ## 需要注意什么
 
-**地址是公开的。** 除非隧道有访问控制，否则拿到链接的人都能访问你的服务。不要暴露数据库、管理后台或任何含有密钥的服务，用完就停掉。
+地址是公开的。除非隧道有访问控制，否则拿到链接的人都能访问你的服务。不要暴露数据库、管理后台或任何含有密钥的服务，用完就停掉。
 
-**开发服务不是生产服务。** 隧道适合临时分享。别人要依赖的东西，请正式部署。
+隧道适合临时分享，别人要长期使用的东西还是要正式部署。
 
-**开发服务可能拒绝隧道。** Vite 和 Next.js 会拦截陌生域名的请求，有些隧道要你把它们的域名加进配置。[hostc 改写请求头来解决这个问题](/zh/share-vite-nextjs-dev-server)。
+Vite 和 Next.js 会拦截陌生域名的请求，有些隧道要你把它们的域名加进配置。[hostc 改写请求头来解决这个问题](/zh/share-vite-nextjs-dev-server)。
 
 ## 隧道、端口转发还是部署？
 
