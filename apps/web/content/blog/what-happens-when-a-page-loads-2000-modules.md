@@ -1,5 +1,5 @@
 ---
-title: What happens when a page loads 2,000 modules through a tunnel
+title: Why a Vite page with 2,000 modules failed through our tunnel
 description: Dev servers serve every file separately, so one page can open thousands of requests. Why a stream limit broke big apps, and why queueing beat returning 503.
 date: 2026-11-06
 ---
@@ -24,7 +24,7 @@ The right behavior for a burst is a queue. The streams finish quickly, so a requ
 
 An unbounded queue is its own bug, so this one has limits on every side:
 
-- **Size.** At most 1024 requests wait. Beyond that the tunnel returns `503`, so a real flood still gets a fast answer.
+- **Size.** At most 1024 requests wait. Beyond that the tunnel returns `503`, so a flood still gets a fast answer.
 - **Time.** A request waits no longer than the 2 minutes it has to get a response anyway.
 - **The visitor.** If they close the tab, their request leaves the queue instead of taking a stream nobody will read.
 - **The connection.** If the CLI disconnects, everyone waiting gets `502` right away. Each waiter also checks the connection when it wakes, because it may have gone during the wait.
@@ -32,5 +32,3 @@ An unbounded queue is its own bug, so this one has limits on every side:
 ## The result
 
 The same page, with 2,000 modules and one WebSocket, returned 200 for every request and loaded.
-
-The lesson generalizes: a hard limit under a bursty workload needs a short, bounded queue in front of it. Rejecting is right for overload. For a burst that will be over in a second, it turns a slow moment into a broken page.

@@ -1,5 +1,5 @@
 ---
-title: 如何在本地测试 Stripe Webhook
+title: 本地怎么测试 Stripe Webhook
 description: 一个可运行的 Express 示例，在自己的电脑上接收 Stripe Webhook，并解释签名校验为什么会失败、怎么解决。
 date: 2026-11-06
 ---

@@ -1,12 +1,12 @@
 ---
-title: "Moving a static site to prerendered Solid: a 200 does not mean it is right"
+title: Three bugs we hit moving a static site to Solid
 description: How we moved hostc.dev to Solid with no JavaScript in the browser, the bugs that passed every check, and the comparisons that caught them.
 date: 2026-11-06
 ---
 
 hostc.dev was one HTML file. Adding Chinese and more pages meant a dozen copies of the same head, header and footer, so it became Solid 2 routes rendered to static HTML at build time.
 
-The pages load no framework. They are text and links, so hydrating them would only cost download time. And three bugs got past the build, the type checker and the status codes. Each teaches something about what "it works" means.
+The pages load no framework. They are text and links, so hydrating them would only cost download time. Three bugs got past the build, the type checker and the status codes. Here is what they were and how we found them.
 
 ## Rendering without shipping the framework
 
@@ -36,7 +36,7 @@ The text differed:
 + Down to the server, which you candeploy yourself.
 ```
 
-JSX drops the line break between text and a tag, along with the space you see in the source. No tool complains. Fixed, the three screenshots differed by zero pixels, which is a far stronger claim than "looks the same".
+JSX drops the line break between text and a tag, along with the space you see in the source. No tool complains. After the fix, the three screenshots differed by zero pixels.
 
 ## Bug 2: a build that wrote over a file
 
@@ -68,4 +68,4 @@ Blog titles appeared in lists with quotes around them: `'Fix Vite "Blocked reque
 - **Read the content, not the status.** Assert what a file contains, especially anything machines read.
 - **Make the build fail on impossible states.** A page with no stylesheet, or a changed public file, should stop a deploy. Some setups render pages with no styles while the build succeeds.
 - **Run an outside auditor.** Lighthouse found a bug it wasn't looking for.
-- **Look at the pages.** Some mistakes are visible and nothing else.
+- **Look at the pages.** Bug 3 only showed up in a screenshot.

@@ -1,12 +1,12 @@
 ---
-title: 在 workerd 里测试 Durable Object，还不写出不稳定的测试
+title: 用 Vitest 和 workerd 测试 Durable Object
 description: hostc 如何在真实运行时里测试 Cloudflare Durable Object，为什么依赖时间的测试会失败，以及依赖时钟的逻辑该怎么处理。
 date: 2026-11-06
 ---
 
 hostc 的隧道服务是一个带 WebSocket、休眠和流控的 Durable Object。Mock 证明不了什么，因为最难的行为都取决于运行时怎么处理这些东西。所以测试通过 `@cloudflare/vitest-plugin` 跑在真实的 Workers 运行时 workerd 里。
 
-这样能得到真实的行为，也包括一个人人都会中招的地方：时钟。
+这样测到的是真实行为，也包括一个让我们意外的地方：时钟。
 
 ## 真实运行时带来了什么
 
@@ -33,7 +33,7 @@ expect(await request()).toBeGreaterThan(first);
 
 `runDurableObjectAlarm` 对 Alarm 也是一样，测隧道过期不用真等 10 分钟。
 
-## 时钟不走
+## 时钟只在 I/O 时前进
 
 在 Workers 里，`Date.now()` 在代码运行时是[锁定的](https://developers.cloudflare.com/workers/reference/security-model/)，只有发生 I/O 才会前进。这是防御时序攻击的手段，测试里也一样。
 
@@ -61,7 +61,7 @@ run(window, 20, (size) => (size / STREAM_WINDOW_BYTES) * 80);
 expect(window.size).toBeLessThanOrEqual(2 * STREAM_WINDOW_BYTES);
 ```
 
-这段在普通 Node 里一毫秒跑完，也不可能时好时坏。有了它，我们就把那个依赖时间的测试删了，不再伺候它。
+这段在普通 Node 里一毫秒跑完，也不可能时好时坏。有了它，我们就把那个依赖时间的测试删了。
 
 ## 最后形成的规则
 
@@ -71,4 +71,4 @@ expect(window.size).toBeLessThanOrEqual(2 * STREAM_WINDOW_BYTES);
 - **不要假设顺序。** 并发请求到达对象的顺序是任意的。有个测试因此时好时坏，直到改成按路径匹配请求。
 - **看着新测试失败一次。** 我们给窗口 bug 写的第一个测试，在有 bug 的代码上也能通过，等于什么都没证明。先失败过的版本才值得留下。
 
-不稳定的测试比没有测试更糟，因为它教会所有人点重试。我们这个还会卡住发版，因为发布时跑的是同一套检查。
+那个不稳定的测试还会卡住发版，因为发布时跑的是同一套检查。

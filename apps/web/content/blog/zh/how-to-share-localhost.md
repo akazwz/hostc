@@ -1,5 +1,5 @@
 ---
-title: 怎么把 localhost 分享给别人看
+title: 怎么把 localhost 分享给别人
 description: 让别人打开你电脑上网站的四种方法，从局域网地址到内网穿透，以及该怎么选。
 date: 2026-11-06
 ---

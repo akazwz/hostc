@@ -1,5 +1,5 @@
 ---
-title: Building a Cloudflare Workers project with cf and cloudflare.config.ts
+title: Deploying Cloudflare Workers with the cf CLI
 description: What we learned running a production Worker and Durable Object on Cloudflare's new cf CLI and TypeScript config, including the traps.
 date: 2026-11-06
 ---

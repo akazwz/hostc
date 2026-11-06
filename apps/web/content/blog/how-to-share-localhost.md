@@ -1,5 +1,5 @@
 ---
-title: How to share localhost with someone
+title: How to share localhost
 description: Four ways to let someone else open the site running on your computer, from a local network address to a tunnel, and which to pick.
 date: 2026-11-06
 ---

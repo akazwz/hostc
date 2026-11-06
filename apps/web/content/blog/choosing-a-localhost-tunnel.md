@@ -1,5 +1,5 @@
 ---
-title: "How to choose a localhost tunnel: ngrok, Cloudflare, frp and others"
+title: "ngrok vs Cloudflare Tunnel vs frp: which tunnel to use"
 description: What actually differs between tunnel tools, which questions to ask, and which one fits sharing a dev server, webhooks, self-hosting or production.
 date: 2026-11-06
 ---

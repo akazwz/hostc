@@ -1,5 +1,5 @@
 ---
-title: 'Fix Vite "Blocked request. This host is not allowed"'
+title: 'Fix the Vite "Blocked request. This host is not allowed" error'
 description: Why Vite blocks requests from tunnels, Docker and custom domains, how to fix it with server.allowedHosts, and how to avoid the error entirely.
 date: 2026-11-06
 ---

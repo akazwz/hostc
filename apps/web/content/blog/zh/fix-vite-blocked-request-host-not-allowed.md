@@ -1,5 +1,5 @@
 ---
-title: '解决 Vite 报错 "Blocked request. This host is not allowed"'
+title: Vite 报错 Blocked request. This host is not allowed 怎么解决
 description: Vite 为什么拦截隧道、Docker 和自定义域名的请求，如何用 server.allowedHosts 解决，以及怎样完全避开这个报错。
 date: 2026-11-06
 ---
