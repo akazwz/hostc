@@ -1,7 +1,10 @@
 {
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"types": ["node"]
+		"lib": ["ES2024", "DOM", "DOM.Iterable"],
+		"jsx": "preserve",
+		"jsxImportSource": "@solidjs/web",
+		"types": ["vite/client", "node"]
 	},
-	"include": ["*.ts"]
+	"include": ["src", "*.ts", "file-routes.d.ts"]
 }

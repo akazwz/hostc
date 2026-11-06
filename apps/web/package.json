@@ -3,12 +3,26 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "cf dev --port 8788",
+		"dev": "vite",
+		"build": "cf build",
+		"preview": "vite preview",
 		"deploy": "cf deploy --mode production",
 		"typecheck": "tsc --noEmit"
 	},
+	"dependencies": {
+		"@solidjs/meta": "1.0.0-next.2",
+		"@solidjs/router": "2.0.0-next.43",
+		"@solidjs/web": "2.0.0-rc.20",
+		"solid-js": "2.0.0-rc.20"
+	},
 	"devDependencies": {
+		"@cloudflare/vite-plugin": "2.0.0-beta.v.8",
+		"@solidjs/vite-plugin": "3.0.0-next.54",
+		"@types/node": "^22.0.0",
 		"cf": "1.0.0-beta.26",
-		"wrangler": "^4.156.0"
+		"filesystem-routing": "0.4.2",
+		"prerender-crawler": "0.3.0",
+		"typescript": "^7.0.2",
+		"vite": "8.3.5"
 	}
 }

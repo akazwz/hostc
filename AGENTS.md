@@ -8,7 +8,7 @@ A tunnel that gives a local HTTP/WebSocket server a public URL. pnpm monorepo, N
 | `packages/client`   | `@hostc/client`    | Node.js client (internal for now; a public SDK will follow)                 |
 | `apps/server`       | `@hostc/server`    | Cloudflare Worker + Durable Object `Tunnel`                                 |
 | `apps/cli`          | `hostc`            | the published CLI, bundled with tsdown                                      |
-| `apps/web`          | `web`              | hostc.dev: one static HTML page and llms.txt                                |
+| `apps/web`          | `web`              | hostc.dev: prerendered pages and llms.txt                                   |
 | `apps/codex-web`    | `@hostc/codex-web` | web client of `hostc codex`, shipped inside the CLI; see its own AGENTS.md  |
 
 `docs/protocol.md` is the specification: change it together with `@hostc/protocol`, and bump
