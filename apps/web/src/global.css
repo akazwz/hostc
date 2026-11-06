@@ -10,6 +10,8 @@
 	--muted: #5f5f68;
 	--line: #e4e4e7;
 	--link: #c2410c;
+	--terminal: #18181b;
+	--terminal-line: #27272a;
 	--mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 	color-scheme: light;
 }
@@ -22,6 +24,8 @@
 		--muted: #a1a1aa;
 		--line: #323237;
 		--link: #ff8a3d;
+		--terminal: #141416;
+		--terminal-line: #323237;
 		color-scheme: dark;
 	}
 }
@@ -62,9 +66,9 @@ code {
 	font-size: 0.92em;
 }
 
-/* One narrow column for the whole page. */
+/* One column for the whole site. */
 .wrap {
-	max-width: 688px;
+	max-width: 760px;
 	margin: 0 auto;
 	padding-inline: 24px;
 }
@@ -74,7 +78,7 @@ code {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding-block: 28px;
+	padding-block: 24px;
 }
 .brand {
 	display: flex;
@@ -97,7 +101,7 @@ code {
 .top nav {
 	display: flex;
 	align-items: center;
-	gap: 24px;
+	gap: 22px;
 	font-size: 14px;
 }
 .top nav a {
@@ -116,22 +120,22 @@ code {
 
 /* Hero */
 .hero {
-	padding-block: 104px 120px;
+	padding-block: 88px 104px;
 }
 .hero h1 {
 	margin: 0;
-	font-size: clamp(44px, 9vw, 68px);
+	font-size: clamp(46px, 10vw, 76px);
 	font-weight: 600;
-	line-height: 1.06;
-	letter-spacing: -0.03em;
+	line-height: 1.04;
+	letter-spacing: -0.035em;
 }
 /* The second half of the slogan recedes; color stays in the logo and the prompt. */
 .hero h1 span {
 	color: var(--muted);
 }
 .hero .lead {
-	max-width: 26em;
-	margin: 28px 0 44px;
+	max-width: 30em;
+	margin: 24px 0 36px;
 	color: var(--muted);
 	font-size: 19px;
 	line-height: 1.5;
@@ -139,16 +143,16 @@ code {
 }
 .command {
 	display: flex;
+	align-items: center;
 	width: fit-content;
 	max-width: 100%;
 	gap: 14px;
-	margin: 0;
-	padding: 18px 20px;
+	padding: 14px 14px 14px 18px;
 	border: 1px solid var(--line);
 	border-radius: 10px;
 	background: var(--subtle);
 	font-family: var(--mono);
-	font-size: 16px;
+	font-size: 15px;
 	overflow-x: auto;
 	white-space: nowrap;
 }
@@ -156,35 +160,89 @@ code {
 	color: var(--link);
 	user-select: none;
 }
-/* One click selects the whole command, ready to copy. */
 .command code {
 	font-size: inherit;
 	user-select: all;
 }
-.note {
-	margin: 14px 0 0;
+.command button {
+	margin-inline-start: 10px;
+	padding: 4px 10px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: var(--bg);
 	color: var(--muted);
-	font-size: 14px;
+	font: 500 12px/1.5 inherit;
+	font-family: inherit;
+	cursor: pointer;
 }
-.note code {
+.command button:hover {
 	color: var(--ink);
 }
-
-/* Sections: a quiet label above the content, separated by space alone. */
-section {
-	padding-block: 0 96px;
-}
-section h2 {
-	margin: 0 0 28px;
+.note {
+	margin: 12px 0 0;
 	color: var(--muted);
 	font-size: 14px;
+}
+.terminal {
+	margin: 56px 0 0;
+	overflow: hidden;
+	border: 1px solid var(--terminal-line);
+	border-radius: 12px;
+	background: var(--terminal);
+	color: #e4e4e7;
+	box-shadow: 0 24px 60px -32px rgb(0 0 0 / 0.45);
+}
+.terminal .bar {
+	display: flex;
+	gap: 7px;
+	padding: 13px 16px 0;
+}
+.terminal .bar i {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #3f3f46;
+}
+.terminal pre {
+	margin: 0;
+	padding: 16px 18px 20px;
+	overflow-x: auto;
+	font-size: 13px;
+	line-height: 1.7;
+}
+.terminal code {
+	display: block;
+	font-size: inherit;
+	white-space: pre;
+}
+.terminal b {
+	color: #ff8a3d;
 	font-weight: 500;
-	line-height: 1.6;
+}
+.terminal s {
+	color: #8b8b94;
+	text-decoration: none;
+}
+.terminal em {
+	color: #6ee7a0;
+	font-style: normal;
+}
+
+/* Sections: a heading above the content, separated by space alone. */
+section {
+	padding-block: 0 88px;
+}
+section h2 {
+	margin: 0 0 24px;
+	font-size: 22px;
+	font-weight: 600;
+	line-height: 1.3;
+	letter-spacing: -0.015em;
 }
 dl {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 36px 48px;
+	gap: 32px 48px;
 	margin: 0;
 }
 dt {
@@ -199,106 +257,169 @@ dd {
 	line-height: 1.55;
 }
 
-ul {
+/* Lists of pages: a title with a line about it. */
+.index {
 	margin: 0;
 	padding: 0;
 	list-style: none;
 	border-top: 1px solid var(--line);
 }
-li {
-	padding-block: 14px;
+.index li {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	padding-block: 16px;
 	border-bottom: 1px solid var(--line);
+}
+.index a {
+	color: var(--ink);
+	font-size: 16px;
+	font-weight: 600;
+	letter-spacing: -0.005em;
+}
+.index span {
+	color: var(--muted);
+	font-size: 14px;
+	line-height: 1.5;
+}
+.links {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.links li {
+	padding-block: 5px;
 	font-size: 15px;
 }
-
-footer {
+.chips {
 	display: flex;
 	flex-wrap: wrap;
-	justify-content: space-between;
-	gap: 16px;
-	padding-block: 24px 48px;
-	border-top: 1px solid var(--line);
-	color: var(--muted);
-	font-size: 13px;
+	gap: 10px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
-footer nav {
-	display: flex;
-	gap: 20px;
-}
-footer a {
-	color: inherit;
-	transition: color 0.15s;
-}
-footer a:hover {
+.chips a {
+	display: block;
+	padding: 7px 14px;
+	border: 1px solid var(--line);
+	border-radius: 999px;
 	color: var(--ink);
+	font-size: 14px;
+	transition: border-color 0.15s;
+}
+.chips a:hover {
+	border-color: var(--muted);
 	text-decoration: none;
 }
 
-/* Guides */
-.guide {
-	padding-block: 72px 96px;
+/* Pages other than the home page */
+.page {
+	padding-block: 48px 80px;
 }
-.guide h1 {
+.page h1 {
 	margin: 0;
 	font-size: clamp(32px, 6vw, 44px);
 	font-weight: 600;
 	line-height: 1.15;
-	letter-spacing: -0.02em;
+	letter-spacing: -0.025em;
+	text-wrap: balance;
 }
-.guide .lead {
-	margin: 20px 0 0;
+.page .lead {
+	margin: 18px 0 36px;
 	color: var(--muted);
 	font-size: 18px;
 	line-height: 1.55;
 }
-.guide h2 {
-	margin: 56px 0 16px;
-	font-size: 18px;
+.crumbs {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 20px;
+	color: var(--muted);
+	font-size: 14px;
+}
+.crumbs a {
+	color: inherit;
+}
+.prose {
+	font-size: 16px;
+	line-height: 1.7;
+}
+.prose h2 {
+	margin: 44px 0 12px;
+	font-size: 21px;
+	font-weight: 600;
+	line-height: 1.3;
+	letter-spacing: -0.015em;
+}
+.prose h3 {
+	margin: 28px 0 8px;
+	font-size: 17px;
 	font-weight: 600;
 }
-.guide p {
-	margin: 0 0 14px;
-	font-size: 15px;
+.prose p {
+	margin: 0 0 16px;
 }
-.guide .lead {
-	font-size: 18px;
+.prose ul,
+.prose ol {
+	margin: 0 0 16px;
+	padding-inline-start: 22px;
 }
-.guide .note {
-	margin-top: 14px;
-	font-size: 14px;
+.prose li {
+	padding-block: 3px;
 }
-.guide li code {
+.prose code {
+	padding: 1px 5px;
+	border-radius: 4px;
+	background: var(--subtle);
 	overflow-wrap: anywhere;
 }
-.guide ol {
-	margin: 0;
-	padding-inline-start: 20px;
-	font-size: 15px;
-}
-.guide ol li {
-	padding-block: 6px;
-	border-bottom: 0;
-}
-.guide .command {
-	margin-block: 12px;
+.prose pre {
+	margin: 0 0 16px;
 	padding: 14px 16px;
+	overflow-x: auto;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--subtle);
 	font-size: 14px;
+	line-height: 1.6;
 }
-.guide .more {
+.prose pre code {
+	padding: 0;
+	background: none;
+	overflow-wrap: normal;
+}
+.prose .command {
+	margin-block: 12px;
+}
+.prose .command code {
+	padding: 0;
+	background: none;
+}
+.page > .note {
+	margin-block: 12px 28px;
+}
+.related {
 	margin-top: 56px;
+	padding-block: 28px 0;
+	border-top: 1px solid var(--line);
+}
+.related h2 {
+	margin-bottom: 12px;
+	font-size: 16px;
 }
 .table {
-	margin-top: 40px;
 	overflow-x: auto;
 }
 table {
 	width: 100%;
 	border-collapse: collapse;
-	font-size: 14px;
+	font-size: 15px;
+	line-height: 1.5;
 }
 th,
 td {
-	padding: 10px 12px 10px 0;
+	padding: 12px 16px 12px 0;
 	border-bottom: 1px solid var(--line);
 	text-align: left;
 	vertical-align: top;
@@ -309,6 +430,43 @@ thead th {
 tbody th {
 	color: var(--muted);
 	font-weight: 400;
+	white-space: nowrap;
+}
+
+footer {
+	padding-block: 44px 40px;
+	border-top: 1px solid var(--line);
+	color: var(--muted);
+	font-size: 14px;
+}
+footer .columns {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 32px;
+}
+footer nav {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+}
+footer h2 {
+	margin: 0 0 4px;
+	color: var(--ink);
+	font-size: 14px;
+	font-weight: 600;
+}
+footer a {
+	color: inherit;
+	transition: color 0.15s;
+}
+footer a:hover {
+	color: var(--ink);
+	text-decoration: none;
+}
+footer p {
+	margin: 36px 0 0;
+	font-size: 13px;
 }
 
 /* 404 */
@@ -327,23 +485,32 @@ tbody th {
 }
 
 @media (max-width: 720px) {
+	.top nav {
+		gap: 16px;
+	}
 	.hero {
-		padding-block: 56px 80px;
+		padding-block: 48px 72px;
 	}
 	.hero .lead {
 		font-size: 17px;
 	}
-	.command {
-		font-size: 15px;
+	.terminal {
+		margin-top: 40px;
 	}
-	.guide {
-		padding-block: 40px 72px;
+	.terminal pre {
+		font-size: 12px;
 	}
 	section {
-		padding-block: 0 72px;
+		padding-block: 0 64px;
 	}
 	dl {
 		grid-template-columns: minmax(0, 1fr);
-		gap: 28px;
+		gap: 24px;
+	}
+	.page {
+		padding-block: 32px 56px;
+	}
+	footer .columns {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }

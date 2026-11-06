@@ -28,7 +28,7 @@ and the apex `hostc.app` redirects to `hostc.dev`.
 | Build command     | `pnpm install --frozen-lockfile`                                                          | `pnpm install --frozen-lockfile`                                |
 | Deploy command    | `pnpm run deploy`                                                                         | `pnpm run deploy`                                               |
 | Build variables   | `NODE_VERSION=22` `PNPM_VERSION=12.15.0` `API_DOMAIN=hostc.dev` `TUNNEL_DOMAIN=hostc.app` | `NODE_VERSION=22` `PNPM_VERSION=12.15.0` `WEB_DOMAIN=hostc.dev` |
-| Build watch paths | `apps/server/*`, `packages/protocol/*`, `pnpm-lock.yaml`                                  | `apps/web/*`, `pnpm-lock.yaml`                                  |
+| Build watch paths | `apps/server/*`, `packages/protocol/*`, `pnpm-lock.yaml`                                  | `apps/web/*`, `apps/cli/CHANGELOG.md`, `pnpm-lock.yaml`         |
 
 Workers Builds defaults to an older pnpm and does not read `packageManager`, hence `PNPM_VERSION`.
 `NODE_VERSION=22` builds on the Node.js major that CI tests; the image's default Node.js can be older

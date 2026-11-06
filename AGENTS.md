@@ -21,7 +21,7 @@ hostc is live: `hostc.dev` (site and API) and `*.hostc.app` (tunnels), used ever
 
 - Work on a branch and open a pull request; CI runs on pull requests and on `main`.
 - Merging to `main` deploys to production: Workers Builds redeploys `hostc-tunnel` when
-  `apps/server`, `packages/protocol` or the lockfile change, and `hostc-web` when `apps/web` does.
+  `apps/server`, `packages/protocol` or the lockfile change, and `hostc-web` when `apps/web` or `apps/cli/CHANGELOG.md` does.
 - The CLI ships by hand: bump `version` and `CHANGELOG.md` in `apps/cli`, merge, run "Release CLI"
   with dist-tag `latest`, then create the GitHub release `v<version>`.
 - Users run `npx hostc@latest`; never suggest installing hostc globally or as a dependency.

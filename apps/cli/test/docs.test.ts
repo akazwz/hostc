@@ -18,8 +18,11 @@ describe.each(["README.md", "README.zh-CN.md", "apps/cli/README.md"])("%s", (fil
 	});
 });
 
-describe.each(["README.md", "README.zh-CN.md", "apps/web/public/llms.txt"])("%s", (file) => {
-	it("states the stream limit", () => {
-		expect(read(file)).toContain(String(MAX_STREAMS));
-	});
-});
+describe.each(["README.md", "README.zh-CN.md", "apps/web/public/llms.txt", "apps/web/src/content/alternatives.ts"])(
+	"%s",
+	(file) => {
+		it("states the stream limit", () => {
+			expect(read(file)).toContain(String(MAX_STREAMS));
+		});
+	},
+);

@@ -41,16 +41,40 @@ declare module "virtual:file-routes" {
       $$route?: undefined;
     },
     {
+      path: "/:lang?/alternatives/:slug";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/alternatives/[slug]"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/alternatives/[slug]")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/alternatives/[slug]"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/alternatives/[slug]")>>>;
+    },
+    {
+      path: "/:lang?/alternatives/";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/alternatives/index"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/alternatives/index")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/alternatives/index"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/alternatives/index")>>>;
+    },
+    {
+      path: "/:lang?/blog/:slug";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/blog/[slug]"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/blog/[slug]")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/blog/[slug]"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/blog/[slug]")>>>;
+    },
+    {
+      path: "/:lang?/blog/";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/blog/index"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/blog/index")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/blog/index"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/blog/index")>>>;
+    },
+    {
+      path: "/:lang?/changelog";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/changelog"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/changelog")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/changelog"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/changelog")>>>;
+    },
+    {
       path: "/:lang?/";
       page: true;
       $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/index"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/index")>>>;
       $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/index"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/index")>>>;
-    },
-    {
-      path: "/:lang?/ngrok-alternative";
-      page: true;
-      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/ngrok-alternative"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/ngrok-alternative")>>>;
-      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/ngrok-alternative"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/ngrok-alternative")>>>;
     },
     {
       path: "/:lang?/share-vite-nextjs-dev-server";
@@ -92,11 +116,43 @@ declare module "virtual:file-routes" {
       children?: undefined;
     },
     {
-      path: "/:lang?/ngrok-alternative";
-      id: "/:lang?/ngrok-alternative";
+      path: "/:lang?/blog/";
+      id: "/:lang?/blog/";
       page: true;
-      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/ngrok-alternative"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/ngrok-alternative")>>>;
-      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/ngrok-alternative"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/ngrok-alternative")>>>;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/blog/index"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/blog/index")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/blog/index"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/blog/index")>>>;
+      children?: undefined;
+    },
+    {
+      path: "/:lang?/changelog";
+      id: "/:lang?/changelog";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/changelog"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/changelog")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/changelog"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/changelog")>>>;
+      children?: undefined;
+    },
+    {
+      path: "/:lang?/blog/:slug";
+      id: "/:lang?/blog/:slug";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/blog/[slug]"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/blog/[slug]")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/blog/[slug]"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/blog/[slug]")>>>;
+      children?: undefined;
+    },
+    {
+      path: "/:lang?/alternatives/";
+      id: "/:lang?/alternatives/";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/alternatives/index"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/alternatives/index")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/alternatives/index"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/alternatives/index")>>>;
+      children?: undefined;
+    },
+    {
+      path: "/:lang?/alternatives/:slug";
+      id: "/:lang?/alternatives/:slug";
+      page: true;
+      $component: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/alternatives/[slug]"), Extract<"default", keyof typeof import("./src/routes/[[lang]]/alternatives/[slug]")>>>;
+      $$route: FileRouteEagerRef<Pick<typeof import("./src/routes/[[lang]]/alternatives/[slug]"), Extract<"route", keyof typeof import("./src/routes/[[lang]]/alternatives/[slug]")>>>;
       children?: undefined;
     },
     {
