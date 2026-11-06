@@ -1,7 +1,7 @@
 import { defineFileRoute } from "@solidjs/router/fs";
 
 import { Guide } from "../../components/Guide.tsx";
-import { WEBHOOKS } from "../../content/guides.tsx";
+import { WEBHOOKS } from "../../content/guides.ts";
 
 export const route = defineFileRoute("/:lang?/test-webhooks-locally", { matchFilters: { lang: ["zh"] } });
 

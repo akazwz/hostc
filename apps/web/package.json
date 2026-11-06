@@ -13,17 +13,23 @@
 		"@solidjs/meta": "1.0.0-next.2",
 		"@solidjs/router": "2.0.0-next.43",
 		"@solidjs/web": "2.0.0-rc.20",
+		"@stylexjs/stylex": "0.19.1",
 		"solid-js": "2.0.0-rc.20"
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "2.0.0-beta.v.8",
 		"@solidjs/vite-plugin": "3.0.0-next.54",
+		"@stylexjs/unplugin": "0.19.1",
 		"@types/node": "^22.0.0",
 		"cf": "1.0.0-beta.26",
 		"filesystem-routing": "0.4.2",
 		"marked": "18.1.3",
 		"prerender-crawler": "0.3.0",
 		"typescript": "^7.0.2",
+		"unplugin": "3.7.0",
 		"vite": "8.3.5"
-	}
+	},
+	"browserslist": [
+		"baseline widely available"
+	]
 }

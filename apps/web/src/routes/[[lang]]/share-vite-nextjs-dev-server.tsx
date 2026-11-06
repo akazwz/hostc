@@ -1,7 +1,7 @@
 import { defineFileRoute } from "@solidjs/router/fs";
 
 import { Guide } from "../../components/Guide.tsx";
-import { DEV_SERVERS } from "../../content/guides.tsx";
+import { DEV_SERVERS } from "../../content/guides.ts";
 
 export const route = defineFileRoute("/:lang?/share-vite-nextjs-dev-server", { matchFilters: { lang: ["zh"] } });
 

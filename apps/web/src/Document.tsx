@@ -17,6 +17,13 @@ export default function Document(props: ParentProps) {
 				<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 				<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 				<script src="/copy.js" defer />
+				{/* Without index.html, the StyleX plugin cannot inject its dev stylesheet and HMR runtime. */}
+				{import.meta.env.DEV && (
+					<>
+						<link rel="stylesheet" href="/virtual:stylex.css" />
+						<script type="module" src="/@id/virtual:stylex:runtime" />
+					</>
+				)}
 			</head>
 			<body>{props.children}</body>
 		</html>

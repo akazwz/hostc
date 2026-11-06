@@ -1,4 +1,5 @@
 import { defineFileRoute } from "@solidjs/router/fs";
+import * as stylex from "@stylexjs/stylex";
 
 import { Command } from "../../../components/Command.tsx";
 import { Crumbs } from "../../../components/Crumbs.tsx";
@@ -8,8 +9,24 @@ import { RelatedLinks } from "../../../components/RelatedLinks.tsx";
 import { posts } from "../../../content/blog.ts";
 import { currentLocale, currentPath, LANGUAGE_TAGS, localized, UI } from "../../../i18n.ts";
 import { site } from "../../../site.ts";
+import { Markdown } from "../../../ui/Markdown.tsx";
+import { Note, Page, PageTitle } from "../../../ui/Page.tsx";
+import { color, media, text } from "../../../ui/tokens.stylex.ts";
 
 export const route = defineFileRoute("/:lang?/blog/:slug", { matchFilters: { lang: ["zh"] } });
+
+const styles = stylex.create({
+	cta: {
+		marginBlockStart: "48px",
+		padding: { default: "24px", [media.narrow]: "16px" },
+		borderWidth: "1px",
+		borderStyle: "solid",
+		borderColor: color.line,
+		borderRadius: "12px",
+		backgroundColor: color.subtle,
+	},
+	ctaTitle: { marginBlock: "0 2px", fontSize: text.lg, fontWeight: 600 },
+});
 
 const TRY = {
 	en: "Give localhost a public URL, free and with no account",
@@ -26,7 +43,7 @@ export default function Post() {
 		throw new Error(`No post called ${slug}.`);
 	}
 	return (
-		<main class="page">
+		<Page>
 			<Head title={`${post.title} · hostc`} description={post.description} path={`/blog/${post.slug}`} />
 			<JsonLd
 				data={{
@@ -39,13 +56,13 @@ export default function Post() {
 				}}
 			/>
 			<Crumbs section={{ label: UI[locale].blog, path: "/blog" }} />
-			<h1>{post.title}</h1>
-			<p class="note">
+			<PageTitle>{post.title}</PageTitle>
+			<Note>
 				<time datetime={post.date}>{post.date}</time>
-			</p>
-			<div class="prose" innerHTML={post.html} />
-			<section class="cta">
-				<h2>{TRY[locale]}</h2>
+			</Note>
+			<Markdown source={post.body} />
+			<section {...stylex.attrs(styles.cta)}>
+				<h2 {...stylex.attrs(styles.ctaTitle)}>{TRY[locale]}</h2>
 				<Command>npx hostc@latest 3000</Command>
 			</section>
 			<RelatedLinks
@@ -55,6 +72,6 @@ export default function Post() {
 					.slice(0, 5)
 					.map((each) => ({ href: localized(locale, `/blog/${each.slug}`), label: each.title }))}
 			/>
-		</main>
+		</Page>
 	);
 }

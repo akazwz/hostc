@@ -1,4 +1,6 @@
 import { defineFileRoute } from "@solidjs/router/fs";
+import type { JSX } from "@solidjs/web";
+import * as stylex from "@stylexjs/stylex";
 import { For } from "solid-js";
 
 import { Command } from "../../components/Command.tsx";
@@ -6,11 +8,86 @@ import { Head } from "../../components/Head.tsx";
 import { JsonLd } from "../../components/JsonLd.tsx";
 import { Terminal } from "../../components/Terminal.tsx";
 import { ALTERNATIVES } from "../../content/alternatives.ts";
-import { GUIDES } from "../../content/guides.tsx";
+import { GUIDES } from "../../content/guides.ts";
 import { currentLocale, localized } from "../../i18n.ts";
 import { site } from "../../site.ts";
+import { base } from "../../ui/base.ts";
+import { PageList } from "../../ui/PageList.tsx";
+import { color, media, motion, text } from "../../ui/tokens.stylex.ts";
 
 export const route = defineFileRoute("/:lang?", { matchFilters: { lang: ["zh"] } });
+
+const styles = stylex.create({
+	hero: { paddingBlock: { default: "88px 104px", [media.narrow]: "48px 72px" } },
+	headline: {
+		margin: 0,
+		fontSize: "clamp(46px, 10vw, 76px)",
+		fontWeight: 600,
+		lineHeight: 1.04,
+		letterSpacing: "-0.035em",
+	},
+	// The second half of the slogan recedes; color stays in the logo and the prompt.
+	headlineEnd: { color: color.muted },
+	lead: {
+		maxWidth: "30em",
+		marginBlock: "24px 36px",
+		color: color.muted,
+		fontSize: { default: "19px", [media.narrow]: "17px" },
+		lineHeight: 1.5,
+		letterSpacing: "-0.005em",
+	},
+	note: { marginBlock: "12px 0", color: color.muted, fontSize: text.sm },
+	section: { paddingBlock: { default: "0 88px", [media.narrow]: "0 64px" } },
+	heading: {
+		marginBlock: "0 24px",
+		fontSize: text.heading,
+		fontWeight: 600,
+		lineHeight: 1.3,
+		letterSpacing: "-0.015em",
+	},
+	grid: {
+		display: "grid",
+		gridTemplateColumns: { default: "repeat(2, minmax(0, 1fr))", [media.narrow]: "minmax(0, 1fr)" },
+		gap: { default: "32px 48px", [media.narrow]: "24px" },
+		margin: 0,
+	},
+	term: { fontSize: text.md, fontWeight: 600, letterSpacing: "-0.005em" },
+	detail: { marginBlock: "6px 0", marginInline: 0, color: color.muted, fontSize: text.md, lineHeight: 1.55 },
+	chips: { display: "flex", flexWrap: "wrap", gap: "10px", margin: 0, padding: 0, listStyleType: "none" },
+	chip: {
+		display: "block",
+		paddingBlock: "7px",
+		paddingInline: "14px",
+		borderWidth: "1px",
+		borderStyle: "solid",
+		borderColor: { default: color.line, [media.hover]: { default: color.line, ":hover": color.muted } },
+		borderRadius: "999px",
+		color: color.ink,
+		fontSize: text.sm,
+		textDecorationLine: "none",
+		transitionDuration: motion.quick,
+		transitionProperty: "border-color",
+	},
+});
+
+function Feature(props: { title: string; children: JSX.Element }) {
+	return (
+		<div>
+			<dt {...stylex.attrs(styles.term)}>{props.title}</dt>
+			<dd {...stylex.attrs(styles.detail)}>{props.children}</dd>
+		</div>
+	);
+}
+
+function Chip(props: { href: string; children: string }) {
+	return (
+		<li>
+			<a href={props.href} {...stylex.attrs(styles.chip, base.focusRing)}>
+				{props.children}
+			</a>
+		</li>
+	);
+}
 
 const COPY = {
 	en: {
@@ -89,6 +166,7 @@ export default function Home() {
 	const locale = currentLocale();
 	const copy = COPY[locale];
 	const to = (path: string) => localized(locale, path);
+	const textLink = stylex.attrs(base.textLink, base.focusRing);
 	return (
 		<main>
 			<Head title={copy.title} socialTitle={copy.socialTitle} description={copy.description} path="/" />
@@ -104,82 +182,59 @@ export default function Home() {
 					offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
 				}}
 			/>
-			<div class="hero">
-				<h1>
+			<div {...stylex.attrs(styles.hero)}>
+				<h1 {...stylex.attrs(styles.headline)}>
 					{copy.headline[0]}
 					<br />
-					<span>{copy.headline[1]}</span>
+					<span {...stylex.attrs(styles.headlineEnd)}>{copy.headline[1]}</span>
 				</h1>
-				<p class="lead">{copy.lead}</p>
+				<p {...stylex.attrs(styles.lead)}>{copy.lead}</p>
 				<Command>npx hostc@latest 3000</Command>
-				<p class="note">{copy.note}</p>
+				<p {...stylex.attrs(styles.note)}>{copy.note}</p>
 				<Terminal />
 			</div>
 
-			<section>
-				<h2>{copy.featuresTitle}</h2>
-				<dl>
-					<For each={copy.features}>
-						{(feature) => (
-							<div>
-								<dt>{feature[0]}</dt>
-								<dd>{feature[1]}</dd>
-							</div>
-						)}
-					</For>
+			<section {...stylex.attrs(styles.section)}>
+				<h2 {...stylex.attrs(styles.heading)}>{copy.featuresTitle}</h2>
+				<dl {...stylex.attrs(styles.grid)}>
+					<For each={copy.features}>{(feature) => <Feature title={feature[0] as string}>{feature[1]}</Feature>}</For>
 				</dl>
 			</section>
 
-			<section>
-				<h2>{copy.guidesTitle}</h2>
-				<ul class="index">
-					<For each={GUIDES}>
-						{(guide) => (
-							<li>
-								<a href={to(guide.path)}>{guide[locale].title}</a>
-								<span>{guide[locale].description}</span>
-							</li>
-						)}
-					</For>
+			<section {...stylex.attrs(styles.section)}>
+				<h2 {...stylex.attrs(styles.heading)}>{copy.guidesTitle}</h2>
+				<PageList
+					items={GUIDES.map((guide) => ({
+						href: to(guide.path),
+						title: guide[locale].title,
+						detail: guide[locale].description,
+					}))}
+				/>
+			</section>
+
+			<section {...stylex.attrs(styles.section)}>
+				<h2 {...stylex.attrs(styles.heading)}>{copy.compareTitle}</h2>
+				<ul {...stylex.attrs(styles.chips)}>
+					<For each={ALTERNATIVES}>{(item) => <Chip href={to(`/alternatives/${item.slug}`)}>{item.name}</Chip>}</For>
+					<Chip href={to("/alternatives")}>{copy.compareAll}</Chip>
 				</ul>
 			</section>
 
-			<section>
-				<h2>{copy.compareTitle}</h2>
-				<ul class="chips">
-					<For each={ALTERNATIVES}>
-						{(item) => (
-							<li>
-								<a href={to(`/alternatives/${item.slug}`)}>{item.name}</a>
-							</li>
-						)}
-					</For>
-					<li>
-						<a href={to("/alternatives")}>{copy.compareAll}</a>
-					</li>
-				</ul>
-			</section>
-
-			<section>
-				<dl>
-					<div>
-						<dt>{copy.safetyTitle}</dt>
-						<dd>{copy.safetyBody}</dd>
-					</div>
-					<div>
-						<dt>{copy.openTitle}</dt>
-						<dd>
-							{copy.open[0]}
-							<a href={`${site.github}#self-hosting`}>{copy.open[1]}</a>
-							{copy.open[2]}
-							<a href={site.github}>{copy.open[3]}</a>
-							{copy.open[4]}
-						</dd>
-					</div>
-					<div>
-						<dt>{copy.codexTitle}</dt>
-						<dd>{copy.codexBody}</dd>
-					</div>
+			<section {...stylex.attrs(styles.section)}>
+				<dl {...stylex.attrs(styles.grid)}>
+					<Feature title={copy.safetyTitle}>{copy.safetyBody}</Feature>
+					<Feature title={copy.openTitle}>
+						{copy.open[0]}
+						<a href={`${site.github}#self-hosting`} {...textLink}>
+							{copy.open[1]}
+						</a>
+						{copy.open[2]}
+						<a href={site.github} {...textLink}>
+							{copy.open[3]}
+						</a>
+						{copy.open[4]}
+					</Feature>
+					<Feature title={copy.codexTitle}>{copy.codexBody}</Feature>
 				</dl>
 			</section>
 		</main>

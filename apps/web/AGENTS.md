@@ -2,8 +2,8 @@
 
 hostc.dev is Solid 2 with file routes in `src/routes`, rendered to static HTML at build time by
 `prerender-crawler`. Solid only runs during the build: `vite.config.ts` removes its scripts from the
-output, because pages are text and links and hydrating them would only cost download time. No
-component library, no web fonts. Solid 2 is a release candidate and is not React or Solid 1: read
+output, because pages are text and links and hydrating them would only cost download time. Styles are StyleX, with tokens in `src/ui/tokens.stylex.ts`, as in `apps/codex-web`. No component
+library, no web fonts. Solid 2 is a release candidate and is not React or Solid 1: read
 `node_modules/solid-js/CHEATSHEET.md` before writing components.
 
 The site exists to explain hostc and to be found by people searching for what it does. It should
@@ -12,6 +12,8 @@ look professional, simple and modern: one column, plenty of space, nothing decor
 - Keep Solid, the router and the Vite plugin on the versions `apps/codex-web` uses.
 - A page sets its head through `src/components/Head.tsx`. A page nothing links to is not built, so
   link it from the footer or a list.
+- Markdown renders through `src/ui/Markdown.tsx`, node by node, so it uses StyleX too. It throws on a
+  node type it doesn't know: add the type there. Guides are Markdown in `content/guides`.
 - `/changelog` renders `apps/cli/CHANGELOG.md`. Blog posts are Markdown in `content/blog`, Chinese in
   `content/blog/zh`, with `title`, `description` and `date`. Write a post only when it has something
   to teach, and never to fill a schedule.
@@ -20,7 +22,7 @@ look professional, simple and modern: one column, plenty of space, nothing decor
 - Colors come from the logo: zinc neutrals (dark scheme on a soft #1c1c1f, never pure black), white
   and orange, used for links and the command's prompt. The orange-to-pink gradient stays in the logo.
   Don't bring in other hues or a tinted paper background. The terminal's green marks status codes only.
-- `src/global.css` holds every color as a variable, with a `prefers-color-scheme: dark` block; check both
+- `src/ui/tokens.stylex.ts` holds every color, with its dark value; check both
   schemes and a 390px-wide phone after changes.
 - `src/components/Terminal.tsx` copies what the CLI prints; keep them in step.
 - After a change, run `WEB_DOMAIN=hostc.dev pnpm -F web build` and open the built pages in a browser. A build can succeed with

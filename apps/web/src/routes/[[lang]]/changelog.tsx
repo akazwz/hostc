@@ -1,10 +1,11 @@
 import { defineFileRoute } from "@solidjs/router/fs";
-import { marked } from "marked";
 
 import CHANGELOG from "../../../../cli/CHANGELOG.md?raw";
 import { Crumbs } from "../../components/Crumbs.tsx";
 import { Head } from "../../components/Head.tsx";
 import { currentLocale } from "../../i18n.ts";
+import { Markdown } from "../../ui/Markdown.tsx";
+import { Lead, Page, PageTitle } from "../../ui/Page.tsx";
 
 export const route = defineFileRoute("/:lang?/changelog", { matchFilters: { lang: ["zh"] } });
 
@@ -23,15 +24,14 @@ const COPY = {
 
 export default function Changelog() {
 	const copy = COPY[currentLocale()];
-	// The file's first line is its own title.
-	const html = marked.parse(CHANGELOG.replace(/^# .*\n/, ""), { async: false });
 	return (
-		<main class="page">
+		<Page>
 			<Head title={`${copy.title} · hostc`} description={copy.description} path="/changelog" />
 			<Crumbs />
-			<h1>{copy.title}</h1>
-			<p class="lead">{copy.lead}</p>
-			<div class="prose" lang="en" innerHTML={html} />
-		</main>
+			<PageTitle>{copy.title}</PageTitle>
+			<Lead>{copy.lead}</Lead>
+			{/* The file's first line is its own title. */}
+			<Markdown source={CHANGELOG.replace(/^# .*\n/, "")} lang="en" />
+		</Page>
 	);
 }

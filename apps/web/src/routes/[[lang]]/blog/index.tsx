@@ -1,10 +1,11 @@
 import { defineFileRoute } from "@solidjs/router/fs";
-import { For } from "solid-js";
 
 import { Crumbs } from "../../../components/Crumbs.tsx";
 import { Head } from "../../../components/Head.tsx";
 import { posts } from "../../../content/blog.ts";
 import { currentLocale, localized } from "../../../i18n.ts";
+import { Lead, Page, PageTitle } from "../../../ui/Page.tsx";
+import { PageList } from "../../../ui/PageList.tsx";
 
 export const route = defineFileRoute("/:lang?/blog", { matchFilters: { lang: ["zh"] } });
 
@@ -25,22 +26,19 @@ export default function Blog() {
 	const locale = currentLocale();
 	const copy = COPY[locale];
 	return (
-		<main class="page">
+		<Page>
 			<Head title={`${copy.title} · hostc`} description={copy.description} path="/blog" />
 			<Crumbs />
-			<h1>{copy.title}</h1>
-			<p class="lead">{copy.lead}</p>
-			<ul class="index">
-				<For each={posts(locale)}>
-					{(post) => (
-						<li>
-							<a href={localized(locale, `/blog/${post.slug}`)}>{post.title}</a>
-							<span>{post.description}</span>
-							<time datetime={post.date}>{post.date}</time>
-						</li>
-					)}
-				</For>
-			</ul>
-		</main>
+			<PageTitle>{copy.title}</PageTitle>
+			<Lead>{copy.lead}</Lead>
+			<PageList
+				items={posts(locale).map((post) => ({
+					href: localized(locale, `/blog/${post.slug}`),
+					title: post.title,
+					detail: post.description,
+					date: post.date,
+				}))}
+			/>
+		</Page>
 	);
 }

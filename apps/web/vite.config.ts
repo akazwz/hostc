@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 
 import { cloudflare } from "@cloudflare/vite-plugin";
 import solid from "@solidjs/vite-plugin";
+import stylex from "@stylexjs/unplugin";
 import { fileRoutes } from "filesystem-routing/vite";
 import { sitemap } from "prerender-crawler";
 import { prerender } from "prerender-crawler/vite";
@@ -62,6 +63,12 @@ function staticOutput(): Plugin {
 
 export default defineConfig({
 	plugins: [
+		// StyleX must compile before Solid transforms JSX.
+		stylex.vite({
+			useCSSLayers: true,
+			// The plugin appends its rules after Vite has minified the CSS, unminified unless told.
+			lightningcssOptions: { minify: true },
+		}),
 		// `async` waits for the whole page, so its HTML carries the content. `extensions` also
 		// compiles the `?pick=` route modules that fileRoutes emits.
 		solid({ start: { renderMode: "async" }, ssr: true, extensions: [".jsx", ".tsx"] }),

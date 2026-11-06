@@ -1,6 +1,6 @@
 # hostc website
 
-hostc.dev: Solid pages in `src/routes`, rendered to static HTML at build time, with `llms.txt` for coding
+hostc.dev: Solid and StyleX pages in `src/routes`, rendered to static HTML at build time, with `llms.txt` for coding
 agents. Cloudflare Workers serves the files. Browsers get HTML and CSS, no JavaScript.
 
 ```sh
