@@ -108,7 +108,7 @@ export const PHONE: GuideContent = {
 	},
 	zh: {
 		title: "在手机上调试 localhost",
-		lead: "用手机打开你电脑上的网站，走 HTTPS，什么网络都行。热更新照常工作，一保存手机就跟着更新。",
+		lead: "用手机打开你电脑上的网站，走 HTTPS，什么网络都行。改完代码一保存，手机上的页面就会自动更新。",
 		description: "扫二维码，在真机上打开本地开发服务。支持 HTTPS、热更新，不限网络。免费，不用注册。",
 		body: (
 			<>
@@ -174,7 +174,7 @@ export const DEV_SERVERS: GuideContent = {
 	},
 	zh: {
 		title: "分享 Vite 或 Next.js 开发服务",
-		lead: "给别人发一个链接，打开就是你正在跑的开发服务，不用改配置，热更新也能到对方那里。",
+		lead: "给别人发一个链接，打开就是你正在跑的开发服务，不用改配置。你一保存，对方的页面也会自动更新。",
 		description: "通过公网地址分享 Vite、Next.js 开发服务，支持热更新，不用改 allowedHosts 或 allowedDevOrigins。",
 		body: (
 			<>
@@ -189,7 +189,7 @@ export const DEV_SERVERS: GuideContent = {
 				<p>
 					hostc 会改写进来的 <code>Host</code>、<code>Origin</code> 和 <code>Referer</code>
 					请求头，在开发服务看来，每个请求都来自本地。指向 localhost 的跳转会改写回公网地址。WebSocket
-					直接透传，热更新靠的就是它。
+					直接透传，页面自动更新（热更新）靠的就是它。
 				</p>
 				<h2>需要知道的</h2>
 				<ul>

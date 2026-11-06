@@ -2,7 +2,7 @@
   <img src="./apps/web/public/favicon.svg" alt="hostc logo" width="80" height="80" />
   <h1>hostc</h1>
   <p><strong>localhost，随处可达。</strong></p>
-  <p>一条命令，给你的开发服务器一个公网 HTTPS 地址，WebSocket 和热更新都能用。<br />免费、开源、不用注册。</p>
+  <p>一条命令，把你电脑上正在开发的网站变成公网 HTTPS 链接，改完代码页面自动更新。<br />免费、开源、不用注册。</p>
   <p>
     <a href="https://www.npmjs.com/package/hostc"><img src="https://img.shields.io/npm/v/hostc?color=ea580c&label=npm" alt="npm version" /></a>
     <a href="./LICENSE"><img src="https://img.shields.io/github/license/akazwz/hostc?color=52525b" alt="Apache-2.0 license" /></a>

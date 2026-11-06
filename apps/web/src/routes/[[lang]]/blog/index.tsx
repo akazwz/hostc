@@ -36,6 +36,7 @@ export default function Blog() {
 						<li>
 							<a href={localized(locale, `/blog/${post.slug}`)}>{post.title}</a>
 							<span>{post.description}</span>
+							<time datetime={post.date}>{post.date}</time>
 						</li>
 					)}
 				</For>

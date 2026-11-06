@@ -28,6 +28,12 @@ Any message that arrives answers that. So the timeout is now cleared by anything
 
 With the fix, the same 20-second slowdown completes without a reconnect.
 
+## Why the test matters more than the fix
+
+The fix is three lines. The harder work was reproducing it. Normal uploads didn't fail, and the local test bench had a steady link. It took a proxy that drops to 200 KB/s for 20 seconds, 1.5 seconds into an upload, and then the new version dropped the connection while the version before it survived. That told us the wider window was the cause, not bad luck.
+
+The regression test uses a fake server with short timings. One case sends nothing after a ping and expects a drop. The other delays the pong while data keeps arriving, and expects the connection to stay open. Both matter: the second proves the fix, the first proves we didn't remove the protection.
+
 ## The takeaway
 
 When you put a heartbeat in the same ordered stream as your data, its delay measures your queue as well as your connection. Widening a window moves that delay, so check what else sits behind it. The fix shipped in [hostc 2.1.2](/changelog).

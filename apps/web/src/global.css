@@ -257,6 +257,13 @@ dd {
 	line-height: 1.55;
 }
 
+/* Links inside text need more than color to stand out. */
+dd a,
+.prose a {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
 /* Lists of pages: a title with a line about it. */
 .index {
 	margin: 0;
@@ -281,6 +288,10 @@ dd {
 	color: var(--muted);
 	font-size: 14px;
 	line-height: 1.5;
+}
+.index time {
+	color: var(--muted);
+	font-size: 13px;
 }
 .links {
 	margin: 0;
@@ -383,6 +394,7 @@ dd {
 	background: var(--subtle);
 	font-size: 14px;
 	line-height: 1.6;
+	tab-size: 2;
 }
 .prose pre code {
 	padding: 0;
@@ -398,6 +410,20 @@ dd {
 }
 .page > .note {
 	margin-block: 12px 28px;
+}
+.cta {
+	margin-top: 48px;
+	padding: 24px;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	background: var(--subtle);
+}
+.cta h2 {
+	margin-bottom: 14px;
+	font-size: 16px;
+}
+.cta .command {
+	background: var(--bg);
 }
 .related {
 	margin-top: 56px;
