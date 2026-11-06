@@ -1,10 +1,11 @@
 import { defineFileRoute } from "@solidjs/router/fs";
-import { For } from "solid-js";
 
 import { Crumbs } from "../../../components/Crumbs.tsx";
 import { Head } from "../../../components/Head.tsx";
 import { ALTERNATIVES } from "../../../content/alternatives.ts";
 import { currentLocale, localized } from "../../../i18n.ts";
+import { Lead, Page, PageTitle } from "../../../ui/Page.tsx";
+import { PageList } from "../../../ui/PageList.tsx";
 
 export const route = defineFileRoute("/:lang?/alternatives", { matchFilters: { lang: ["zh"] } });
 
@@ -28,23 +29,18 @@ export default function Alternatives() {
 	const locale = currentLocale();
 	const copy = COPY[locale];
 	return (
-		<main class="page">
+		<Page>
 			<Head title={`${copy.title} · hostc`} description={copy.description} path="/alternatives" />
 			<Crumbs />
-			<h1>{copy.title}</h1>
-			<p class="lead">{copy.lead}</p>
-			<ul class="index">
-				<For each={ALTERNATIVES}>
-					{(item) => (
-						<li>
-							<a href={localized(locale, `/alternatives/${item.slug}`)}>
-								{copy.vs} {item.name}
-							</a>
-							<span>{item.summary[locale]}</span>
-						</li>
-					)}
-				</For>
-			</ul>
-		</main>
+			<PageTitle>{copy.title}</PageTitle>
+			<Lead>{copy.lead}</Lead>
+			<PageList
+				items={ALTERNATIVES.map((item) => ({
+					href: localized(locale, `/alternatives/${item.slug}`),
+					title: `${copy.vs} ${item.name}`,
+					detail: item.summary[locale],
+				}))}
+			/>
+		</Page>
 	);
 }

@@ -271,6 +271,9 @@ importers:
       '@solidjs/web':
         specifier: 2.0.0-rc.20
         version: 2.0.0-rc.20(solid-js@2.0.0-rc.20)
+      '@stylexjs/stylex':
+        specifier: 0.19.1
+        version: 0.19.1
       solid-js:
         specifier: 2.0.0-rc.20
         version: 2.0.0-rc.20
@@ -281,6 +284,9 @@ importers:
       '@solidjs/vite-plugin':
         specifier: 3.0.0-next.54
         version: 3.0.0-next.54(@solidjs/web@2.0.0-rc.20(solid-js@2.0.0-rc.20))(solid-js@2.0.0-rc.20)(supports-color@10.2.2)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2))
+      '@stylexjs/unplugin':
+        specifier: 0.19.1
+        version: 0.19.1(supports-color@10.2.2)(unplugin@3.7.0(esbuild@0.28.2)(rolldown@1.2.16)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)))
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.5
@@ -299,6 +305,9 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      unplugin:
+        specifier: 3.7.0
+        version: 3.7.0(esbuild@0.28.2)(rolldown@1.2.16)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2))
       vite:
         specifier: 8.3.5
         version: 8.3.5(@types/node@22.20.5)(esbuild@0.28.2)

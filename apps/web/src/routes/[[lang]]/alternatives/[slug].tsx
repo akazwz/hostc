@@ -1,4 +1,5 @@
 import { defineFileRoute } from "@solidjs/router/fs";
+import * as stylex from "@stylexjs/stylex";
 import { For } from "solid-js";
 
 import { Command } from "../../../components/Command.tsx";
@@ -7,8 +8,29 @@ import { Head } from "../../../components/Head.tsx";
 import { RelatedLinks } from "../../../components/RelatedLinks.tsx";
 import { ALTERNATIVES, CHECKED_ON, HOSTC, ROW_LABELS, type Row } from "../../../content/alternatives.ts";
 import { currentLocale, currentPath, localized, UI } from "../../../i18n.ts";
+import { base } from "../../../ui/base.ts";
+import { H2, Item, List, Prose } from "../../../ui/Markdown.tsx";
+import { Lead, Note, Page, PageTitle } from "../../../ui/Page.tsx";
+import { color, text } from "../../../ui/tokens.stylex.ts";
 
 export const route = defineFileRoute("/:lang?/alternatives/:slug", { matchFilters: { lang: ["zh"] } });
+
+const styles = stylex.create({
+	tableBox: { overflowX: "auto" },
+	table: { width: "100%", borderCollapse: "collapse", fontSize: text.md, lineHeight: 1.5 },
+	cell: {
+		paddingBlock: "12px",
+		paddingInline: "0 16px",
+		borderBottomWidth: "1px",
+		borderBottomStyle: "solid",
+		borderBottomColor: color.line,
+		fontWeight: 400,
+		textAlign: "start",
+		verticalAlign: "top",
+	},
+	strong: { fontWeight: 600 },
+	rowLabel: { color: color.muted, whiteSpace: "nowrap" },
+});
 
 const COPY = {
 	en: {
@@ -55,63 +77,66 @@ export default function Alternative() {
 	if (!item) {
 		throw new Error(`No comparison for ${slug}.`);
 	}
+	const heading = copy.title(item.name);
 	return (
-		<main class="page">
+		<Page>
 			<Head
-				title={`${copy.title(item.name)} · hostc`}
+				title={`${heading} · hostc`}
 				description={copy.description(item.name, item.summary[locale])}
 				path={`/alternatives/${item.slug}`}
 			/>
 			<Crumbs section={{ label: UI[locale].alternatives, path: "/alternatives" }} />
-			<h1>{copy.title(item.name)}</h1>
-			<p class="lead">{item.lead[locale]}</p>
-			<div class="table">
-				<table>
+			<PageTitle>{heading}</PageTitle>
+			<Lead>{item.lead[locale]}</Lead>
+			<div {...stylex.attrs(styles.tableBox)}>
+				<table {...stylex.attrs(styles.table)}>
 					<thead>
 						<tr>
-							<th />
-							<th>hostc</th>
-							<th>{item.name}</th>
+							<th {...stylex.attrs(styles.cell)} />
+							<th {...stylex.attrs(styles.cell, styles.strong)}>hostc</th>
+							<th {...stylex.attrs(styles.cell, styles.strong)}>{item.name}</th>
 						</tr>
 					</thead>
 					<tbody>
 						<For each={Object.keys(ROW_LABELS) as Row[]}>
 							{(row) => (
 								<tr>
-									<th scope="row">{ROW_LABELS[row][locale]}</th>
-									<td>{HOSTC[row][locale]}</td>
-									<td>{item.rows[row][locale]}</td>
+									<th scope="row" {...stylex.attrs(styles.cell, styles.rowLabel)}>
+										{ROW_LABELS[row][locale]}
+									</th>
+									<td {...stylex.attrs(styles.cell)}>{HOSTC[row][locale]}</td>
+									<td {...stylex.attrs(styles.cell)}>{item.rows[row][locale]}</td>
 								</tr>
 							)}
 						</For>
 					</tbody>
 				</table>
 			</div>
-			<p class="note">{copy.checked}</p>
-			<div class="prose">
-				<h2>{copy.chooseUs}</h2>
-				<ul>
-					<For each={copy.chooseUsItems}>{(reason) => <li>{reason}</li>}</For>
-				</ul>
-				<h2>{copy.chooseThem(item.name)}</h2>
-				<ul>
-					<For each={item.chooseThem[locale]}>{(reason) => <li>{reason}</li>}</For>
-				</ul>
-				<h2>{copy.tryIt}</h2>
+			<Note>{copy.checked}</Note>
+			<Prose>
+				<H2>{copy.chooseUs}</H2>
+				<List>
+					<For each={copy.chooseUsItems}>{(reason) => <Item>{reason}</Item>}</For>
+				</List>
+				<H2>{copy.chooseThem(item.name)}</H2>
+				<List>
+					<For each={item.chooseThem[locale]}>{(reason) => <Item>{reason}</Item>}</For>
+				</List>
+				<H2>{copy.tryIt}</H2>
 				<Command>npx hostc@latest 3000</Command>
-				<h2>{copy.sources}</h2>
-				<ul>
+				<H2>{copy.sources}</H2>
+				<List>
 					<For each={item.sources}>
 						{(source) => (
-							<li>
-								<a href={source.url} rel="nofollow">
+							<Item>
+								<a href={source.url} rel="nofollow" {...stylex.attrs(base.textLink, base.focusRing)}>
 									{source.label}
 								</a>
-							</li>
+							</Item>
 						)}
 					</For>
-				</ul>
-			</div>
+				</List>
+			</Prose>
 			<RelatedLinks
 				title={copy.more}
 				links={ALTERNATIVES.filter((each) => each !== item).map((each) => ({
@@ -119,6 +144,6 @@ export default function Alternative() {
 					label: copy.vs(each.name),
 				}))}
 			/>
-		</main>
+		</Page>
 	);
 }
