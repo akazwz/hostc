@@ -19,13 +19,13 @@ const COPY = {
 		description:
 			"One command gives your dev server a public HTTPS URL. WebSockets and hot reload work through it. Free, open source, no account.",
 		headline: ["Localhost,", "anywhere."],
-		lead: "Give your dev server a public HTTPS URL with one command. Hot reload works. Free, open source, no account.",
+		lead: "One command turns the app running on your computer into a public link, and the page updates as you save. Free, open source, no account.",
 		note: "Needs Node.js 22.1 or later.",
 		featuresTitle: "Made for dev servers",
 		features: [
 			[
-				"Hot reload works",
-				"WebSockets pass straight through, so Vite and Next.js update on every device the moment you save.",
+				"Updates as you save",
+				"Change your code and every open device refreshes by itself. WebSockets pass straight through, so hot reload works.",
 			],
 			["No config changes", "Requests arrive addressed to localhost, so dev servers accept them as they are."],
 			["Everything gets through", "Pages, APIs, forms, Server-Sent Events, streaming responses and uploads."],
@@ -56,11 +56,11 @@ const COPY = {
 		description:
 			"一条命令给你的开发服务器一个公网 HTTPS 地址，支持 WebSocket 和热更新。免费、开源、不用注册的内网穿透工具。",
 		headline: ["localhost，", "随处可达。"],
-		lead: "免费开源的内网穿透工具。一条命令，给你的开发服务器一个公网 HTTPS 地址，热更新也能用，不用注册。",
+		lead: "一条命令，把你电脑上正在开发的网站变成公网链接，改完代码页面自动更新。免费开源的内网穿透工具，不用注册。",
 		note: "需要 Node.js 22.1 或更高版本。",
 		featuresTitle: "为开发服务而生",
 		features: [
-			["热更新能用", "WebSocket 直接透传，Vite、Next.js 一保存，所有打开的设备都会跟着更新。"],
+			["保存后自动更新", "改完代码一保存，所有打开的设备都会自动刷新（也就是热更新）。"],
 			["不用改配置", "请求到达时的地址就是 localhost，开发服务直接接受。"],
 			["什么都能过", "页面、接口、表单、Server-Sent Events、流式响应和上传。"],
 			["地址不会变", "断网或服务端重启后，hostc 会自己重连，发出去的链接继续有效。"],

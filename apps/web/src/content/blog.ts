@@ -18,7 +18,13 @@ function parse(path: string, source: string): Post {
 	const meta = Object.fromEntries(
 		(match[1] as string).split("\n").map((line) => {
 			const colon = line.indexOf(":");
-			return [line.slice(0, colon), line.slice(colon + 1).trim()];
+			return [
+				line.slice(0, colon),
+				line
+					.slice(colon + 1)
+					.trim()
+					.replace(/^(['"])(.*)\1$/, "$2"),
+			];
 		}),
 	) as Record<string, string>;
 	const { title, description, date } = meta;

@@ -37,7 +37,7 @@ const COPY = {
 		chooseUsItems: [
 			"想在几秒内拿到开发服务的公网链接，在任何装了 Node.js 的机器上。",
 			"要分享给不该注册账号、也不该多点一步的人或服务。",
-			"用到了热更新、WebSocket 或 Server-Sent Events。",
+			"需要保存后页面自动更新（热更新），或者用到 WebSocket、Server-Sent Events。",
 		],
 		tryIt: "试试 hostc",
 		checked: `内容来自各产品 ${CHECKED_ON} 的文档。产品会变，决定之前请以它们的文档为准。`,

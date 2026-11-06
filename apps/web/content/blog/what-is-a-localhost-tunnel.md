@@ -32,6 +32,20 @@ Nothing on your machine has to be reachable from the internet, and you don't cha
 
 **Dev servers can refuse tunnels.** Vite and Next.js block requests from hostnames they don't know. Some tunnels make you add their domain to the config. [hostc rewrites the headers instead](/share-vite-nextjs-dev-server).
 
+## Tunnel, port forwarding or deploy?
+
+A tunnel isn't the only way to share your work. [This guide](/blog/how-to-share-localhost) compares a tunnel with a local IP, port forwarding and a preview deploy. In short, use a tunnel when the thing you want to show is running on your machine right now, and a deploy when people need it without you.
+
+## Common questions
+
+**Is a tunnel safe?** The connection is encrypted between the visitor and the tunnel server, and your machine accepts no incoming connections. The risk is what you expose: everyone with the link can use your app, including any bug in it.
+
+**Does my computer have to stay on?** Yes. The tunnel forwards to your machine, so the link stops working when it sleeps or the tunnel stops.
+
+**Is it the same as a VPN?** No. A VPN joins your device to a private network. A tunnel publishes one local service to the internet.
+
+**Which tool should I use?** See [how to choose a localhost tunnel](/blog/choosing-a-localhost-tunnel).
+
 ## Try one
 
 ```sh
