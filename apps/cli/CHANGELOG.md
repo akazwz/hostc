@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.3
+
+No code changes. The npm page lists every option and the exact minimum Node.js version, 22.1.
+
 ## 2.1.2
 
 - A tunnel no longer drops during an upload when the link slows down. 2.1.1 lets an upload have up to
