@@ -51,4 +51,8 @@ It needs the Codex CLI on the machine, and prints a private link. Anyone with th
 
 Anyone with the URL reaches the local server. Only expose what the user asked to share; never databases, admin panels or anything holding secrets. Stop the tunnel when it is no longer needed.
 
-Source and self-hosting: https://github.com/akazwz/hostc
+## Links
+
+- [Source and self-hosting](https://github.com/akazwz/hostc)
+- [Changelog](https://hostc.dev/changelog)
+- [Alternatives](https://hostc.dev/alternatives)
