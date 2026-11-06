@@ -10,7 +10,7 @@ After we made uploads faster, some of them started failing with "Tunnel offline"
 
 hostc carries every request over one WebSocket, with flow control per stream. Uploads had a fixed window of 256 KiB, so they moved at most one window per round trip. On a long path that is a hard ceiling. So we let the window grow, up to 4 MiB per request, while it was what held the upload back.
 
-Uploads got faster. Then a small share of them failed with "Tunnel offline".
+Uploads got faster, but 2 of 16 test uploads in production failed.
 
 ## The failure
 

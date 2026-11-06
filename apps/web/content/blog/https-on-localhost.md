@@ -1,6 +1,6 @@
 ---
 title: Camera or service worker not working on a phone? Use HTTPS
-description: Camera, service workers and other browser features need a secure context. Localhost gets a pass and a LAN address doesn't. Here is how to fix it.
+description: Camera, service workers and other browser features need a secure context. Localhost counts and a LAN address doesn't. How to fix it.
 date: 2026-11-06
 ---
 
@@ -38,7 +38,7 @@ npx hostc@latest 3000 --qr
 
 Scan the QR code. Details are in [testing localhost on a phone](/test-localhost-on-phone).
 
-You can also use a local certificate. Tools like [mkcert](https://github.com/FiloSottile/mkcert) create a certificate your computer trusts. It suits work on one machine, but each phone has to trust the certificate authority too, and that is fiddly on iOS and Android.
+You can also use a local certificate. Tools like [mkcert](https://github.com/FiloSottile/mkcert) create a certificate your computer trusts. It suits work on one machine, but each phone has to trust the certificate authority too, which takes some setup on iOS and Android.
 
 Frameworks have options too. Vite has `server.https` and a basic SSL plugin, and Next.js has `next dev --experimental-https`. Self-signed certificates show a browser warning on other devices, and some features may still refuse to work.
 

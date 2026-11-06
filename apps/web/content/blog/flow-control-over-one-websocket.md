@@ -41,7 +41,7 @@ The first version checked whether anything was queued when the window ended, and
 
 The fix was to check the whole window: did the next hop catch up at any point during it?
 
-A model of the pipeline became the test: a byte-credit simulation with a 270 ms round trip and arrival clumps, using an injected clock, so it needs no real network. Under the old rule the window stalled at 512 KiB, and under the new one it reaches 4 MiB.
+The test is a simulation with a 270 ms round trip, data arriving in clumps and an injected clock, so it needs no real network. Under the old rule the window stalled at 512 KiB, and under the new one it reaches 4 MiB.
 
 ## WebSocket messages
 

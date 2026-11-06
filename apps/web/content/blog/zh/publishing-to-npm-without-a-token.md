@@ -26,7 +26,7 @@ permissions:
 
 ## 固定 Action 版本
 
-`id-token: write` 意味着这个 job 里的每一步都能拿到发布包的身份。`uses: some/action@v6` 跟随一个所有者可以移动的标签。一旦这个 Action 被攻破，攻击者的代码就带着你的发布权限运行。
+`id-token: write` 意味着这个 job 里的每一步都有发布权限。`uses: some/action@v6` 跟随一个所有者可以移动的标签。一旦这个 Action 被攻破，攻击者的代码就带着你的发布权限运行。
 
 所以每个 Action 都固定到完整的提交：
 

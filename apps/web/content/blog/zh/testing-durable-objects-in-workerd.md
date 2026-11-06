@@ -6,11 +6,11 @@ date: 2026-11-06
 
 hostc 的隧道服务是一个带 WebSocket、休眠和流控的 Durable Object。这些行为都取决于运行时，用 Mock 测不出来，所以测试通过 `@cloudflare/vitest-plugin` 跑在真实的 Workers 运行时 workerd 里。
 
-这样测到的是真实行为，也包括一个让我们意外的地方：时钟。
+不过 workerd 里的时钟和 Node 不一样，这给我们带来过麻烦。
 
 ## 真实运行时带来了什么
 
-测试可以像客户端一样访问 Worker，需要时也能深入对象内部：
+测试可以像客户端一样访问 Worker，需要时也能读取对象内部的状态：
 
 ```ts
 import { env, evictDurableObject, runInDurableObject, SELF } from "cloudflare:test";
@@ -23,7 +23,7 @@ const waiting = await runInDurableObject(
 );
 ```
 
-最有价值的是 `evictDurableObject`，它能模拟休眠，这本来几乎没法测。下面这段检查流 ID 跨休眠也不重复：
+最有用的是 `evictDurableObject`，它能模拟休眠。下面这段检查流 ID 跨休眠也不重复：
 
 ```ts
 const first = await request();

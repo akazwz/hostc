@@ -6,7 +6,7 @@ date: 2026-11-06
 
 hostc's tunnel server is one Durable Object with WebSockets, hibernation and flow control. That behavior depends on the runtime and a mock can't show it, so the tests run in workerd, the real Workers runtime, through `@cloudflare/vitest-plugin`.
 
-The behavior is real, including one that surprised us: the clock.
+The clock works differently there, which caused us some trouble.
 
 ## What the real runtime gives you
 
@@ -23,7 +23,7 @@ const waiting = await runInDurableObject(
 );
 ```
 
-The most valuable helper is `evictDurableObject`. It simulates hibernation, which is otherwise close to impossible to test. Here is how we check that stream ids never repeat across sleep:
+The most useful helper is `evictDurableObject`. It simulates hibernation, which is otherwise close to impossible to test. Here is how we check that stream ids never repeat across sleep:
 
 ```ts
 const first = await request();

@@ -10,7 +10,7 @@ Your dev server listens on `localhost`, so only your computer can reach it. A tu
 
 Your computer usually can't accept connections from the internet: it sits behind a router or a firewall. So a tunnel works the other way round.
 
-1. A small program on your machine opens an **outgoing** connection to a public server.
+1. A small program on your machine opens an outgoing connection to a public server.
 2. That server gives you a URL.
 3. When someone opens the URL, the server sends the request down the connection that is already open.
 4. The program passes it to `localhost` and sends the response back.

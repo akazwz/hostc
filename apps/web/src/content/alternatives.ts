@@ -47,7 +47,7 @@ export const ALTERNATIVES: Alternative[] = [
 		summary: { en: "No account, no warning page", zh: "不用注册，没有警告页" },
 		lead: {
 			en: "ngrok is the best-known tunnel and does far more than hostc. If you only want to share a dev server, hostc skips the sign-up and the page visitors click through.",
-			zh: "ngrok 是最知名的隧道工具，功能比 hostc 多得多。如果你只想分享开发服务，hostc 省掉了注册，访客也不用先点过一个页面。",
+			zh: "ngrok 是最知名的隧道工具，功能比 hostc 多得多。如果你只想分享开发服务，hostc 不用注册，访客打开链接也不用先点确认。",
 		},
 		rows: {
 			install: { en: "ngrok agent", zh: "ngrok agent" },
