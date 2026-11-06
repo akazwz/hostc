@@ -10,10 +10,13 @@ import { defineConfig, type Plugin } from "vite";
 
 import { site } from "./src/site.ts";
 
+/** Structured data, and the small script behind the copy buttons. */
+const KEPT_SCRIPT = /application\/ld\+json|src="\/copy\.js"/;
+
 /**
- * Every page is plain text and links, so the site needs no script in the browser. Solid renders
- * the pages at build time; this removes what it adds for hydrating them, along with the client
- * build's manifest, which only the prerender reads.
+ * Every page is text and links, so hydrating it would only cost download time. Solid renders the
+ * pages at build time; this removes what it adds for hydration, along with the client build's
+ * manifest, which only the prerender reads.
  */
 function staticOutput(): Plugin {
 	return {
@@ -30,7 +33,7 @@ function staticOutput(): Plugin {
 				rmSync(join(output, ".vite"), { recursive: true, force: true });
 				for (const entry of readdirSync(output, { recursive: true, encoding: "utf8" })) {
 					const file = join(output, entry);
-					if (entry.endsWith(".js")) {
+					if (entry.startsWith("assets") && entry.endsWith(".js")) {
 						rmSync(file);
 					} else if (entry.endsWith(".html")) {
 						const html = readFileSync(file, "utf8");
@@ -40,7 +43,7 @@ function staticOutput(): Plugin {
 						writeFileSync(
 							file,
 							html
-								.replaceAll(/<script\b[^>]*>[\s\S]*?<\/script>/g, "")
+								.replaceAll(/<script\b[^>]*>[\s\S]*?<\/script>/g, (tag) => (KEPT_SCRIPT.test(tag) ? tag : ""))
 								.replaceAll(/<link\b[^>]*rel="modulepreload"[^>]*>/g, "")
 								.replaceAll(/ (_hk|data-dh|data-dhf)=("[^"]*"|[^\s>]*)/g, ""),
 						);
