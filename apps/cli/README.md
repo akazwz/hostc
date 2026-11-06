@@ -25,6 +25,8 @@ hostc <target> [options]
   --qr             print a QR code of the public URL
   --here           hostc codex: show only this directory (commands still reach
                    the whole machine)
+  -h, --help       show this help
+  -v, --version    show the version
 ```
 
 Anyone with the URL can reach your local server, so don't expose anything sensitive.

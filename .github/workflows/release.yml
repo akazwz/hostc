@@ -21,14 +21,19 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       # Trusted publishing needs npm 11.5.1 or newer, which ships with Node.js 24.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       # pnpm resolves the workspace dependencies in the manifest; npm publishes with OIDC and provenance.
       - run: pnpm -F hostc pack --pack-destination "$RUNNER_TEMP"
+      # What gets published is what was tested: installed from this tarball, end to end.
+      - run: cp apps/server/.env.example apps/server/.env
+      - run: pnpm -F hostc test:package "$RUNNER_TEMP"/hostc-*.tgz
       - run: npm publish "$RUNNER_TEMP"/hostc-*.tgz --tag "${{ inputs.dist-tag }}"
