@@ -68,9 +68,9 @@ The tunnel server counts each request it could not serve in the Analytics Engine
 week:
 
 ```sh
-echo "SELECT blob1 AS error, SUM(_sample_interval) AS count FROM hostc_errors
-WHERE timestamp > NOW() - INTERVAL '7' DAY GROUP BY error ORDER BY count DESC" \
-  | pnpm -F @hostc/server exec cf analytics-engine sql query
+pnpm -F @hostc/server exec cf analytics-engine sql query --body "SELECT blob1 AS error,
+  SUM(_sample_interval) AS count FROM hostc_errors WHERE timestamp > NOW() - INTERVAL '7' DAY
+  GROUP BY error ORDER BY count DESC FORMAT JSON"
 ```
 
 `Tunnel offline`, `Tunnel busy` come from hostc; `Local server …` mean a user's own server failed.
