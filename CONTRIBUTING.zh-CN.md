@@ -25,6 +25,6 @@ pnpm test:e2e   # cf dev + CLI + 本地源站的端到端测试
 | `packages/client`   | Node.js 客户端：连接、stream、重连            |
 | `apps/server`       | Cloudflare Worker + Durable Object 隧道服务器 |
 | `apps/cli`          | `hostc` 命令                                  |
-| `apps/web`          | hostc.dev 官网（单个静态页面）和 llms.txt     |
+| `apps/web`          | hostc.dev 官网和 llms.txt                     |
 
 协议细节见 [docs/protocol.md](./docs/protocol.md)，部署和发版见 [docs/release.md](./docs/release.md)。

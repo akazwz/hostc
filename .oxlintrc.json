@@ -18,7 +18,7 @@
 	},
 	"overrides": [
 		{
-			"files": ["apps/codex-web/**"],
+			"files": ["apps/codex-web/**", "apps/web/**"],
 			"rules": {
 				"import/no-unassigned-import": "off",
 				"import/no-named-as-default-member": "off",
@@ -30,5 +30,10 @@
 	"env": {
 		"builtin": true
 	},
-	"ignorePatterns": ["**/.cloudflare/**", "apps/codex-web/src/codex/protocol/**", "apps/codex-web/file-routes.d.ts"]
+	"ignorePatterns": [
+		"**/.cloudflare/**",
+		"apps/codex-web/src/codex/protocol/**",
+		"apps/codex-web/file-routes.d.ts",
+		"apps/web/file-routes.d.ts"
+	]
 }

@@ -25,7 +25,7 @@ pnpm test:e2e   # cf dev + CLI + a local origin, end to end
 | `packages/client`   | Node.js client: connection, streams, reconnects           |
 | `apps/server`       | Cloudflare Worker + Durable Object tunnel server          |
 | `apps/cli`          | the `hostc` command                                       |
-| `apps/web`          | hostc.dev website (one static page) and llms.txt          |
+| `apps/web`          | hostc.dev website and llms.txt                            |
 
 The wire format is in [docs/protocol.md](./docs/protocol.md). Deploying and publishing are in
 [docs/release.md](./docs/release.md).
