@@ -73,7 +73,8 @@ upgrade prompt.
 - `hostc.dev` and `hostc.app` use DNS-only CNAMEs to preferred Cloudflare hosts, which route
   mainland China (most users) better than the default addresses: `hostc.dev` and `hostc.app` →
   `akazwz.cf.090227.xyz`, `*.hostc.app` → `store.ubi.com`. Cloudflare still applies each zone's
-  Worker routes and rules, which match by Host. Self-hosters use proxied records instead (README).
+  Worker routes and rules, which match by Host. Self-hosters use proxied records instead
+  ([self-hosting.md](./self-hosting.md)).
 - A Redirect Rule on `hostc.app` sends the apex to `https://hostc.dev` (301).
 - `hostc.app` publishes `v=spf1 -all` and a `p=reject` DMARC record: it never sends mail, and a
   tunnel domain is an obvious target for spoofing.

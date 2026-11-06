@@ -13,7 +13,7 @@ A tunnel that gives a local HTTP/WebSocket server a public URL. pnpm monorepo, N
 
 `docs/protocol.md` is the specification: change it together with `@hostc/protocol`, and bump
 `PROTOCOL_VERSION` on any incompatible wire change; there is no backward compatibility.
-`docs/release.md` describes deploying and publishing.
+`docs/release.md` describes deploying and publishing, `docs/self-hosting.md` running your own server.
 
 ## How changes ship
 

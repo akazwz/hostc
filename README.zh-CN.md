@@ -25,10 +25,73 @@ npx hostc@latest 3000
   Anyone with this URL can reach your local server. Press Ctrl+C to stop.
 ```
 
-在任何设备上打开这个地址即可。每个请求到达时，终端里都会打印一行。需要 Node.js 22 或更高版本。
+在任何设备上打开这个地址即可。每个请求到达时，终端里都会打印一行。需要 Node.js 22.1 或更高版本。
+
+**这个地址是公开的：** 拿到它的人都能访问你的本地服务，只分享你打算公开的东西。
 
 hostc 免费开源。如果它帮到了你，欢迎[在 GitHub 上点个 Star](https://github.com/akazwz/hostc)：
 能让更多开发者发现它，也是对这个项目最大的鼓励。
+
+## 为什么用 hostc
+
+- **什么都不用配。** 不用注册，不用 token，不用下载二进制。装了 Node.js 就能用。
+- **访客直接看到你的应用。** 前面没有需要点击才能继续的警告页。
+- **热更新能用。** WebSocket 直接透传，Vite、Next.js 等开发服务器一保存，所有打开的设备都会跟着更新。
+  Server-Sent Events 也是边产生边送达。
+- **开发服务器不用改配置。** 请求到达时的地址就是 localhost，指向 localhost 的跳转也会改写回公网地址，
+  不需要去改 allowed hosts 之类的设置。
+- **链接不会失效。** 断网或服务端重启后，hostc 会自己重连，只要在 10 分钟内连回来，URL 就不变。
+
+## 适合用来
+
+- 用 AI 写了个东西，还没部署就想先分享给别人看；
+- 把开发中的页面给同事或客户看；
+- 用本机正在跑的代码测试 Stripe、GitHub、Slack 的 webhook；
+- 在真机上调试你的网站，热更新照样生效（`--qr` 会打印二维码，扫一下就能打开）；
+- 让 AI 编程助手分享它做好的东西。把 [hostc.dev/llms.txt](https://hostc.dev/llms.txt) 发给它，
+  它就知道怎么运行 hostc、怎么读取地址。
+
+## 用法
+
+```text
+hostc <target> [options]
+hostc codex [options]
+
+  3000                     http://localhost:3000
+  127.0.0.1:8080           http://127.0.0.1:8080
+  https://localhost:5173   任意 http(s) 地址
+
+  --server <url>   隧道服务器（环境变量 HOSTC_SERVER）
+  --qr             打印公网地址的二维码
+  --here           hostc codex：只显示当前目录（命令仍能访问整台电脑）
+  -h, --help       显示帮助
+  -v, --version    显示版本
+```
+
+按 Ctrl+C 停止，URL 会立即释放。重新启动 hostc 会得到一个新的 URL。
+
+### 限制
+
+- 每个隧道最多同时处理 256 个请求和 WebSocket，多出的最多 1024 个排队等待空位，再多的返回 `503`。
+- WebSocket 单条消息最大 1 MiB。如果本地服务不再读取，积压超过 4 MiB 时这条连接也会被关闭。
+- 本地服务需要在 2 分钟内开始响应请求。
+
+### 始终使用 `@latest`
+
+服务端更新可能与旧版 CLI 不兼容，所以请用 `npx hostc@latest` 运行，拿到的永远是配套的版本。不要全局安装
+（`npm i -g hostc`），也不要加进项目依赖：装好的那一份会停在当时的版本，旧版启动时会停下并提示你升级。
+
+## 常见问题
+
+请求到不了你的应用时，访客会看到这些错误：
+
+| 错误                           | 含义                         | 怎么办                          |
+| ------------------------------ | ---------------------------- | ------------------------------- |
+| `404` Tunnel not found         | 隧道已停止或已过期           | 重新运行 hostc，换一个新 URL    |
+| `502` Tunnel offline           | hostc 没连上，通常是正在重连 | 稍后再试；确认 hostc 还在运行   |
+| `502` Local server unavailable | 隧道正常，但本地服务没有响应 | 确认它运行在你给 hostc 的端口上 |
+| `503` Tunnel busy              | 同时进来的请求太多           | 稍后再试                        |
+| `504` Local server timed out   | 2 分钟内没有开始响应         | 查一下本地服务卡在哪里          |
 
 ## hostc codex（实验性）
 
@@ -45,58 +108,6 @@ npx hostc@latest codex --qr
 - **链接在你停止之前一直有效。** token 是随机生成的，只保存在内存里，每次启动都会更换。按 Ctrl+C 结束访问，目前没有其他撤销方式。
 
 hostc 是开源的，你也可以[自己部署](#自部署)，并使用 `--server`。
-
-## 为什么用 hostc
-
-- **什么都不用配。** 不用注册，不用 token，不用下载二进制。装了 Node.js 就能用。
-- **访客直接看到你的应用。** 前面没有需要点击才能继续的警告页。
-- **热更新能用。** WebSocket 直接透传，Vite、Next.js 等开发服务器一保存，所有打开的设备都会跟着更新。
-  Server-Sent Events 也是边产生边送达。
-- **开发服务器不用改配置。** 请求到达时的地址就是 localhost，指向 localhost 的跳转也会改写回公网地址，
-  不需要去改 allowed hosts 之类的设置。
-- **链接不会失效。** 断网或服务端重启后，hostc 会自己重连，只要在 10 分钟内连回来，URL 就不变。
-- **免费、开源。** 服务端是一个 Cloudflare Worker，你也可以部署到自己的域名上。
-
-## 适合用来
-
-- 用 AI 写了个东西，还没部署就想先分享给别人看；
-- 把开发中的页面给同事或客户看；
-- 用本机正在跑的代码测试 Stripe、GitHub、Slack 的 webhook；
-- 在真机上调试你的网站，热更新照样生效（`--qr` 会打印二维码，扫一下就能打开）；
-- 让 AI 编程助手分享它做好的东西。把 [hostc.dev/llms.txt](https://hostc.dev/llms.txt) 发给它，
-  它就知道怎么运行 hostc、怎么读取地址。
-
-## 用法
-
-```text
-hostc <target> [options]
-
-  3000                     http://localhost:3000
-  127.0.0.1:8080           http://127.0.0.1:8080
-  https://localhost:5173   任意 http(s) 地址
-
-  --server <url>   隧道服务器（环境变量 HOSTC_SERVER）
-  --qr             打印公网地址的二维码
-  -h, --help       显示帮助
-  -v, --version    显示版本
-```
-
-按 Ctrl+C 停止，URL 会立即释放。重新启动 hostc 会得到一个新的 URL。
-
-这个地址是公开的：拿到它的人都能访问你的本地服务。只分享你打算公开的东西。
-
-### 限制
-
-- 每个隧道最多同时处理 256 个请求和 WebSocket，多出的最多 1024 个排队等待空位，再多的返回 `503`。
-- WebSocket 单条消息最大 1 MiB。如果本地服务不再读取，积压超过 4 MiB 时这条连接也会被关闭。
-- 本地服务需要在 2 分钟内开始响应请求。
-
-### 始终使用 `@latest`
-
-hostc 免费，迭代很快，服务端更新可能与旧版 CLI 不兼容。用 `npx hostc@latest` 运行，拿到的永远是配套的版本。
-
-不要全局安装（`npm i -g hostc`），也不要加进项目依赖：装好的那一份会停在当时的版本，服务端一更新就用不了。
-用的是旧版的话，启动时会停下并提示你升级。
 
 ## hostc 与 Cloudflare Tunnel 对比
 
@@ -124,52 +135,12 @@ hostc 只向外建立一条 WebSocket 连接，所以你的电脑不需要能从
 
 ## 自部署
 
-1. 克隆这个仓库并运行 `pnpm install`。
-2. 把域名加到 Cloudflare：一个给 API，一个给隧道，例如 `example.com` 和 `example.app`。
-   两者也可以是同一个域名，但隧道单独用一个域名，可以让隧道的 cookie 和滥用举报不牵连主站。
-   给隧道域名加一条开启代理的通配符 DNS 记录（`*` → `192.0.2.1`）；Cloudflare 的 Universal SSL
-   会覆盖 `*.example.app`。
-3. 设置一次 token 密钥：`pnpm -F @hostc/server exec wrangler secret put TOKEN_SECRET --name hostc-tunnel`
-   （至少 32 字节随机值，例如 `openssl rand -base64 48`）。
-4. 部署：
-
-   ```sh
-   API_DOMAIN=example.com TUNNEL_DOMAIN=example.app pnpm deploy:server
-   ```
-
-5. 使用：`npx hostc@latest 3000 --server https://example.com`，或者用
-   `HOSTC_DEFAULT_SERVER=https://example.com pnpm build` 构建自己的 CLI。
+服务端是一个 Cloudflare Worker，你可以部署到自己的域名上，再用 `--server` 让 CLI 指向它。
+详见 [docs/self-hosting.zh-CN.md](./docs/self-hosting.zh-CN.md)。
 
 ## 参与开发
 
-需要 Node.js 22.23+ 和 pnpm。
-
-```sh
-pnpm install
-cp apps/server/.env.example apps/server/.env
-pnpm dev                       # 隧道服务器运行在 http://localhost:8787
-pnpm build                     # 构建 CLI
-node apps/cli/dist/hostc.mjs 3000 --server http://localhost:8787
-```
-
-本地隧道地址是 `http://<id>.localhost:8787`，Chrome 和 Firefox 会把 `*.localhost` 解析到本机。
-
-```sh
-pnpm check      # 格式检查、lint、类型检查、单测和集成测试
-pnpm test:e2e   # cf dev + CLI + 本地源站的端到端测试
-```
-
-| 路径                | 内容                                          |
-| ------------------- | --------------------------------------------- |
-| `packages/protocol` | 双方共用的帧格式、消息和常量                  |
-| `packages/client`   | Node.js 客户端：连接、stream、重连            |
-| `apps/server`       | Cloudflare Worker + Durable Object 隧道服务器 |
-| `apps/cli`          | `hostc` 命令                                  |
-| `apps/web`          | hostc.dev 官网（单个静态页面）和 llms.txt     |
-
-欢迎提 Issue 和 Pull Request。
-
-如果 hostc 对你有用，欢迎[在 GitHub 上点个 Star](https://github.com/akazwz/hostc)。
+欢迎提 Issue 和 Pull Request，详见 [CONTRIBUTING.zh-CN.md](./CONTRIBUTING.zh-CN.md)。
 
 ## License
 

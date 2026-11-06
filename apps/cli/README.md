@@ -23,6 +23,8 @@ hostc <target> [options]
 
   --server <url>   tunnel server (env HOSTC_SERVER)
   --qr             print a QR code of the public URL
+  --here           hostc codex: show only this directory (commands still reach
+                   the whole machine)
 ```
 
 Anyone with the URL can reach your local server, so don't expose anything sensitive.
@@ -35,7 +37,7 @@ hostc is free and moves fast: server updates can break older CLIs. Always use `n
 rather than installing it globally or as a dependency, which would pin an old version; an outdated
 version stops at startup and tells you to upgrade.
 
-Docs: https://hostc.dev · Requires Node.js 22+.
+Docs: https://hostc.dev · Requires Node.js 22.1+.
 
 hostc is free and open source. If it helps you, a star on https://github.com/akazwz/hostc helps
 others find it and encourages the project.
