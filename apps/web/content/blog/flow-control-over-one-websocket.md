@@ -1,5 +1,5 @@
 ---
-title: Flow control over a single WebSocket
+title: How hostc does flow control over one WebSocket
 description: How hostc carries hundreds of streams over one WebSocket, why each needs its own window, and how a window grows without bloating the queue.
 date: 2026-11-06
 ---
@@ -28,7 +28,7 @@ A stream moves at most one window per round trip. At 256 KiB over a 200 ms path,
 
 ## Growing a window, and when to stop
 
-A receiver may grant more than it got back, which widens the window. The question is when that helps. The trick is to time each full window:
+A receiver may grant more than it got back, which widens the window. To decide when that helps, hostc times each full window:
 
 - While the window is the limit, a window takes one round trip **whatever its size**. Double it, and it still takes one round trip.
 - Once the link is the limit, doubling the window doubles the time. Growing further only queues data ahead of other streams.

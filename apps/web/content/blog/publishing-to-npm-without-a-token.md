@@ -1,12 +1,12 @@
 ---
-title: Publishing to npm with no token, and testing what you ship
+title: Publishing to npm from GitHub Actions without a token
 description: How hostc publishes with npm trusted publishing and OIDC, why 2.0.0 shipped without its executable, and how to test the exact tarball before it goes out.
 date: 2026-11-06
 ---
 
-Everyone who runs `npx hostc@latest` executes whatever we published last. That makes the release workflow one of the most sensitive parts of the project. It rests on two ideas: no long-lived secret, and never publish something you haven't run.
+Everyone who runs `npx hostc@latest` executes whatever we published last. So the release workflow has two rules: no long-lived secret, and run the package before publishing it.
 
-## No token to steal
+## Publishing without a token
 
 A classic npm token in CI secrets lasts until someone revokes it. With [trusted publishing](https://docs.npmjs.com/trusted-publishers), npm trusts a specific workflow in a specific repository instead. GitHub Actions proves its identity with a short-lived OIDC token, and no npm token is stored anywhere.
 
@@ -38,13 +38,13 @@ So every action is pinned to a full commit:
 
 `persist-credentials: false` keeps the checkout's Git token out of later steps, since nothing here pushes code.
 
-## The release that had no program in it
+## Why 2.0.0 had no executable
 
 hostc 2.0.0 went out without its executable. The `dist` folder was missing from the package.
 
 We pack with pnpm and publish the resulting tarball with npm, and `prepublishOnly` doesn't run for `pnpm pack` or for `npm publish <tarball>`. Nothing built the CLI. Tests on the source tree can't catch that, because everything exists there.
 
-The build moved to `prepack`, which does run. But the real lesson is that tests on your source tree say nothing about your package.
+The build moved to `prepack`, which does run. We also added a test of the package itself.
 
 ## Test the tarball
 
@@ -60,6 +60,6 @@ npm publish "$RUNNER_TEMP"/hostc-*.tgz --tag latest
 
 That catches a missing file, and a dependency that only resolves inside the workspace. The file that gets published is the file that was tested. CI runs the same step on every pull request, so a broken package fails long before release day.
 
-## The cost of a mistake
+## If a release goes wrong
 
-Versions on npm are permanent. 2.0.0 can't be fixed, only followed. We released 2.0.1 as the same code packaged correctly, and moving a dist-tag needs interactive 2FA, which trusted publishing doesn't cover. So when a release goes wrong, the way forward is a new version. It is worth a few extra minutes in CI to not need one.
+A published npm version can't be changed. We released 2.0.1 as the same code packaged correctly. Moving a dist-tag needs interactive 2FA, which trusted publishing doesn't cover, so the fix for a bad release is a new version.

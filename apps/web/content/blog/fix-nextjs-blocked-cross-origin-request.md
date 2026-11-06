@@ -1,5 +1,5 @@
 ---
-title: 'Fix Next.js "Blocked cross-origin request to Next.js dev resource"'
+title: 'Fix the Next.js "Blocked cross-origin request" error'
 description: Why Next.js blocks dev resources when you open it through a tunnel or another hostname, and how to fix it with allowedDevOrigins.
 date: 2026-11-06
 ---

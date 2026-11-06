@@ -1,5 +1,5 @@
 ---
-title: 用 cf 和 cloudflare.config.ts 构建 Cloudflare Workers 项目
+title: 用 cf 命令行部署 Cloudflare Workers
 description: 用 Cloudflare 新的 cf 命令行和 TypeScript 配置运行生产环境 Worker 与 Durable Object 的经验，以及踩过的坑。
 date: 2026-11-06
 ---

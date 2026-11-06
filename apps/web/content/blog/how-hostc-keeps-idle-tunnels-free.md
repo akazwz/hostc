@@ -1,5 +1,5 @@
 ---
-title: How hostc stays free: tunnels that sleep
+title: Using Durable Object hibernation to keep WebSockets cheap
 description: Each hostc tunnel is one Cloudflare Durable Object holding one WebSocket. It sleeps while nothing happens, which is why the service can be free.
 date: 2026-11-06
 ---
@@ -24,7 +24,7 @@ That only works if nothing wakes it for no reason, which shapes the design:
 - **Heartbeats don't wake anything.** The CLI pings every 15 seconds, and the runtime answers by itself without waking the object.
 - **State that must survive lives on the socket.** Anything a connection needs after waking is stored in its attachment, not in memory.
 
-## The details that bit us
+## Details that caused problems
 
 **A plain `ping` would never reach apps.** The runtime's auto-response applies to every WebSocket on the object, visitors' included. If the heartbeat were the word `ping`, an app's own `ping` message would be answered by Cloudflare and never reach the local server. So the heartbeat is `hostc:ping`, a string no app sends by accident.
 
@@ -34,7 +34,7 @@ That only works if nothing wakes it for no reason, which shapes the design:
 
 **Closing takes a step.** A hibernatable socket is left in `CLOSING` when `webSocketClose` runs, so the handler has to call `ws.close()` itself to finish the handshake.
 
-## What that costs in features
+## What hostc leaves out
 
 There is no dashboard, request history or access control, because each of those needs state or work while a tunnel is idle. hostc does one job: sharing a dev server for a while. If you need more, [other tools do it well](/alternatives).
 

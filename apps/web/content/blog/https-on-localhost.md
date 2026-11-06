@@ -1,5 +1,5 @@
 ---
-title: Why your site breaks on a phone but works on localhost
+title: Camera or service worker not working on a phone? Use HTTPS
 description: Camera, service workers and other browser features need a secure context. Localhost gets a pass and a LAN address doesn't. Here is how to fix it.
 date: 2026-11-06
 ---

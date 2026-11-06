@@ -1,5 +1,5 @@
 ---
-title: '解决 Next.js 报错 "Blocked cross-origin request to Next.js dev resource"'
+title: Next.js 报错 Blocked cross-origin request 怎么解决
 description: 通过隧道或其他域名打开 Next.js 时，为什么开发资源会被拦截，以及如何用 allowedDevOrigins 解决。
 date: 2026-11-06
 ---

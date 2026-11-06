@@ -1,5 +1,5 @@
 ---
-title: What is a localhost tunnel, and when do you need one?
+title: What is a localhost tunnel?
 description: A localhost tunnel gives a server on your machine a public URL. How tunnels work, what they are good for, and what to watch out for.
 date: 2026-11-06
 ---

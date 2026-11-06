@@ -1,5 +1,5 @@
 ---
-title: hostc 为什么能免费：会休眠的隧道
+title: 用 Durable Object 休眠降低 WebSocket 成本
 description: 每条 hostc 隧道是一个 Cloudflare Durable Object，只持有一条 WebSocket。没事时它会休眠，这就是服务能免费的原因。
 date: 2026-11-06
 ---
@@ -24,7 +24,7 @@ Durable Object 可以在 WebSocket 保持连接时休眠：对象离开内存，
 - **心跳不唤醒对象。** CLI 每 15 秒发一次 ping，由运行时直接回复，不会唤醒对象。
 - **需要保留的状态放在连接上。** 唤醒后要用的东西都存在连接的附件里，不放在内存里。
 
-## 那些踩过的细节
+## 踩过的坑
 
 **普通的 `ping` 到不了应用。** 运行时的自动回复对这个对象上的所有 WebSocket 都生效，包括访客的。如果心跳就是 `ping` 这个词，应用自己发的 `ping` 会被 Cloudflare 直接回复，到不了本地服务。所以心跳是 `hostc:ping`，这个字符串不会被应用无意中发出。
 
@@ -34,7 +34,7 @@ Durable Object 可以在 WebSocket 保持连接时休眠：对象离开内存，
 
 **关闭要多走一步。** `webSocketClose` 运行时，可休眠的连接停在 `CLOSING` 状态，处理函数要自己调用 `ws.close()` 才能完成握手。
 
-## 代价是什么
+## hostc 没做什么
 
 没有控制台、请求历史和访问控制，因为这些都需要在隧道空闲时保存状态或做事。hostc 只做一件事：临时分享开发服务。如果你需要更多功能，[别的工具做得很好](/zh/alternatives)。
 

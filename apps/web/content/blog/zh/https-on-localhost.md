@@ -1,5 +1,5 @@
 ---
-title: 为什么网站在 localhost 正常，到手机上就坏了
+title: 手机上摄像头、Service Worker 用不了？要用 HTTPS
 description: 摄像头、Service Worker 等浏览器功能要求安全上下文。localhost 有例外，局域网地址没有。本文讲原因和解决办法。
 date: 2026-11-06
 ---

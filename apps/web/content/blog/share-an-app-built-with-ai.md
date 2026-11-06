@@ -1,5 +1,5 @@
 ---
-title: Share an app you built with AI before you deploy it
+title: How to share an AI-built app before deploying it
 description: Your AI coding tool built something that runs on localhost. How to let other people try it in a minute, and what to check first.
 date: 2026-11-06
 ---
