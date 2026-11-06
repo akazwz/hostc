@@ -4,18 +4,16 @@ description: Why Vite blocks requests from tunnels, Docker and custom domains, h
 date: 2026-11-06
 ---
 
-You open your Vite dev server through a tunnel, a custom domain or a container, and instead of your app you see:
+When you open a Vite dev server through a tunnel, a custom domain or a container, you may see this:
 
 ```text
 Blocked request. This host ("abc123.example.dev") is not allowed.
 To allow this host, add "abc123.example.dev" to `server.allowedHosts` in vite.config.js.
 ```
 
-The error is doing its job. Here is why it exists and how to deal with it safely.
-
 ## Why Vite blocks the request
 
-Your dev server has no login, and it will hand your source code to anyone who asks. Without a check, a malicious website could use a [DNS rebinding](https://en.wikipedia.org/wiki/DNS_rebinding) attack to point its own domain at your machine and read that code from your browser.
+Your dev server has no login, so anyone who can reach it can read your source code. Without a check, a malicious website could use a [DNS rebinding](https://en.wikipedia.org/wiki/DNS_rebinding) attack to point its own domain at your machine and read that code from your browser.
 
 So Vite only answers requests for hostnames it trusts. By default that means `localhost`, domains under `.localhost`, and IP addresses. Any other name in the `Host` header gets this error.
 
@@ -52,15 +50,13 @@ You can also set the `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS` environment variab
 
 ## What not to do
 
-You will find this suggested everywhere:
+You will often see this suggested:
 
 ```js
-server: {
-	allowedHosts: true;
-}
+server: { allowedHosts: true }
 ```
 
-It makes the error go away by turning the protection off. Vite's documentation warns that any website can then send requests to your dev server and download your source code. Use an explicit list.
+This removes the error by turning the check off. Vite's documentation warns that any website can then send requests to your dev server and download your source code, so use an explicit list.
 
 ## The other way: keep the host as localhost
 
@@ -70,4 +66,4 @@ Vite checks the `Host` header, so a tunnel that sends `Host: localhost` never tr
 npx hostc@latest 5173
 ```
 
-The protection stays on too, because your config is untouched. Keep in mind that anyone with the public URL can reach your server, so share it only with people you mean to.
+Your config is unchanged, so Vite's check stays on. Anyone with the public URL can reach your server, so be careful where you post it.

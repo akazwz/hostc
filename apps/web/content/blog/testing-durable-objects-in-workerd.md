@@ -4,7 +4,7 @@ description: How hostc tests a Cloudflare Durable Object in the real runtime, wh
 date: 2026-11-06
 ---
 
-hostc's tunnel server is one Durable Object with WebSockets, hibernation and flow control. A mock wouldn't prove much, because most of the hard behavior lives in how the runtime treats those things. So the tests run in workerd, the real Workers runtime, through `@cloudflare/vitest-plugin`.
+hostc's tunnel server is one Durable Object with WebSockets, hibernation and flow control. That behavior depends on the runtime and a mock can't show it, so the tests run in workerd, the real Workers runtime, through `@cloudflare/vitest-plugin`.
 
 The behavior is real, including one that surprised us: the clock.
 
@@ -37,23 +37,23 @@ expect(await request()).toBeGreaterThan(first);
 
 In Workers, `Date.now()` is [locked while code runs](https://developers.cloudflare.com/workers/reference/security-model/) and only moves on I/O. It is a defense against timing attacks, and it applies in your tests as well.
 
-So anything that measures elapsed time sees coarse jumps. Our test for "stop widening a window once the link is the limit" simulated a slow link with 20 ms timers, and it passed for weeks. Then, on a busy machine, it started to fail now and then:
+So code that measures elapsed time sees the clock jump. Our test for "stop widening a window once the link is the limit" simulated a slow link with 20 ms timers, and it passed for weeks. Then, on a busy machine, it started to fail now and then:
 
 ```text
 AssertionError: expected 1048576 to be less than or equal to 524288
 ```
 
-The code was right. On a loaded machine, the timers and the clock didn't line up with the story the test was telling.
+The code was right. On a loaded machine, the timers and the clock didn't match what the test assumed.
 
 ## Move time-based logic out, and inject the clock
 
-The fix isn't a longer timeout. Logic that depends on time should be plain code that takes the time as an argument:
+A longer timeout wouldn't fix this. We made the logic plain code that takes the time as an argument:
 
 ```ts
 delivered(bytes: number, caughtUp: boolean, now = Date.now()): number {
 ```
 
-Production uses the default. A test passes its own clock and describes exactly what happened:
+Production uses the default, and a test passes its own clock:
 
 ```ts
 // A link that carries 256 KiB per 80 ms: a doubled window takes twice as long.
@@ -61,14 +61,14 @@ run(window, 20, (size) => (size / STREAM_WINDOW_BYTES) * 80);
 expect(window.size).toBeLessThanOrEqual(2 * STREAM_WINDOW_BYTES);
 ```
 
-This runs in plain Node in a millisecond, and it can't flake. With that in place, we deleted the timing test.
+This runs quickly in plain Node and gives the same result every time. With that in place, we deleted the timing test.
 
-## Rules we ended up with
+## What we do now
 
-- **Use the runtime for runtime behavior.** Hibernation, WebSocket handshakes and alarms get tested in workerd.
-- **Use plain tests for decisions.** Anything with numbers and thresholds goes in a package with an injected clock.
-- **Wait for conditions, not durations.** Our fake client's `waitUntil` wakes on every frame, so a test proceeds as soon as the condition holds. The timeout only stops a hung test.
-- **Don't assume order.** Concurrent requests reach the object in any order. A test that assumed otherwise flaked until it matched each request by its path.
-- **Watch a new test fail.** We wrote a test for a window bug that passed on the broken code too, so it proved nothing. The version that failed first was the one worth keeping.
+- Hibernation, WebSocket handshakes and alarms are tested in workerd.
+- Logic with numbers and thresholds goes in a package and is tested with an injected clock.
+- Tests wait for conditions rather than fixed delays. Our fake client's `waitUntil` checks on every frame, and the timeout only stops a hung test.
+- Tests don't assume the order of concurrent requests. One did and was flaky until it matched requests by path.
+- New tests have to fail once first. Our first test for a window bug also passed on the broken code, so we rewrote it.
 
 The flaky test would also have blocked releases, since publishing runs the same checks.

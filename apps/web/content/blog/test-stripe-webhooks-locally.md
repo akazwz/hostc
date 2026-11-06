@@ -4,11 +4,11 @@ description: A working Express example for receiving Stripe webhooks on your own
 date: 2026-11-06
 ---
 
-Stripe tells your app what happened by calling a URL. On your laptop there is no public URL, so the events never arrive. Here is the shortest setup that works, with signature checks on.
+Stripe sends events to a URL you give it, and your development machine has no public URL. This post sets up an Express endpoint with signature checks and receives events through hostc.
 
 ## 1. Write the endpoint
 
-The one thing to get right is the raw body. Stripe signs the exact bytes it sent, so parse the JSON only after you verify it:
+Watch out for the raw body. Stripe signs the exact bytes it sent, so parse the JSON only after you verify it:
 
 ```js
 import express from "express";
@@ -62,11 +62,11 @@ Send a test event or make a test payment. Your terminal shows the request as it 
 
 ## When the signature check fails
 
-- **The body was parsed first.** If `express.json()` runs before your route, the bytes are gone. Put the webhook route first.
-- **The wrong secret.** The Dashboard endpoint and `stripe listen` each have their own `whsec_` secret. Use the one that matches where the event came from.
-- **An old secret.** Each endpoint has its own, so a new endpoint means a new secret.
+- The body was parsed first: if `express.json()` runs before your route, the bytes are gone. Put the webhook route first.
+- The wrong secret: the Dashboard endpoint and `stripe listen` each have their own `whsec_` secret. Use the one that matches where the event came from.
+- A new endpoint: each endpoint has its own secret, so update it.
 
-hostc passes the body and the `Stripe-Signature` header through unchanged, so it won't be the cause.
+hostc passes the body and the `Stripe-Signature` header through unchanged, so a tunnel is unlikely to be the cause.
 
 ## Stripe CLI or a tunnel?
 

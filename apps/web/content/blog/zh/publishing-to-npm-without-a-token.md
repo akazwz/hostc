@@ -4,7 +4,7 @@ description: hostc 如何用 npm 可信发布和 OIDC 发版，2.0.0 为什么�
 date: 2026-11-06
 ---
 
-每个运行 `npx hostc@latest` 的人，执行的都是我们最新发布的东西。所以发版流程有两条规则：不留长期密钥，发布之前先把包跑一遍。
+用户运行 `npx hostc@latest` 时，执行的就是我们最新发布的包。所以发版流程有两条规则：不存长期密钥，发布前先测试打好的包。
 
 ## 不用 token 怎么发布
 
@@ -36,7 +36,7 @@ permissions:
     persist-credentials: false
 ```
 
-`persist-credentials: false` 让后续步骤拿不到 checkout 的 Git 令牌，反正这里不推送代码。
+`persist-credentials: false` 让后续步骤拿不到 checkout 的 Git 令牌，这个工作流不需要推送代码。
 
 ## 2.0.0 为什么没有可执行文件
 
@@ -56,9 +56,9 @@ pnpm -F hostc test:package "$RUNNER_TEMP"/hostc-*.tgz
 npm publish "$RUNNER_TEMP"/hostc-*.tgz --tag latest
 ```
 
-`test:package` 新建一个空目录，用 `npm install` 安装这个文件，检查安装后的 CLI 打印的版本对不对，再让端到端测试指向它。这些测试会启动真实的服务端和本地源站，让流量真正穿过隧道。
+`test:package` 新建一个空目录，用 `npm install` 安装这个文件，检查安装后的 CLI 打印的版本对不对，再让端到端测试指向它。这些测试会启动真实的服务端和本地源站，让流量经过隧道。
 
-这样既能发现缺文件，也能发现只在工作区内才能解析的依赖。发布的文件就是测试过的文件。CI 在每个 PR 上都跑同样的步骤，所以包坏了，早在发版之前就会失败。
+这样能发现缺文件，也能发现只在工作区内才能解析的依赖。CI 在每个 PR 上都跑同样的步骤。
 
 ## 发版出错怎么办
 

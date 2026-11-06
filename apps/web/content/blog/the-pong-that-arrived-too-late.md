@@ -4,7 +4,7 @@ description: Widening upload windows made hostc faster, then uploads started fai
 date: 2026-11-06
 ---
 
-After we made uploads faster, some of them started failing with "Tunnel offline". This is what happened and how we fixed it.
+After we made uploads faster, some of them started failing with "Tunnel offline".
 
 ## The change
 
@@ -16,21 +16,21 @@ Uploads got faster. Then a small share of them failed with "Tunnel offline".
 
 The CLI sends a ping every 15 seconds and drops the connection if no pong arrives within 10. We reproduced the failure by slowing the link for 20 seconds in the middle of an upload.
 
-A WebSocket is one ordered stream of bytes. The pong sits behind everything already sent on that connection. With a small window that is never much. With 4 MiB in flight and a link that has just slowed down, the pong can wait longer than 10 seconds.
+A WebSocket is one ordered stream of bytes. The pong sits behind everything already sent on that connection. With a small window that doesn't matter much. With 4 MiB in flight and a link that has just slowed down, the pong can wait longer than 10 seconds.
 
 So the connection was working, but the pong was late, and the CLI treated that as a dead connection.
 
 ## The fix
 
-Any message that arrives shows the connection is alive, so the timeout is now cleared by anything arriving on the connection, not only the pong. A dead connection still delivers nothing, so it is still dropped. A busy one is left alone.
+Any message that arrives shows the connection is alive, so the timeout is now cleared by anything arriving on the connection, not only the pong. A dead connection delivers nothing, so it still gets dropped.
 
 With the fix, the same 20-second slowdown completes without a reconnect.
 
 ## How we reproduced it
 
-The fix is three lines. Reproducing it took longer. Normal uploads didn't fail, and the local test bench had a steady link. It took a proxy that drops to 200 KB/s for 20 seconds, 1.5 seconds into an upload, and then the new version dropped the connection while the version before it survived. That told us the wider window was the cause, not bad luck.
+The fix is three lines. Reproducing it took longer. Normal uploads didn't fail, and the local test bench had a steady link. It took a proxy that drops to 200 KB/s for 20 seconds, 1.5 seconds into an upload, and then the new version dropped the connection while the version before it survived. That confirmed the wider window was the cause.
 
-The regression test uses a fake server with short timings. One case sends nothing after a ping and expects a drop. The other delays the pong while data keeps arriving, and expects the connection to stay open. Both matter: the second proves the fix, the first proves we didn't remove the protection.
+The regression test uses a fake server with short timings. One case sends nothing after a ping and expects a drop. The other delays the pong while data keeps arriving, and expects the connection to stay open. The second checks the fix, and the first checks that dead connections are still detected.
 
 ## Summary
 

@@ -4,7 +4,7 @@ description: hostc 如何在真实运行时里测试 Cloudflare Durable Object�
 date: 2026-11-06
 ---
 
-hostc 的隧道服务是一个带 WebSocket、休眠和流控的 Durable Object。Mock 证明不了什么，因为最难的行为都取决于运行时怎么处理这些东西。所以测试通过 `@cloudflare/vitest-plugin` 跑在真实的 Workers 运行时 workerd 里。
+hostc 的隧道服务是一个带 WebSocket、休眠和流控的 Durable Object。这些行为都取决于运行时，用 Mock 测不出来，所以测试通过 `@cloudflare/vitest-plugin` 跑在真实的 Workers 运行时 workerd 里。
 
 这样测到的是真实行为，也包括一个让我们意外的地方：时钟。
 
@@ -37,23 +37,23 @@ expect(await request()).toBeGreaterThan(first);
 
 在 Workers 里，`Date.now()` 在代码运行时是[锁定的](https://developers.cloudflare.com/workers/reference/security-model/)，只有发生 I/O 才会前进。这是防御时序攻击的手段，测试里也一样。
 
-所以任何计算耗时的逻辑看到的都是跳变的时间。我们有个测试验证“链路成为瓶颈后窗口不再变宽”，用 20 ms 的定时器模拟慢链路，之前一直通过。然后在一台很忙的机器上，它开始偶尔失败：
+所以计算耗时的逻辑看到的时间是跳变的。我们有个测试验证“链路成为瓶颈后窗口不再变宽”，用 20 ms 的定时器模拟慢链路，之前一直通过。然后在一台很忙的机器上，它开始偶尔失败：
 
 ```text
 AssertionError: expected 1048576 to be less than or equal to 524288
 ```
 
-代码没错。只是机器负载高时，定时器和时钟对不上测试假设的情节了。
+代码是对的，只是机器负载高时，定时器和时钟对不上测试的假设。
 
 ## 把依赖时间的逻辑移出去，注入时钟
 
-解决办法不是把超时调长。依赖时间的逻辑应该是普通代码，把时间作为参数传进来：
+把超时调长解决不了问题。我们把依赖时间的逻辑写成普通代码，时间作为参数传进来：
 
 ```ts
 delivered(bytes: number, caughtUp: boolean, now = Date.now()): number {
 ```
 
-生产环境用默认值。测试传入自己的时钟，精确描述发生了什么：
+生产环境用默认值，测试传入自己的时钟：
 
 ```ts
 // 一条每 80 ms 传 256 KiB 的链路：窗口翻倍，耗时也翻倍。
@@ -61,14 +61,14 @@ run(window, 20, (size) => (size / STREAM_WINDOW_BYTES) * 80);
 expect(window.size).toBeLessThanOrEqual(2 * STREAM_WINDOW_BYTES);
 ```
 
-这段在普通 Node 里一毫秒跑完，也不可能时好时坏。有了它，我们就把那个依赖时间的测试删了。
+这段在普通 Node 里很快跑完，结果也是确定的。有了它，我们就把那个依赖时间的测试删了。
 
-## 最后形成的规则
+## 我们现在的做法
 
-- **运行时行为用运行时测。** 休眠、WebSocket 握手和 Alarm 都在 workerd 里测。
-- **决策逻辑用普通测试。** 有数字和阈值的东西放进独立的包，注入时钟。
-- **等条件，不等时长。** 我们的假客户端 `waitUntil` 每收到一帧就检查一次，条件满足立刻继续，超时只用来防止测试挂死。
-- **不要假设顺序。** 并发请求到达对象的顺序是任意的。有个测试因此时好时坏，直到改成按路径匹配请求。
-- **看着新测试失败一次。** 我们给窗口 bug 写的第一个测试，在有 bug 的代码上也能通过，等于什么都没证明。先失败过的版本才值得留下。
+- 休眠、WebSocket 握手和 Alarm 在 workerd 里测。
+- 有数字和阈值的逻辑放进独立的包，注入时钟来测。
+- 等条件，不用固定延时。假客户端的 `waitUntil` 每收到一帧检查一次，超时只用来防止测试卡死。
+- 不假设并发请求的顺序。有个测试因此不稳定，后来改成按路径匹配请求。
+- 新测试要先失败一次。我们给窗口 bug 写的第一个测试，在有 bug 的代码上也能通过，后来重写了。
 
 那个不稳定的测试还会卡住发版，因为发布时跑的是同一套检查。

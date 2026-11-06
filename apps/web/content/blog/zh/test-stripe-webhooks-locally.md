@@ -4,11 +4,11 @@ description: 一个可运行的 Express 示例，在自己的电脑上接收 Str
 date: 2026-11-06
 ---
 
-Stripe 通过调用一个 URL 告诉你的应用发生了什么。你的笔记本没有公网地址，事件就到不了。下面是能跑通、并且开着签名校验的最短配置。
+Stripe 通过调用你提供的 URL 发送事件，而本地开发环境没有公网地址。这篇用 Express 搭一个开启签名校验的接口，再用 hostc 接收事件。
 
 ## 1. 写接口
 
-唯一要注意的是原始请求体。Stripe 签名的是它发出的原始字节，所以要先校验，再解析 JSON：
+要注意原始请求体。Stripe 签名的是它发出的原始字节，所以要先校验，再解析 JSON：
 
 ```js
 import express from "express";
@@ -62,11 +62,11 @@ https://k7m2xq9pa4dn.hostc.app/webhooks/stripe
 
 ## 签名校验失败怎么办
 
-- **请求体被提前解析了。** 如果 `express.json()` 跑在你的路由之前，原始字节就没了。把 Webhook 路由放到前面。
-- **密钥用错了。** 后台接口和 `stripe listen` 各有各的 `whsec_` 密钥，要用和事件来源匹配的那个。
-- **密钥过期了。** 每个接口有自己的密钥，新建接口就要换新密钥。
+- 请求体被提前解析：如果 `express.json()` 跑在你的路由之前，原始字节就没了。把 Webhook 路由放到前面。
+- 密钥用错：后台接口和 `stripe listen` 各有各的 `whsec_` 密钥，要用和事件来源匹配的那个。
+- 新建了接口：每个接口有自己的密钥，要换成新的。
 
-hostc 会原样传递请求体和 `Stripe-Signature` 请求头，所以问题不会出在它身上。
+hostc 会原样传递请求体和 `Stripe-Signature` 请求头，所以签名失败一般不是隧道造成的。
 
 ## 用 Stripe CLI 还是隧道？
 

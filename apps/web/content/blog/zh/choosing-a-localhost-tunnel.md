@@ -4,7 +4,7 @@ description: 内网穿透工具到底有什么区别，该问哪些问题，分�
 date: 2026-11-06
 ---
 
-内网穿透工具很多，核心做的是同一件事，区别在于它们要你付出什么、额外给你什么。问四个问题，很快就能缩小范围。
+内网穿透工具很多，基本功能差不多。选的时候看下面四个问题就够了。
 
 ## 1. 谁要打开这个链接？
 
@@ -35,4 +35,4 @@ date: 2026-11-06
 | 留在现有的 tailnet 里        | [Tailscale Funnel](/zh/alternatives/tailscale-funnel)     |
 | 链接只在组织内部可用         | [微软 dev tunnels](/zh/alternatives/dev-tunnels)          |
 
-hostc 也是其中之一，所以请看[完整对比](/zh/alternatives)，里面也写了什么时候别的工具更合适。
+hostc 是我们自己做的，所以这里的建议难免有立场。每个工具的详细对比见[这里](/zh/alternatives)。

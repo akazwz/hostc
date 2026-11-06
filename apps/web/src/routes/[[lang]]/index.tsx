@@ -21,7 +21,7 @@ const COPY = {
 		headline: ["Localhost,", "anywhere."],
 		lead: "One command turns the app running on your computer into a public link, and the page updates as you save. Free, open source, no account.",
 		note: "Needs Node.js 22.1 or later.",
-		featuresTitle: "Made for dev servers",
+		featuresTitle: "What it does",
 		features: [
 			[
 				"Updates as you save",
@@ -58,14 +58,14 @@ const COPY = {
 		headline: ["localhost，", "随处可达。"],
 		lead: "一条命令，把你电脑上正在开发的网站变成公网链接，改完代码页面自动更新。免费开源的内网穿透工具，不用注册。",
 		note: "需要 Node.js 22.1 或更高版本。",
-		featuresTitle: "为开发服务而生",
+		featuresTitle: "功能",
 		features: [
 			["保存后自动更新", "改完代码一保存，所有打开的设备都会自动刷新（也就是热更新）。"],
 			["不用改配置", "请求到达时的地址就是 localhost，开发服务直接接受。"],
-			["什么都能过", "页面、接口、表单、Server-Sent Events、流式响应和上传。"],
+			["支持各种请求", "页面、接口、表单、Server-Sent Events、流式响应和上传。"],
 			["地址不会变", "断网或服务端重启后，hostc 会自己重连，发出去的链接继续有效。"],
 			["没有警告页", "访客直接看到你的应用，不用先点什么。"],
-			["什么都不用配", "不用注册，不用 token，不用下载二进制。按 Ctrl+C，地址就没了。"],
+			["不用配置", "不用注册，不用 token，不用下载二进制。按 Ctrl+C，地址就没了。"],
 		],
 		guidesTitle: "适合用来",
 		compareTitle: "在用别的工具？",
