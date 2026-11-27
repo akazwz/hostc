@@ -62,6 +62,7 @@ const STREAM_ID_BLOCK = 1024;
 
 const WS_RATE_WINDOW_MS = 10_000;
 const STORAGE_FRAME_CHECKPOINT = 1_000;
+const STORAGE_REQUEST_CHECKPOINT = 100;
 const STORAGE_WS_MSG_CHECKPOINT = 250;
 const STORAGE_WS_CONN_CHECKPOINT = 10;
 const STORAGE_BYTES_CHECKPOINT = 8 * 1024 * 1024;
@@ -69,6 +70,7 @@ const ATTACHMENT_FRAME_CHECKPOINT = 16;
 const ATTACHMENT_BYTES_CHECKPOINT = 256 * 1024;
 
 type UsageCounters = {
+	requests: number;
 	totalFrames: number;
 	totalBytes: number;
 	publicWsConnections: number;
@@ -326,6 +328,15 @@ export class Tunnel extends DurableObject<Env> {
 		return Math.min(candidate, state.createdAt + state.limits.maxDurationMs);
 	}
 
+	private recordRequest(): string | null {
+		this.usage.requests += 1;
+		const maxRequests = this.currentLimits().maxRequests;
+		if (maxRequests !== null && this.usage.requests > maxRequests) {
+			return "Tunnel request limit reached.";
+		}
+		return null;
+	}
+
 	private recordFrame(): string | null {
 		this.usage.totalFrames += 1;
 		const maxFrames = this.currentLimits().maxTotalFrames;
@@ -405,6 +416,7 @@ export class Tunnel extends DurableObject<Env> {
 		}
 		const client = this.client();
 		const attachmentDirty =
+			this.usage.requests !== this.lastAttachmentUsage.requests ||
 			this.usage.publicWsConnections !== this.lastAttachmentUsage.publicWsConnections ||
 			this.usage.publicWsMessages !== this.lastAttachmentUsage.publicWsMessages ||
 			this.usage.totalFrames - this.lastAttachmentUsage.totalFrames >= ATTACHMENT_FRAME_CHECKPOINT ||
@@ -419,6 +431,7 @@ export class Tunnel extends DurableObject<Env> {
 
 		const storageDirty =
 			forceStorage ||
+			this.usage.requests - this.lastStoredUsage.requests >= STORAGE_REQUEST_CHECKPOINT ||
 			this.usage.totalFrames - this.lastStoredUsage.totalFrames >= STORAGE_FRAME_CHECKPOINT ||
 			this.usage.publicWsMessages - this.lastStoredUsage.publicWsMessages >= STORAGE_WS_MSG_CHECKPOINT ||
 			this.usage.publicWsConnections - this.lastStoredUsage.publicWsConnections >= STORAGE_WS_CONN_CHECKPOINT ||
@@ -803,11 +816,12 @@ export class Tunnel extends DurableObject<Env> {
 		if (request.signal.aborted) {
 			return new Response(null, { status: 499 });
 		}
-		const maxRequests = this.currentLimits().maxRequests;
-		if (maxRequests !== null && id > maxRequests) {
-			await this.terminateLimit("Tunnel request limit reached.");
+		const requestBreach = this.recordRequest();
+		if (requestBreach) {
+			await this.terminateLimit(requestBreach);
 			return this.refuseLimit(request, false);
 		}
+		this.syncUsage();
 		let settleHead!: (result: HeadResult) => void;
 		const headResult = new Promise<HeadResult>((resolve) => {
 			settleHead = resolve;
@@ -1070,11 +1084,12 @@ export class Tunnel extends DurableObject<Env> {
 		if (request.signal.aborted) {
 			return new Response(null, { status: 499 });
 		}
-		const limits = this.currentLimits();
-		if (limits.maxRequests !== null && id > limits.maxRequests) {
-			await this.terminateLimit("Tunnel request limit reached.");
+		const requestBreach = this.recordRequest();
+		if (requestBreach) {
+			await this.terminateLimit(requestBreach);
 			return this.refuseLimit(request, true);
 		}
+		const limits = this.currentLimits();
 		this.usage.publicWsConnections += 1;
 		this.syncUsage();
 		if (
@@ -1224,6 +1239,7 @@ function attachmentOf(ws: WebSocket): Attachment | null {
 
 function emptyUsage(): UsageCounters {
 	return {
+		requests: 0,
 		totalFrames: 0,
 		totalBytes: 0,
 		publicWsConnections: 0,
@@ -1234,6 +1250,7 @@ function emptyUsage(): UsageCounters {
 
 function normalizeUsage(partial: Partial<UsageCounters> | undefined): UsageCounters {
 	return {
+		requests: partial?.requests ?? 0,
 		totalFrames: partial?.totalFrames ?? 0,
 		totalBytes: partial?.totalBytes ?? 0,
 		publicWsConnections: partial?.publicWsConnections ?? 0,
@@ -1244,6 +1261,7 @@ function normalizeUsage(partial: Partial<UsageCounters> | undefined): UsageCount
 
 function maxUsage(a: UsageCounters, b: UsageCounters): UsageCounters {
 	return {
+		requests: Math.max(a.requests, b.requests),
 		totalFrames: Math.max(a.totalFrames, b.totalFrames),
 		totalBytes: Math.max(a.totalBytes, b.totalBytes),
 		publicWsConnections: Math.max(a.publicWsConnections, b.publicWsConnections),

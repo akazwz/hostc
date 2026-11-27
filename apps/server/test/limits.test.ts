@@ -140,18 +140,24 @@ describe("tunnel limits", () => {
 		expect(client.closed?.reason).toContain("rate limit");
 	});
 
-	it("terminates when total HTTP requests exceed maxRequests", async () => {
-		const { tunnel, client } = await openWithLimits({ maxRequests: 2 });
+	it("terminates when total HTTP requests exceed maxRequests without jumping across hibernations", async () => {
+		const { tunnel, client } = await openWithLimits({ maxRequests: 3 });
 
-		for (let i = 0; i < 2; i += 1) {
+		for (let i = 0; i < 3; i += 1) {
+			// Evicting before each request forces stream ids to advance by STREAM_ID_BLOCK (1024),
+			// which must NOT count as 1024 requests.
+			if (i > 0) {
+				await evictDurableObject(env.TUNNEL.getByName(tunnel.id));
+			}
 			const pending = SELF.fetch(publicUrl(tunnel, `/r/${i}`));
 			const open = await client.next((frame) => frame.type === FrameType.Open);
 			client.head(open.stream, { status: 204, body: false });
 			expect((await pending).status).toBe(204);
 		}
+		expect(client.closed).toBeNull();
 
-		const third = await SELF.fetch(publicUrl(tunnel, "/r/3"));
-		expect(third.status).toBe(429);
+		const fourth = await SELF.fetch(publicUrl(tunnel, "/r/4"));
+		expect(fourth.status).toBe(429);
 		await client.waitUntil(() => client.closed !== null);
 		expect(client.closed?.code).toBe(CLOSE_LIMIT_REACHED);
 		expect(client.closed?.reason).toContain("request limit");
@@ -196,14 +202,17 @@ describe("tunnel limits", () => {
 	});
 
 	it("exports sane default FREE_LIMITS and supports TUNNEL_LIMITS JSON overrides", () => {
-		expect(FREE_LIMITS.maxDurationMs).toBe(6 * 60 * 60_000);
-		expect(FREE_LIMITS.maxBytes).toBe(5 * 1024 * 1024 * 1024);
-		expect(FREE_LIMITS.maxRequests).toBe(50_000);
-		expect(FREE_LIMITS.maxPublicWebSockets).toBe(8);
-		expect(FREE_LIMITS.maxPublicWebSocketConnections).toBe(100);
-		expect(FREE_LIMITS.maxPublicWebSocketMessages).toBe(20_000);
-		expect(FREE_LIMITS.maxPublicWebSocketBytes).toBe(100 * 1024 * 1024);
-		expect(FREE_LIMITS.maxPublicWebSocketMessagesPer10s).toBe(1_500);
+		expect(FREE_LIMITS.maxDurationMs).toBe(12 * 60 * 60_000);
+		expect(FREE_LIMITS.maxStreams).toBe(128);
+		expect(FREE_LIMITS.maxWaiting).toBe(256);
+		expect(FREE_LIMITS.maxBytes).toBe(10 * 1024 * 1024 * 1024);
+		expect(FREE_LIMITS.maxRequests).toBe(100_000);
+		expect(FREE_LIMITS.maxTotalFrames).toBe(500_000);
+		expect(FREE_LIMITS.maxPublicWebSockets).toBe(16);
+		expect(FREE_LIMITS.maxPublicWebSocketConnections).toBe(300);
+		expect(FREE_LIMITS.maxPublicWebSocketMessages).toBe(50_000);
+		expect(FREE_LIMITS.maxPublicWebSocketBytes).toBe(250 * 1024 * 1024);
+		expect(FREE_LIMITS.maxPublicWebSocketMessagesPer10s).toBe(2_000);
 
 		expect(PRO_LIMITS.maxDurationMs).toBeNull();
 		expect(resolveTunnelLimits("free", "")).toEqual(FREE_LIMITS);
