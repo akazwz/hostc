@@ -39,8 +39,7 @@ export const CREATE_RATE_LIMIT = {
 } as const;
 
 const HOUR_MS = 60 * 60_000;
-const MIB = 1024 * 1024;
-const GIB = 1024 * MIB;
+const GIB = 1024 * 1024 * 1024;
 
 /**
  * Generous for local development (including multi-GB web apps, Vite/Next.js HMR, and `hostc codex`),
@@ -51,12 +50,13 @@ export const FREE_LIMITS: TunnelLimits = {
 	maxStreams: 128,
 	maxWaiting: 256,
 	maxRequests: 100_000,
-	maxBytes: 10 * GIB,
+	// Cloudflare Workers/DO egress is unbilled; total DO cost is already bounded by maxRequests + maxTotalFrames.
+	maxBytes: null,
 	maxTotalFrames: 500_000,
 	maxPublicWebSockets: 16,
 	maxPublicWebSocketConnections: 300,
 	maxPublicWebSocketMessages: 50_000,
-	maxPublicWebSocketBytes: 250 * MIB,
+	maxPublicWebSocketBytes: 1 * GIB,
 	maxPublicWebSocketMessagesPer10s: 2_000,
 };
 

@@ -205,13 +205,13 @@ describe("tunnel limits", () => {
 		expect(FREE_LIMITS.maxDurationMs).toBe(12 * 60 * 60_000);
 		expect(FREE_LIMITS.maxStreams).toBe(128);
 		expect(FREE_LIMITS.maxWaiting).toBe(256);
-		expect(FREE_LIMITS.maxBytes).toBe(10 * 1024 * 1024 * 1024);
+		expect(FREE_LIMITS.maxBytes).toBeNull();
 		expect(FREE_LIMITS.maxRequests).toBe(100_000);
 		expect(FREE_LIMITS.maxTotalFrames).toBe(500_000);
 		expect(FREE_LIMITS.maxPublicWebSockets).toBe(16);
 		expect(FREE_LIMITS.maxPublicWebSocketConnections).toBe(300);
 		expect(FREE_LIMITS.maxPublicWebSocketMessages).toBe(50_000);
-		expect(FREE_LIMITS.maxPublicWebSocketBytes).toBe(250 * 1024 * 1024);
+		expect(FREE_LIMITS.maxPublicWebSocketBytes).toBe(1024 * 1024 * 1024);
 		expect(FREE_LIMITS.maxPublicWebSocketMessagesPer10s).toBe(2_000);
 
 		expect(PRO_LIMITS.maxDurationMs).toBeNull();
@@ -220,12 +220,12 @@ describe("tunnel limits", () => {
 		expect(
 			resolveTunnelLimits(
 				"free",
-				JSON.stringify({ maxDurationMs: null, maxBytes: null, maxPublicWebSockets: 24, maxStreams: -5 }),
+				JSON.stringify({ maxDurationMs: null, maxBytes: 1024, maxPublicWebSockets: 24, maxStreams: -5 }),
 			),
 		).toEqual({
 			...FREE_LIMITS,
 			maxDurationMs: null,
-			maxBytes: null,
+			maxBytes: 1024,
 			maxPublicWebSockets: 24,
 		});
 	});
