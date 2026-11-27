@@ -8,30 +8,30 @@
 
 ## 版本
 
-2026-10-31 安装并验证的版本（上一次核对是 2026-10-12）。全部在 `package.json` 里写死，不用范围。
+2026-11-27 安装并验证的版本（上一次核对是 2026-10-31）。全部在 `package.json` 里写死，不用范围。
 
 | 包                                                 | 版本                     | 取自哪个发布标签                                                                                                                   |
 | -------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `solid-js`、`@solidjs/web`、`@solidjs/diagnostics` | 2.0.0-rc.20              | `next`                                                                                                                             |
-| `@solidjs/router`                                  | 2.0.0-next.43            | `next`                                                                                                                             |
-| `@solidjs/vite-plugin`                             | 3.0.0-next.54            | `latest`（它的 `next` 是旧的 next.35）                                                                                             |
-| `filesystem-routing`                               | 0.4.2                    | `latest`                                                                                                                           |
-| `@stylexjs/stylex`、`@stylexjs/unplugin`           | 0.19.1                   | `latest`                                                                                                                           |
+| `solid-js`、`@solidjs/web`、`@solidjs/diagnostics` | 2.0.4                    | `latest`                                                                                                                           |
+| `@solidjs/router`                                  | 2.0.1                    | `latest`                                                                                                                           |
+| `@solidjs/vite-plugin`                             | 3.0.1                    | `latest`                                                                                                                           |
+| `filesystem-routing`                               | 0.5.0                    | `latest`                                                                                                                           |
+| `@stylexjs/stylex`、`@stylexjs/unplugin`           | 0.19.2                   | `latest`                                                                                                                           |
 | `unplugin`                                         | 3.7.0                    | `latest`（在 StyleX 声明的范围之外，见下）                                                                                         |
-| `vite`                                             | 8.3.5                    | `latest`                                                                                                                           |
+| `vite`                                             | 8.4.0                    | `latest`                                                                                                                           |
 | `typescript`                                       | 7.0.2                    | `latest`                                                                                                                           |
 | `eslint-plugin-solid`                              | 0.18.1                   | `latest`                                                                                                                           |
-| `oxlint`、`oxfmt`、`oxlint-tsgolint`               | 1.90.0、0.75.0、7.0.2005 | `latest`                                                                                                                           |
-| Node.js、pnpm（`mise.toml`）                       | 26.13.0、12.16.1         | Node.js 是 `mise ls-remote` 里最新的正式版；pnpm 取 npm 的 `latest`（`mise ls-remote` 里还列着 12.17.0，不在 `latest` 下，没有用） |
+| `oxlint`、`oxfmt`、`oxlint-tsgolint`               | 1.95.0、0.80.0、7.0.2005 | `latest`                                                                                                                           |
+| Node.js、pnpm（`mise.toml`）                       | 26.13.1、12.23.0         | Node.js 是当前正式版；pnpm 取 npm 的 `latest`                                                                                      |
 
 这一组最新版本一次就构建、运行通过，没有哪个包需要退回旧版。
 
 几件和版本有关的事：
 
-- **Solid 2 还是候选版本**，正式版之前接口可能变。升级后以包里自带的文档为准。
-- **`unplugin` 用的是 3.x，在 StyleX 声明的范围之外。** `@stylexjs/unplugin` 0.19.1（它的 `latest`）的 `peerDependencies` 是 `unplugin ^2.3.11`，还没有发过放宽到 3.x 的版本。实际上能用：2026-10-12 换成 `unplugin` 3.4.0 后，构建出的 CSS 和页面脚本与 2.3.11 时逐字节相同，开发服务上样式照常生效、日志里没有错误；2026-10-31 升到 3.7.0 后没有再和 2.x 比字节，构建和开发服务上的样式照常。两个版本的差别在打包方式：3.x 只发 ES 模块（2.x 两种都发），所以要 Node.js 20.19 或 22.12 以上；StyleX 的插件只用到它的 `createUnplugin`。`pnpm-workspace.yaml` 里用 `peerDependencyRules.allowedVersions` 把这一处不匹配写明了，安装时不再报警告；StyleX 放宽声明之后把那一条删掉。升级 StyleX 或 `unplugin` 之后照“怎么验证”重新走一遍，这个组合没有上游替我们测。
+- **Solid 2 已发布正式版**，接口以装好的包里自带文档为准。
+- **`unplugin` 用的是 3.x，在 StyleX 声明的范围之外。** `@stylexjs/unplugin` 0.19.2（它的 `latest`）的 `peerDependencies` 仍是 `unplugin ^2.3.11`，还没有发过放宽到 3.x 的版本。实际上能用：2026-10-12 换成 `unplugin` 3.4.0 后，构建出的 CSS 和页面脚本与 2.3.11 时逐字节相同，开发服务上样式照常生效、日志里没有错误；2026-10-31 升到 3.7.0 及 2026-11-27 升到 StyleX 0.19.2 后没有再和 2.x 比字节，构建和开发服务上的样式照常。两个版本的差别在打包方式：3.x 只发 ES 模块（2.x 两种都发），所以要 Node.js 20.19 或 22.12 以上；StyleX 的插件只用到它的 `createUnplugin`。`pnpm-workspace.yaml` 里用 `peerDependencyRules.allowedVersions` 把这一处不匹配写明了，安装时不再报警告；StyleX 放宽声明之后把那一条删掉。升级 StyleX 或 `unplugin` 之后照“怎么验证”重新走一遍，这个组合没有上游替我们测。
 - **`eslint-plugin-solid` 不经过 eslint，也不在 TypeScript 7 的声明范围里。** 它声明 `eslint` 是对等依赖，这里由 oxlint 运行它，所以不装 eslint；它带进来的 `@typescript-eslint/*` 声明 `typescript <6.1`，这里是 7.0.2。实测（0.18.1、oxlint 1.90.0）：解构 props 报 `solid(no-destructure)`，从不写入的信号报 `solid(no-unused-signal)`。这两处不匹配写在 `pnpm-workspace.yaml` 的 `peerDependencyRules` 里。
-- **`@solidjs/router` 跟着 `solid-js` 走。** next.43 的 `peerDependencies` 要求 `solid-js` 和 `@solidjs/web` 是 `^2.0.0-rc.19`，`filesystem-routing` 是 `>=0.4.0`。升级前用 `npm view @solidjs/router@<版本> peerDependencies` 看一眼。
+- **`@solidjs/router` 跟着 `solid-js` 走。** 2.0.1 的 `peerDependencies` 要求 `solid-js` 和 `@solidjs/web` 是 `^2.0.0`，`filesystem-routing` 是 `>=0.4.0`。升级前用 `npm view @solidjs/router@<版本> peerDependencies` 看一眼。
 - **`@solidjs/vite-plugin` 从 next.47 到 next.49 有两处行为变了**（读的是装好的包里的 `dist/esm/index.mjs`，第二条在一份临时拷贝里构建确认过）：外壳渲染失败（处理器回的不是 2xx）时构建直接报错，不再把错误页写成 `index.html`；配置里只要还有别的插件带 `buildApp` 钩子，它就不再删 `dist/server`，留给那个钩子用。后一条关系到“按地址各渲染一份外壳”的做法，见“文档外壳”一节。
 - **间接依赖由锁文件固定。** `@solidjs/compiler`、`@solidjs/babel-plugin`、`@solidjs/signals` 是 Solid 的包自己带进来的，跟 `solid-js` 同一套发布。`pnpm-lock.yaml` 要提交。
 
@@ -484,6 +484,12 @@ Chrome 的 Performance 面板里还有一组 Solid 的轨道（effect 和 memo �
 - 同样的连点测试也对着升级前的版本跑过，结果一致。后来查清这个测试受帧率影响，结论见 web-platform.md 的“视图过渡在这里怎么用”。
 - 悬停样式、`motion` 变量、安全区内边距、`eslint-plugin-solid`、和另外两端对齐后的首页：在浏览器里（开发服务和构建产物）核对过，结果写在 web-platform.md。
 - 这次重读了包里自带文档的差异（`CHEATSHEET.md`、Vite 插件和路由的 README）。这份文档引用的诊断代码和文件路径都还在；和这份文档相关的改动只有一处：Vite 插件的 `hot` 选项改名成了 `refresh`，上面已经改了。路由的 `action` 改名成了 `formAction`，start 模式的 `node`、`setup` 等选项也改了名，这份文档都没有用到。
+
+2026-11-27，升级到 Solid 2.0 正式版（`solid-js` 2.0.4、`@solidjs/router` 2.0.1、`@solidjs/vite-plugin` 3.0.1、`filesystem-routing` 0.5.0、StyleX 0.19.2、Vite 8.4.0）之后：
+
+- `pnpm install`（已去掉 `minimumReleaseAgeExclude`）、`pnpm check`、`pnpm build` 与 `apps/web` 静态预渲染全部通过。
+- 在浏览器里对着开发服务看 `/design`：Solid 2.0.4 捕获了 `Disclosure.tsx` 在组件体顶层读信号的 `STRICT_READ_UNTRACKED`，改用 `createMemo` + writable derived `createSignal`（并同步修了 `DiffFileView`）后，展开/收起正常，开发服务日志零警告。
+- 在浏览器里对着 `fixture` 构建产物看桌面和 390 宽深色、对着 `apps/web` 静态构建产物看中英文/深浅色/390 宽，均无横向溢出和报错。
 
 “组件按组件库来封装”一节里“分三层”的顺序和那组重复次数，来自 2026-10-12 把一个产品的界面整体移到这套技术栈上的那一次；这个模板里只有 `Button` 一个原子，没有组合件，所以没有可以在这里重新验证的东西。
 

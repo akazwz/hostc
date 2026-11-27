@@ -1,6 +1,6 @@
 import type { JSX } from "@solidjs/web";
 import * as stylex from "@stylexjs/stylex";
-import { createEffect, createMemo, createSignal, type ParentProps, Show } from "solid-js";
+import { createMemo, createSignal, type ParentProps, Show } from "solid-js";
 
 import { base } from "./base.ts";
 import { Icon } from "./Icon.tsx";
@@ -54,29 +54,17 @@ export function Disclosure(
 		bodyStyle?: stylex.StyleXStyles;
 	}>,
 ) {
-	const [open, setOpen] = createSignal(props.open ?? false);
-	const [opened, setOpened] = createSignal(open());
-	// A change of the prop means something happened, such as a command failing. Reading it this way
-	// leaves what the person chose alone until then. Through a memo: an effect runs again whenever what
-	// the prop is made of changes, even when the answer is the same.
+	// A change of the prop means something happened, such as a command failing. Reading it through a
+	// memo leaves what the person chose alone while the answer stays the same.
 	const wanted = createMemo(() => props.open);
-	createEffect(wanted, (next) => {
-		if (next !== undefined) {
-			setOpen(next);
-			if (next) {
-				setOpened(true);
-			}
-		}
-	});
+	const [open, setOpen] = createSignal((prev: boolean | undefined) => wanted() ?? prev ?? false);
+	const opened = createMemo((prev) => Boolean(prev || open()));
 	return (
 		<details
 			open={open()}
 			{...stylex.attrs(styles.root, props.xstyle)}
 			onToggle={(event) => {
 				setOpen(event.currentTarget.open);
-				if (event.currentTarget.open) {
-					setOpened(true);
-				}
 			}}
 		>
 			<summary {...stylex.attrs(styles.summary, base.focusRing, props.summaryStyle)}>

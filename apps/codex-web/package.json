@@ -13,19 +13,19 @@
 		"generate:protocol": "rm -rf src/codex/protocol && codex app-server generate-ts --experimental --out src/codex/protocol"
 	},
 	"dependencies": {
-		"@solidjs/router": "2.0.0-next.43",
-		"@solidjs/web": "2.0.0-rc.20",
-		"@stylexjs/stylex": "0.19.1",
-		"solid-js": "2.0.0-rc.20"
+		"@solidjs/router": "2.0.1",
+		"@solidjs/web": "2.0.4",
+		"@stylexjs/stylex": "0.19.2",
+		"solid-js": "2.0.4"
 	},
 	"devDependencies": {
-		"@solidjs/diagnostics": "2.0.0-rc.20",
-		"@solidjs/vite-plugin": "3.0.0-next.54",
-		"@stylexjs/unplugin": "0.19.1",
-		"filesystem-routing": "0.4.2",
+		"@solidjs/diagnostics": "2.0.4",
+		"@solidjs/vite-plugin": "3.0.1",
+		"@stylexjs/unplugin": "0.19.2",
+		"filesystem-routing": "0.5.0",
 		"typescript": "^7.0.2",
 		"unplugin": "3.7.0",
-		"vite": "8.3.5"
+		"vite": "8.4.0"
 	},
 	"browserslist": [
 		"baseline widely available"

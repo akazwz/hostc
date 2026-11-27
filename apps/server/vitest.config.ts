@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
 	plugins: [
 		cloudflareTest({
-			experimental: { newConfig: true },
+			config: true,
 			miniflare: {
 				// Vitest renames the Worker; bind Tunnel to the test runner itself.
 				durableObjects: {

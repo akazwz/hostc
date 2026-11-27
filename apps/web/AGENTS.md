@@ -3,7 +3,7 @@
 hostc.dev is Solid 2 with file routes in `src/routes`, rendered to static HTML at build time by
 `prerender-crawler`. Solid only runs during the build: `vite.config.ts` removes its scripts from the
 output, because pages are text and links and hydrating them would only cost download time. Styles are StyleX, with tokens in `src/ui/tokens.stylex.ts`, as in `apps/codex-web`. No component
-library, no web fonts. Solid 2 is a release candidate and is not React or Solid 1: read
+library, no web fonts. Solid 2 is not React or Solid 1: read
 `node_modules/solid-js/CHEATSHEET.md` before writing components.
 
 The site exists to explain hostc and to be found by people searching for what it does. It should
