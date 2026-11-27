@@ -136,8 +136,8 @@ describe("helpers", () => {
 	});
 
 	it("validates tunnel ids", () => {
-		expect(isTunnelId("abcdefghijk2")).toBe(true);
-		expect(isTunnelId("abcdefghijk1")).toBe(false);
+		expect(isTunnelId("abcdefghijkmnpq2")).toBe(true);
+		expect(isTunnelId("abcdefghijkmnpq1")).toBe(false);
 		expect(isTunnelId("abc")).toBe(false);
 	});
 });
