@@ -47,17 +47,17 @@ const GIB = 1024 * MIB;
  * while strictly cutting off public proxy / VPN-over-WebSocket relays before they can burn DO quota.
  */
 export const FREE_LIMITS: TunnelLimits = {
-	maxDurationMs: 6 * HOUR_MS,
-	maxStreams: 64,
-	maxWaiting: 128,
-	maxRequests: 50_000,
-	maxBytes: 5 * GIB,
-	maxTotalFrames: 250_000,
-	maxPublicWebSockets: 8,
-	maxPublicWebSocketConnections: 100,
-	maxPublicWebSocketMessages: 20_000,
-	maxPublicWebSocketBytes: 100 * MIB,
-	maxPublicWebSocketMessagesPer10s: 1_500,
+	maxDurationMs: 12 * HOUR_MS,
+	maxStreams: 128,
+	maxWaiting: 256,
+	maxRequests: 100_000,
+	maxBytes: 10 * GIB,
+	maxTotalFrames: 500_000,
+	maxPublicWebSockets: 16,
+	maxPublicWebSocketConnections: 300,
+	maxPublicWebSocketMessages: 50_000,
+	maxPublicWebSocketBytes: 250 * MIB,
+	maxPublicWebSocketMessagesPer10s: 2_000,
 };
 
 /** Reserved for authenticated paid tunnels once billing is connected. */
