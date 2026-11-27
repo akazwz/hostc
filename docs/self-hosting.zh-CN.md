@@ -17,3 +17,13 @@
 
 5. 使用：`npx hostc@latest 3000 --server https://example.com`，或者用
    `HOSTC_DEFAULT_SERVER=https://example.com pnpm build` 构建自己的 CLI。
+
+## 自定义限额
+
+所有隧道限额与创建频率限制都统一定义在 `apps/server/src/limits.ts`。自部署时无需改源码，部署时传入
+`TUNNEL_LIMITS`（JSON 字符串，设为 `null` 即关闭该项限制）即可局部覆盖：
+
+```sh
+TUNNEL_LIMITS='{"maxDurationMs":null,"maxBytes":null,"maxPublicWebSocketMessages":null}' \
+API_DOMAIN=example.com TUNNEL_DOMAIN=example.app pnpm deploy:server
+```

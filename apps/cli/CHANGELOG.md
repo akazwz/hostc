@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.0
+
+- Protocol version 6: when the server closes a tunnel because it reached a usage or duration limit
+  (close code `4002`), the CLI now prints the reason and exits instead of reconnecting or opening a
+  replacement tunnel.
+- Server-side per-tunnel limits (`apps/server/src/limits.ts`) now protect the public service against
+  WebSocket proxy abuse while keeping generous HTTP and local-dev quotas, with `TUNNEL_LIMITS`
+  override support for self-hosted deployments.
+
 ## 2.1.4
 
 - `Origin` and `Referer` headers are now rewritten only when they match the tunnel's exact origin,

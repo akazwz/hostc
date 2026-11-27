@@ -49,6 +49,21 @@ export const pages = {
 		title: "Tunnel busy",
 		message: "This tunnel is handling too many requests at once. Try again in a moment.",
 	},
+	tooManyWebSockets: {
+		status: 429,
+		title: "Too many WebSockets",
+		message: "This tunnel already has the maximum number of open WebSocket connections.",
+	},
+	limitReached: {
+		status: 429,
+		title: "Tunnel limit reached",
+		message: "This tunnel reached its usage limit and was closed.",
+	},
+	unavailable: {
+		status: 503,
+		title: "Service unavailable",
+		message: "hostc is temporarily overloaded. Try again in a moment.",
+	},
 } satisfies Record<string, PageOptions>;
 
 function wantsHtml(request: Request): boolean {

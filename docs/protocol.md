@@ -1,4 +1,4 @@
-# hostc protocol (version 5)
+# hostc protocol (version 6)
 
 The wire protocol between the hostc client (`@hostc/client`, used by the CLI) and the tunnel server
 (`apps/server`). Constants and codecs live in `@hostc/protocol`; this document explains them.
@@ -17,7 +17,7 @@ public client ──HTTPS/WSS──▶ Worker ──▶ Durable Object "Tunnel" 
 
 ## Tunnel API
 
-All API calls carry `hostc-protocol: 5`. A mismatch returns `426` with a message telling the user to
+All API calls carry `hostc-protocol: 6`. A mismatch returns `426` with a message telling the user to
 upgrade; there is no fallback to older versions.
 
 | Request                                  | Result                                                        |
@@ -37,13 +37,14 @@ only, so restarting the CLI creates a new tunnel.
 
 ## Tunnel lifetime
 
-| Event                                 | Effect                                                |
-| ------------------------------------- | ----------------------------------------------------- |
-| created                               | must connect within 2 minutes                         |
-| client connects                       | replaces any previous connection (closed with `4001`) |
-| connection drops (network, deploy, …) | tunnel waits 10 minutes; reconnecting keeps the URL   |
-| client closes with `4000`             | tunnel is released immediately                        |
-| grace period passes                   | tunnel storage is deleted; URL and token stop working |
+| Event                                 | Effect                                                                     |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| created                               | must connect within 2 minutes                                              |
+| client connects                       | replaces any previous connection (closed with `4001`)                      |
+| connection drops (network, deploy, …) | tunnel waits 10 minutes; reconnecting keeps the URL                        |
+| client closes with `4000`             | tunnel is released immediately                                             |
+| server closes with `4002`             | tunnel reached a usage or lifetime limit; storage is deleted, client stops |
+| grace period passes                   | tunnel storage is deleted; URL and token stop working                      |
 
 When the connection drops, all streams end: in-flight requests fail with `502` and public WebSockets
 close with `1001`. Streams never survive a reconnect.

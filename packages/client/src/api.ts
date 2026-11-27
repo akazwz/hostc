@@ -10,6 +10,7 @@ import {
 export type TunnelErrorCode =
 	| "upgrade_required"
 	| "rate_limited"
+	| "limit_reached"
 	| "tunnel_gone"
 	| "replaced"
 	| "unauthorized"

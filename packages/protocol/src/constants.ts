@@ -1,5 +1,5 @@
 /** Bumped on any incompatible wire change. Client and server must match exactly. */
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /** Request header carrying PROTOCOL_VERSION on tunnel API calls. */
 export const PROTOCOL_HEADER = "hostc-protocol";
@@ -45,6 +45,9 @@ export const CLOSE_SHUTDOWN = 4000;
 
 /** Close code the server uses when a newer connection replaced this one. */
 export const CLOSE_REPLACED = 4001;
+
+/** Close code the server uses when a tunnel reached a usage or lifetime limit; the client must not reconnect. */
+export const CLOSE_LIMIT_REACHED = 4002;
 
 /** Close code for protocol violations. */
 export const CLOSE_PROTOCOL_ERROR = 1002;

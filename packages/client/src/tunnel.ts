@@ -1,6 +1,12 @@
 import { EventEmitter } from "node:events";
 
-import { CLOSE_REPLACED, CLOSE_SHUTDOWN, type CreateTunnelResponse, type TunnelPrefix } from "@hostc/protocol";
+import {
+	CLOSE_LIMIT_REACHED,
+	CLOSE_REPLACED,
+	CLOSE_SHUTDOWN,
+	type CreateTunnelResponse,
+	type TunnelPrefix,
+} from "@hostc/protocol";
 
 import { createTunnel, TunnelError } from "./api.ts";
 import { Connection } from "./connection.ts";
@@ -96,6 +102,13 @@ export class Tunnel extends EventEmitter<TunnelEvents> {
 				// Another connection took over this tunnel; reconnecting would take it back and start a tug of war.
 				this.closing = true;
 				this.emit("failed", new TunnelError("replaced", "Another hostc process took over this tunnel."));
+				this.emit("closed");
+				return;
+			}
+			if (code === CLOSE_LIMIT_REACHED) {
+				// The server closed the tunnel because it hit a usage or lifetime limit; do not open a replacement.
+				this.closing = true;
+				this.emit("failed", new TunnelError("limit_reached", reason || "This tunnel reached its usage limit."));
 				this.emit("closed");
 				return;
 			}

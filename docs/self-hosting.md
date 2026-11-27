@@ -17,3 +17,14 @@
 
 5. Use it: `npx hostc@latest 3000 --server https://example.com`, or build the CLI with
    `HOSTC_DEFAULT_SERVER=https://example.com pnpm build`.
+
+## Customizing limits
+
+All tunnel and creation rate limits live in `apps/server/src/limits.ts`. For self-hosted deployments,
+you can override or disable any per-tunnel limit via the `TUNNEL_LIMITS` JSON environment variable at
+deploy time without modifying source code (use `null` to disable a limit):
+
+```sh
+TUNNEL_LIMITS='{"maxDurationMs":null,"maxBytes":null,"maxPublicWebSocketMessages":null}' \
+API_DOMAIN=example.com TUNNEL_DOMAIN=example.app pnpm deploy:server
+```
