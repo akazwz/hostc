@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.4
+
+- `Origin` and `Referer` headers are now rewritten only when they match the tunnel's exact origin,
+  leaving prefix-similar domains untouched.
+- Updated `hostc codex`'s web client to Solid 2.0 and fixed disclosure state sync; updated `ws` to
+  8.23.0.
+
 ## 2.1.3
 
 No code changes. The npm page lists every option and the exact minimum Node.js version, 22.1.
