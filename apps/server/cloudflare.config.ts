@@ -3,6 +3,7 @@ import { env } from "node:process";
 import { bindings, defineConfig, defineWorker, exports, triggers } from "cf/config";
 
 import * as entrypoint from "./src/index.ts" with { type: "cf-worker" };
+import { CREATE_RATE_LIMIT } from "./src/limits.ts";
 
 const worker = defineWorker({
 	name: "hostc-tunnel",
@@ -26,12 +27,13 @@ export default defineConfig(({ mode }) => {
 			...worker,
 			env: {
 				TUNNEL_DOMAIN: bindings.text(tunnelDomain),
+				TUNNEL_LIMITS: bindings.text(env.TUNNEL_LIMITS ?? ""),
 				TOKEN_SECRET: bindings.secret(),
 				TUNNEL: bindings.durableObject({ worker, exportName: "Tunnel" }),
 				ERRORS: bindings.analyticsEngineDataset({ name: "hostc_errors" }),
 				CREATE_LIMIT: bindings.rateLimit({
 					namespace: "1001",
-					simple: { limit: 20, period: 60 },
+					simple: { limit: CREATE_RATE_LIMIT.limit, period: CREATE_RATE_LIMIT.period },
 				}),
 			},
 			// Explicit zones are required by accounts with SSL for SaaS.

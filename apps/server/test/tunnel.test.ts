@@ -12,7 +12,6 @@ import {
 	type Frame,
 	FrameType,
 	MAX_CHUNK_BYTES,
-	MAX_STREAMS,
 	PING,
 	PONG,
 	STREAM_WINDOW_BYTES,
@@ -24,7 +23,7 @@ import { env, evictDurableObject, runDurableObjectAlarm, runInDurableObject, SEL
 import { describe, expect, it } from "vitest";
 
 import { tunnelIdFromHost } from "../src/index.ts";
-import { MAX_WAITING } from "../src/tunnel.ts";
+import { FREE_LIMITS } from "../src/limits.ts";
 import { API, connect, createTunnel, PROTOCOL, publicUrl, readAll } from "./helpers.ts";
 
 function createFromSameClient(): Promise<Response> {
@@ -85,7 +84,7 @@ describe("tunnel API", () => {
 	});
 
 	it("rate limits tunnel creation per client IP", async () => {
-		for (let index = 0; index < 20; index += 1) {
+		for (let index = 0; index < 10; index += 1) {
 			expect((await createFromSameClient()).status).toBe(201);
 		}
 		expect((await createFromSameClient()).status).toBe(429);
@@ -497,7 +496,9 @@ async function fill() {
 	const socket = (await upgrade).webSocket as WebSocket;
 	socket.accept();
 
-	const requests = Array.from({ length: MAX_STREAMS - 1 }, (_, index) => SELF.fetch(publicUrl(tunnel, `/m/${index}`)));
+	const requests = Array.from({ length: FREE_LIMITS.maxStreams - 1 }, (_, index) =>
+		SELF.fetch(publicUrl(tunnel, `/m/${index}`)),
+	);
 	const opens = [];
 	for (let index = 0; index < requests.length; index += 1) {
 		opens.push(await client.next((frame) => frame.type === FrameType.Open, 10_000));
@@ -594,8 +595,8 @@ describe("busy tunnels", () => {
 
 	it("answers 503 once too many requests wait", async () => {
 		const { tunnel, done } = await fill();
-		const waiting = Array.from({ length: MAX_WAITING }, () => SELF.fetch(publicUrl(tunnel, "/extra")));
-		await expect.poll(() => waitingCount(tunnel.id), { timeout: 20_000 }).toBe(MAX_WAITING);
+		const waiting = Array.from({ length: FREE_LIMITS.maxWaiting }, () => SELF.fetch(publicUrl(tunnel, "/extra")));
+		await expect.poll(() => waitingCount(tunnel.id), { timeout: 20_000 }).toBe(FREE_LIMITS.maxWaiting);
 		const response = await SELF.fetch(publicUrl(tunnel, "/extra"), { headers: { accept: "text/html" } });
 		expect(response.status).toBe(503);
 		expect(await response.text()).toContain("Tunnel busy");

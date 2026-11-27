@@ -7,6 +7,7 @@ import {
 	tunnelIdFromLabel,
 } from "@hostc/protocol";
 
+import { resolveTunnelLimits } from "./limits.ts";
 import { locationHintFromCf } from "./location.ts";
 import { errorResponse, pages } from "./pages.ts";
 import { createTunnelId, signConnectToken, verifyConnectToken, verifyTunnelId } from "./token.ts";
@@ -74,8 +75,13 @@ async function handleTunnelRequest(
 	if (await cache.match(cacheKey)) {
 		return errorResponse(request, pages.notFound);
 	}
-	const response = await env.TUNNEL.getByName(tunnelId).fetch(request);
-	return cacheIfMissing(response, cache, cacheKey, ctx);
+	try {
+		const response = await env.TUNNEL.getByName(tunnelId).fetch(request);
+		return cacheIfMissing(response, cache, cacheKey, ctx);
+	} catch {
+		recordUnavailable(env);
+		return errorResponse(request, pages.unavailable);
+	}
 }
 
 async function createTunnel(request: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
@@ -89,7 +95,15 @@ async function createTunnel(request: Request, env: Env, ctx: ExecutionContext, u
 	const asked = ((await request.json().catch(() => null)) as { prefix?: unknown } | null)?.prefix;
 	const id = await createTunnelId(env.TOKEN_SECRET);
 	const locationHint = locationHintFromCf(request.cf);
-	await env.TUNNEL.getByName(id, locationHint ? { locationHint } : undefined).init();
+	try {
+		await env.TUNNEL.getByName(id, locationHint ? { locationHint } : undefined).init({
+			tier: "free",
+			limits: resolveTunnelLimits("free", env.TUNNEL_LIMITS),
+		});
+	} catch {
+		recordUnavailable(env);
+		return jsonError(503, "Tunnel service is temporarily unavailable. Try again later.");
+	}
 	ctx.waitUntil(caches.default.delete(expiredCacheKey(id)));
 
 	const connectUrl = new URL(`${API_TUNNELS_PATH}/${id}/connect`, url);
@@ -119,8 +133,21 @@ async function connectTunnel(request: Request, env: Env, ctx: ExecutionContext, 
 	if (await cache.match(cacheKey)) {
 		return jsonError(404, "Tunnel not found");
 	}
-	const response = await env.TUNNEL.getByName(id).fetch(new Request(CONNECT_URL, request));
-	return cacheIfMissing(response, cache, cacheKey, ctx);
+	try {
+		const response = await env.TUNNEL.getByName(id).fetch(new Request(CONNECT_URL, request));
+		return cacheIfMissing(response, cache, cacheKey, ctx);
+	} catch {
+		recordUnavailable(env);
+		return jsonError(503, "Tunnel service is temporarily unavailable. Try again later.");
+	}
+}
+
+function recordUnavailable(env: Env): void {
+	try {
+		env.ERRORS.writeDataPoint({ blobs: [pages.unavailable.title], indexes: [pages.unavailable.title] });
+	} catch {
+		// Analytics Engine write limits must not mask the 503 fallback.
+	}
 }
 
 function cacheIfMissing(response: Response, cache: Cache, cacheKey: Request, ctx: ExecutionContext): Response {
