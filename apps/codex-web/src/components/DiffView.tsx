@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 
 import type { DiffFile } from "../harness/diff.ts";
 import { base } from "../ui/base.ts";
@@ -72,7 +72,8 @@ export function DiffCount(props: { added: number; removed: number }) {
 
 // One file of a diff, folded until asked for.
 export function DiffFileView(props: { file: DiffFile; root: string; startOpen?: boolean }) {
-	const [open, setOpen] = createSignal(props.startOpen ?? false);
+	const wanted = createMemo(() => props.startOpen ?? false);
+	const [open, setOpen] = createSignal(() => wanted());
 	const shortPath = () =>
 		props.file.path.startsWith(`${props.root}/`) ? props.file.path.slice(props.root.length + 1) : props.file.path;
 	return (
