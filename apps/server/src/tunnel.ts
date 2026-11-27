@@ -262,6 +262,7 @@ export class Tunnel extends DurableObject<Env> {
 			if (!(error instanceof ProtocolError)) {
 				throw error;
 			}
+			console.warn(JSON.stringify({ event: "client_protocol_error", error: error.message }));
 			this.retire(ws, CLOSE_PROTOCOL_ERROR, error.message);
 			await this.clientGone(CLOSE_PROTOCOL_ERROR);
 		}
@@ -433,6 +434,15 @@ export class Tunnel extends DurableObject<Env> {
 			return;
 		}
 		this.terminating = true;
+		console.warn(
+			JSON.stringify({
+				event: "tunnel_limit_reached",
+				tier: this.state.tier,
+				reason,
+				durationMs: Date.now() - this.state.createdAt,
+				usage: this.usage,
+			}),
+		);
 		this.recordError("Limit reached", reason);
 		const client = this.client();
 		if (client) {

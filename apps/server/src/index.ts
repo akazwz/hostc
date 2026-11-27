@@ -78,8 +78,8 @@ async function handleTunnelRequest(
 	try {
 		const response = await env.TUNNEL.getByName(tunnelId).fetch(request);
 		return cacheIfMissing(response, cache, cacheKey, ctx);
-	} catch {
-		recordUnavailable(env);
+	} catch (error) {
+		recordUnavailable(env, "proxy", error);
 		return errorResponse(request, pages.unavailable);
 	}
 }
@@ -100,8 +100,8 @@ async function createTunnel(request: Request, env: Env, ctx: ExecutionContext, u
 			tier: "free",
 			limits: resolveTunnelLimits("free", env.TUNNEL_LIMITS),
 		});
-	} catch {
-		recordUnavailable(env);
+	} catch (error) {
+		recordUnavailable(env, "create", error);
 		return jsonError(503, "Tunnel service is temporarily unavailable. Try again later.");
 	}
 	ctx.waitUntil(caches.default.delete(expiredCacheKey(id)));
@@ -136,13 +136,20 @@ async function connectTunnel(request: Request, env: Env, ctx: ExecutionContext, 
 	try {
 		const response = await env.TUNNEL.getByName(id).fetch(new Request(CONNECT_URL, request));
 		return cacheIfMissing(response, cache, cacheKey, ctx);
-	} catch {
-		recordUnavailable(env);
+	} catch (error) {
+		recordUnavailable(env, "connect", error);
 		return jsonError(503, "Tunnel service is temporarily unavailable. Try again later.");
 	}
 }
 
-function recordUnavailable(env: Env): void {
+function recordUnavailable(env: Env, op: "create" | "connect" | "proxy", error: unknown): void {
+	console.error(
+		JSON.stringify({
+			event: "do_error",
+			op,
+			error: error instanceof Error ? error.message : String(error),
+		}),
+	);
 	try {
 		env.ERRORS.writeDataPoint({ blobs: [pages.unavailable.title], indexes: [pages.unavailable.title] });
 	} catch {
