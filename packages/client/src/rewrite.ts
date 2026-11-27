@@ -11,7 +11,11 @@ export function toLocalRequestHeaders(headers: HeaderList, publicOrigin: string,
 		if (lower === "host") {
 			continue;
 		}
-		if ((lower === "origin" || lower === "referer") && value.startsWith(publicOrigin)) {
+		if (lower === "origin" && value === publicOrigin) {
+			result.push([name, target.origin]);
+			continue;
+		}
+		if (lower === "referer" && (value === publicOrigin || value.startsWith(`${publicOrigin}/`))) {
 			result.push([name, target.origin + value.slice(publicOrigin.length)]);
 			continue;
 		}

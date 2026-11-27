@@ -53,7 +53,7 @@ export const API_TUNNELS_PATH = "/api/tunnels";
 
 /** Lowercase letters and digits without the look-alikes 0, 1, l and o. */
 export const TUNNEL_ID_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
-export const TUNNEL_ID_LENGTH = 12;
+export const TUNNEL_ID_LENGTH = 16;
 
 /**
  * What a client may ask to have in front of the id, so that the address says what it opens. A fixed list:

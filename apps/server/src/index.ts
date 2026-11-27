@@ -1,27 +1,28 @@
 import {
 	API_TUNNELS_PATH,
 	type CreateTunnelResponse,
-	isTunnelId,
 	isTunnelPrefix,
 	PROTOCOL_HEADER,
 	PROTOCOL_VERSION,
-	TUNNEL_ID_ALPHABET,
-	TUNNEL_ID_LENGTH,
 	tunnelIdFromLabel,
 } from "@hostc/protocol";
 
+import { locationHintFromCf } from "./location.ts";
 import { errorResponse, pages } from "./pages.ts";
-import { signConnectToken, verifyConnectToken } from "./token.ts";
-import { CONNECT_URL } from "./tunnel.ts";
+import { createTunnelId, signConnectToken, verifyConnectToken, verifyTunnelId } from "./token.ts";
+import { CONNECT_URL, TUNNEL_MISSING_HEADER } from "./tunnel.ts";
 
 export { Tunnel } from "./tunnel.ts";
 
+/** Expired tunnel ids are never reused; caching their 404 keeps repeat visits off the Durable Object. */
+const EXPIRED_CACHE_TTL_SECONDS = 3600;
+
 export default {
-	async fetch(request, env): Promise<Response> {
+	async fetch(request, env, ctx): Promise<Response> {
 		const url = new URL(request.url);
 		const tunnelId = tunnelIdFromHost(url.host, env.TUNNEL_DOMAIN);
 		if (tunnelId !== undefined) {
-			return handleTunnelRequest(request, env, tunnelId);
+			return handleTunnelRequest(request, env, ctx, tunnelId);
 		}
 
 		if (url.pathname === "/api/health") {
@@ -36,11 +37,11 @@ export default {
 			}
 		}
 		if (url.pathname === API_TUNNELS_PATH) {
-			return request.method === "POST" ? createTunnel(request, env, url) : jsonError(405, "Method not allowed");
+			return request.method === "POST" ? createTunnel(request, env, ctx, url) : jsonError(405, "Method not allowed");
 		}
 		const connect = url.pathname.match(/^\/api\/tunnels\/([^/]+)\/connect$/);
 		if (connect?.[1]) {
-			return connectTunnel(request, env, connect[1]);
+			return connectTunnel(request, env, ctx, connect[1]);
 		}
 		return jsonError(404, "Not found");
 	},
@@ -59,14 +60,25 @@ export function tunnelIdFromHost(host: string, tunnelDomain: string): string | n
 	return tunnelIdFromLabel(normalized.slice(0, -suffix.length));
 }
 
-function handleTunnelRequest(request: Request, env: Env, tunnelId: string | null): Promise<Response> | Response {
-	if (tunnelId === null) {
+async function handleTunnelRequest(
+	request: Request,
+	env: Env,
+	ctx: ExecutionContext,
+	tunnelId: string | null,
+): Promise<Response> {
+	if (tunnelId === null || !(await verifyTunnelId(env.TOKEN_SECRET, tunnelId))) {
 		return errorResponse(request, pages.notFound);
 	}
-	return env.TUNNEL.getByName(tunnelId).fetch(request);
+	const cache = caches.default;
+	const cacheKey = expiredCacheKey(tunnelId);
+	if (await cache.match(cacheKey)) {
+		return errorResponse(request, pages.notFound);
+	}
+	const response = await env.TUNNEL.getByName(tunnelId).fetch(request);
+	return cacheIfMissing(response, cache, cacheKey, ctx);
 }
 
-async function createTunnel(request: Request, env: Env, url: URL): Promise<Response> {
+async function createTunnel(request: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
 	const client = request.headers.get("cf-connecting-ip") ?? "local";
 	const { success } = await env.CREATE_LIMIT.limit({ key: client });
 	if (!success) {
@@ -75,8 +87,10 @@ async function createTunnel(request: Request, env: Env, url: URL): Promise<Respo
 
 	// An unknown prefix gets a plain address: a newer client still works against this server.
 	const asked = ((await request.json().catch(() => null)) as { prefix?: unknown } | null)?.prefix;
-	const id = randomTunnelId();
-	await env.TUNNEL.getByName(id).init();
+	const id = await createTunnelId(env.TOKEN_SECRET);
+	const locationHint = locationHintFromCf(request.cf);
+	await env.TUNNEL.getByName(id, locationHint ? { locationHint } : undefined).init();
+	ctx.waitUntil(caches.default.delete(expiredCacheKey(id)));
 
 	const connectUrl = new URL(`${API_TUNNELS_PATH}/${id}/connect`, url);
 	connectUrl.protocol = url.protocol === "https:" ? "wss:" : "ws:";
@@ -89,8 +103,8 @@ async function createTunnel(request: Request, env: Env, url: URL): Promise<Respo
 	return Response.json(body, { status: 201 });
 }
 
-async function connectTunnel(request: Request, env: Env, id: string): Promise<Response> {
-	if (!isTunnelId(id)) {
+async function connectTunnel(request: Request, env: Env, ctx: ExecutionContext, id: string): Promise<Response> {
+	if (!(await verifyTunnelId(env.TOKEN_SECRET, id))) {
 		return jsonError(404, "Tunnel not found");
 	}
 	if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
@@ -100,7 +114,35 @@ async function connectTunnel(request: Request, env: Env, id: string): Promise<Re
 	if (!token || !(await verifyConnectToken(env.TOKEN_SECRET, id, token))) {
 		return jsonError(401, "Invalid tunnel token");
 	}
-	return env.TUNNEL.getByName(id).fetch(new Request(CONNECT_URL, request));
+	const cache = caches.default;
+	const cacheKey = expiredCacheKey(id);
+	if (await cache.match(cacheKey)) {
+		return jsonError(404, "Tunnel not found");
+	}
+	const response = await env.TUNNEL.getByName(id).fetch(new Request(CONNECT_URL, request));
+	return cacheIfMissing(response, cache, cacheKey, ctx);
+}
+
+function cacheIfMissing(response: Response, cache: Cache, cacheKey: Request, ctx: ExecutionContext): Response {
+	if (!response.headers.has(TUNNEL_MISSING_HEADER)) {
+		return response;
+	}
+	ctx.waitUntil(
+		cache.put(
+			cacheKey,
+			new Response("gone", {
+				status: 200,
+				headers: { "cache-control": `public, max-age=${EXPIRED_CACHE_TTL_SECONDS}` },
+			}),
+		),
+	);
+	const headers = new Headers(response.headers);
+	headers.delete(TUNNEL_MISSING_HEADER);
+	return new Response(response.body, { status: response.status, headers });
+}
+
+function expiredCacheKey(tunnelId: string): Request {
+	return new Request(`https://expired.hostc.internal/${tunnelId}`);
 }
 
 function checkProtocol(request: Request): Response | null {
@@ -108,12 +150,6 @@ function checkProtocol(request: Request): Response | null {
 		return null;
 	}
 	return jsonError(426, "This hostc version is not supported by the server. Run `npx hostc@latest` to upgrade.");
-}
-
-function randomTunnelId(): string {
-	// The alphabet has 32 characters, so masking a random byte has no bias.
-	const bytes = crypto.getRandomValues(new Uint8Array(TUNNEL_ID_LENGTH));
-	return Array.from(bytes, (byte) => TUNNEL_ID_ALPHABET[byte & 31]).join("");
 }
 
 function jsonError(status: number, error: string): Response {

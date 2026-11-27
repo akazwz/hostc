@@ -318,7 +318,7 @@ function startCli(target: string): Cli {
 		process: child,
 		output: () => output,
 		url: () => {
-			const urls = output.match(/https?:\/\/[a-z2-9]{12}\.\S+/g);
+			const urls = output.match(/https?:\/\/[a-z2-9]{16}\.\S+/g);
 			if (!urls) {
 				throw new Error(`no URL in output:\n${output}`);
 			}

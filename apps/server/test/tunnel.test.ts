@@ -59,7 +59,7 @@ describe("tunnel API", () => {
 
 	it("creates a tunnel with a public URL under the tunnel domain", async () => {
 		const tunnel = await createTunnel();
-		expect(tunnel.id).toMatch(/^[a-z2-9]{12}$/);
+		expect(tunnel.id).toMatch(/^[a-z2-9]{16}$/);
 		expect(tunnel.url).toBe(`https://${tunnel.id}.tunnel.test`);
 		expect(tunnel.connectUrl).toBe(`wss://api.test/api/tunnels/${tunnel.id}/connect`);
 	});
@@ -67,7 +67,7 @@ describe("tunnel API", () => {
 	it("puts an allowed prefix in the URL, and the prefixed host reaches the same tunnel", async () => {
 		const named = await createWith({ prefix: "codex" }, "10.9.0.1");
 		expect(named.url).toBe(`https://codex-${named.id}.tunnel.test`);
-		expect(named.id).toMatch(/^[a-z2-9]{12}$/);
+		expect(named.id).toMatch(/^[a-z2-9]{16}$/);
 		const other = await createWith({ prefix: "paypal" }, "10.9.0.2");
 		expect(other.url).toBe(`https://${other.id}.tunnel.test`);
 
@@ -100,7 +100,7 @@ describe("tunnel API", () => {
 
 describe("public HTTP", () => {
 	it("shows not found and offline pages", async () => {
-		const missing = await SELF.fetch("https://abcdefghijkm.tunnel.test/", { headers: { accept: "text/html" } });
+		const missing = await SELF.fetch("https://abcdefghijkmnpqr.tunnel.test/", { headers: { accept: "text/html" } });
 		expect(missing.status).toBe(404);
 		expect(await missing.text()).toContain("Tunnel not found");
 

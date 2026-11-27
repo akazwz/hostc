@@ -26,9 +26,21 @@ describe("header rewriting", () => {
 		]);
 	});
 
-	it("leaves foreign origins alone", () => {
-		const headers = toLocalRequestHeaders([["origin", "https://example.com"]], publicOrigin, target);
+	it("leaves foreign origins and prefix-spoofed origins/referers alone", () => {
+		const headers = toLocalRequestHeaders(
+			[
+				["origin", "https://example.com"],
+				["origin", `${publicOrigin}.evil.com`],
+				["referer", `${publicOrigin}.evil.com/page`],
+				["referer", publicOrigin],
+			],
+			publicOrigin,
+			target,
+		);
 		expect(headers).toContainEqual(["origin", "https://example.com"]);
+		expect(headers).toContainEqual(["origin", `${publicOrigin}.evil.com`]);
+		expect(headers).toContainEqual(["referer", `${publicOrigin}.evil.com/page`]);
+		expect(headers).toContainEqual(["referer", "http://localhost:3000"]);
 	});
 
 	it("points local redirects at the public URL", () => {

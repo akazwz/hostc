@@ -7,9 +7,8 @@ import * as entrypoint from "./src/index.ts" with { type: "cf-worker" };
 const worker = defineWorker({
 	name: "hostc-tunnel",
 	entrypoint,
-	compatibilityDate: "2026-10-30",
-	// Without it request.signal never fires, and a visitor who gives up keeps the local request running.
-	compatibilityFlags: ["enable_request_signal"],
+	// 2026-11-17+ enables Request.signal by default (no compatibilityFlags needed).
+	compatibilityDate: "2026-11-27",
 	workersDev: false,
 	// Declare the existing SQLite namespace when switching from migration history.
 	exports: {

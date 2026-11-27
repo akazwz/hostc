@@ -52,9 +52,10 @@ workflow `release.yml`. No npm token is stored in GitHub.
 
 ## Routine releases
 
-- **Server / website**: merge to `main`. A server deploy restarts every tunnel's Durable Object;
-  connected CLIs reconnect within a second and keep their URLs, requests in flight at that moment
-  fail. Roll back from the dashboard (Deployments) or
+- **Server / website**: merge to `main`. Durable Objects defer code updates by default (up to
+  5 minutes while waiting to hibernate), so hibernated tunnels keep their connections across routine
+  deploys and active requests get time to finish; tunnels still active past the window reconnect and
+  keep their URLs. Roll back from the dashboard (Deployments) or
   `pnpm -F @hostc/server exec wrangler rollback --name hostc-tunnel`.
 - **CLI**: bump `version` in `apps/cli/package.json` (and `CHANGELOG.md`), merge, then run
   "Release CLI" with dist-tag `latest`.
