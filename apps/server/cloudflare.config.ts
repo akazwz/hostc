@@ -43,10 +43,11 @@ export default defineConfig(({ mode }) => {
 						triggers.fetch({ pattern: `*.${tunnelDomain}/*`, zone: env.TUNNEL_ZONE ?? tunnelDomain }),
 					]
 				: [],
-			// Every switch is explicit: an omitted one falls back to Cloudflare's default (logs on).
+			// Every switch is explicit: an omitted one falls back to Cloudflare's default (invocation logs on).
+			// Keep invocationLogs off so only explicit structured warning/error logs and uncaught errors are ingested.
 			observability: {
-				enabled: false,
-				logs: { enabled: false, invocationLogs: false },
+				enabled: true,
+				logs: { enabled: true, invocationLogs: false, persist: true, headSamplingRate: 1 },
 				traces: { enabled: false },
 				issues: { enabled: true },
 			},
